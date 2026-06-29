@@ -16,6 +16,8 @@ import subprocess
 from datetime import UTC, datetime
 from enum import StrEnum
 
+import psycopg
+from psycopg import sql
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from starlette.concurrency import run_in_threadpool
 
@@ -45,17 +47,36 @@ def detect_format(path: str) -> BackupFormat:
     return BackupFormat.PLAIN
 
 
+def _reset_userdata_schemas() -> None:
+    """Drop and recreate the configured schemas so an import is a clean replace.
+
+    pg_restore handles this for custom/tar archives via ``--clean``; for a plain
+    SQL restore we reset the schema ourselves so a re-import (or a retry after a
+    partial failure) does not fail with "already exists".
+    """
+    settings = get_settings()
+    with (
+        psycopg.connect(settings.userdata_admin_dsn, autocommit=True) as conn,
+        conn.cursor() as cur,
+    ):
+        for schema in settings.schema_namespaces:
+            cur.execute(sql.SQL("DROP SCHEMA IF EXISTS {} CASCADE").format(sql.Identifier(schema)))
+            cur.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
+
+
 def _restore(path: str, fmt: BackupFormat) -> tuple[bool, str]:
     """Run the restore command; return (success, captured output tail)."""
     dsn = get_settings().userdata_admin_dsn
     note = ""
     if fmt is BackupFormat.PLAIN:
-        # A plain dump cannot have ownership stripped at load time, so pre-create
-        # any roles it references (e.g. the source DB owner) as NOLOGIN roles.
+        # Plain restores cannot strip ownership/ACLs or self-clean at load time:
+        # reset the target schema (clean replace) and pre-create any roles the
+        # dump references (e.g. the source DB owner) as NOLOGIN roles first.
         try:
+            _reset_userdata_schemas()
             created = ensure_roles_for_plain_dump(path)
         except Exception as exc:
-            return False, f"could not pre-create roles referenced by the dump: {exc}"
+            return False, f"could not prepare the database for restore: {exc}"
         if created:
             note = f"pre-created roles: {', '.join(created)}\n"
         cmd = ["psql", dsn, "-v", "ON_ERROR_STOP=1", "-f", path]

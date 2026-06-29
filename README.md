@@ -259,6 +259,8 @@ An admin uploads a database backup through the panel:
 
 The format is auto-detected from the file's leading bytes. The restore runs as a background task using the admin role (DDL is required), so the upload returns immediately. On success the read-only role is re-granted and the schema snapshot is rebuilt. Progress and outcomes appear as **import runs**.
 
+Each import is a **clean replace** of the user-data dataset: the configured schema(s) are reset before loading (plain dumps reset the schema explicitly; custom/tar archives use `pg_restore --clean`), so re-importing — or retrying after a partial failure — always starts from a clean slate.
+
 > **Ownership/roles in plain dumps.** A plain `pg_dump` embeds `ALTER ... OWNER TO <role>` / `GRANT ... TO <role>` statements, so restoring into a fresh cluster would otherwise fail with `role "<x>" does not exist` (e.g. a source DB owned by `root`). Talk2Database scans the dump and **pre-creates any referenced roles as harmless `NOLOGIN` roles** before restoring, then re-grants the read-only role on top. Custom/tar archives sidestep this entirely via `--no-owner --no-privileges`.
 
 ### `scheduled`
