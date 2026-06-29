@@ -2,7 +2,6 @@
 name = "talk2database"
 version = "0.1.0"
 description = "Self-hosted panel that turns natural-language questions into read-only SQL over a local Postgres copy of your data."
-readme = "../README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 
