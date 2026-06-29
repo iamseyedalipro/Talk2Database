@@ -177,9 +177,10 @@ Every variable lives in `.env` (copied from `.env.example`). All services read f
 
 ### Data loading mode
 
-| Variable      | Default  | Description                                                                                      |
-| ------------- | -------- | ------------------------------------------------------------------------------------------------ |
-| `IMPORT_MODE` | `manual` | How the user-data DB is populated. `manual` = upload backups in the panel; `scheduled` = cron full-refresh from `REMOTE_DB_DSN`. The unused path is disabled at runtime. |
+| Variable           | Default  | Description                                                                                      |
+| ------------------ | -------- | ------------------------------------------------------------------------------------------------ |
+| `IMPORT_MODE`      | `manual` | How the user-data DB is populated. `manual` = upload backups in the panel; `scheduled` = cron full-refresh from `REMOTE_DB_DSN`. The unused path is disabled at runtime. |
+| `POSTGRES_VERSION` | `16`     | Postgres major version for the user-data DB, the cron sync tooling, and the panel's restore client. Must be **≥** your source database's major version (see [Postgres version compatibility](#postgres-version-compatibility)). Changing it after first run requires recreating the userdata volume. |
 
 ### AI provider
 
@@ -267,9 +268,19 @@ Start the stack with `--profile scheduled` (or `make up-scheduled`). The cron co
 3. **Swap** atomically by renaming databases, so a mid-sync failure leaves the live database intact.
 4. **Re-grant** the read-only role (grants do not survive a restore) and invalidate the panel's schema snapshot so it rebuilds.
 
-A sync runs on startup when `SYNC_RUN_ON_STARTUP=true`, then every `SYNC_INTERVAL_HOURS`. The cron image is based on `postgres:16` so `pg_dump`/`pg_restore` match the server version.
+A sync runs on startup when `SYNC_RUN_ON_STARTUP=true`, then every `SYNC_INTERVAL_HOURS`. The cron image is built from `postgres:${POSTGRES_VERSION}` so `pg_dump`/`pg_restore` match the user-data server version.
 
-> The remote source's major version must be **≤** the user-data Postgres major version, otherwise `pg_restore` will reject the dump.
+### Postgres version compatibility
+
+`pg_dump`/`pg_restore` only move data safely when the tooling and the target server are **at least as new as the source**. In Talk2Database the relevant majors are the **cron/client tooling** and the **user-data server** — both set by `POSTGRES_VERSION` (default `16`). So the rule is:
+
+> Your source database's major version must be **≤** `POSTGRES_VERSION`.
+
+- **Source older than `POSTGRES_VERSION`** (e.g. source 14, `POSTGRES_VERSION=16`): ✅ works.
+- **Source newer than `POSTGRES_VERSION`** (e.g. source 17, `POSTGRES_VERSION=16`): ❌ — set `POSTGRES_VERSION=17` (or higher) and rebuild. Bumping it requires recreating the userdata volume (it is a rebuildable copy; re-import or the next sync repopulates it). The panel metadata DB is independent and stays on its own pinned version.
+- **Minor** differences (16.2 vs 16.7) never matter.
+
+Rather than failing cryptically partway through a restore, Talk2Database performs a **preflight version check**: scheduled syncs and manual uploads compare the source/dump major version against the tooling and target and abort early with an actionable message (e.g. *"source is PostgreSQL 17 … set POSTGRES_VERSION=17"*). The atomic-swap design guarantees the live data is untouched on such a failure. Plain `.sql` dumps are the most portable option when versions are close.
 
 ---
 

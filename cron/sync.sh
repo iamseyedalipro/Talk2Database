@@ -71,7 +71,22 @@ trap 'cleanup' EXIT
 
 start_run
 
-echo "[sync] dumping remote database..."
+# Preflight: majors must satisfy  source <= tooling  and  source <= target.
+# Fail fast with an actionable message rather than a cryptic restore error.
+pg_major() { echo "${1:-0}" | sed 's/[^0-9]//g' | awk '{print int($1/10000)}'; }
+SRC_MAJOR=$(pg_major "$(psql "${REMOTE_DB_DSN}" -tAc 'SHOW server_version_num' 2>/dev/null)")
+TGT_MAJOR=$(pg_major "$(psql "${maint_dsn}" -tAc 'SHOW server_version_num' 2>/dev/null)")
+TOOL_MAJOR=$(pg_dump --version | awk '{print $NF}' | grep -oE '^[0-9]+' || echo 0)
+if [ "${SRC_MAJOR}" -gt 0 ]; then
+  if [ "${TGT_MAJOR}" -gt 0 ] && [ "${SRC_MAJOR}" -gt "${TGT_MAJOR}" ]; then
+    fail "source is PostgreSQL ${SRC_MAJOR} but the user-data server is ${TGT_MAJOR}; set POSTGRES_VERSION=${SRC_MAJOR} and recreate the userdata volume"
+  fi
+  if [ "${TOOL_MAJOR}" -gt 0 ] && [ "${SRC_MAJOR}" -gt "${TOOL_MAJOR}" ]; then
+    fail "source is PostgreSQL ${SRC_MAJOR} but the bundled pg_dump is ${TOOL_MAJOR}; set POSTGRES_VERSION=${SRC_MAJOR} and rebuild"
+  fi
+fi
+
+echo "[sync] dumping remote database (source PG ${SRC_MAJOR:-?} -> target PG ${TGT_MAJOR:-?})..."
 pg_dump --format=custom --no-owner --no-privileges --dbname="${REMOTE_DB_DSN}" \
   --file="${DUMP_FILE}" || fail "pg_dump of remote source failed"
 
