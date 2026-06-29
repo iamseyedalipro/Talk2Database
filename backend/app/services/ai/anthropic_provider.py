@@ -1,0 +1,56 @@
+"""Anthropic (Claude) implementation of the SQL provider.
+
+The schema is sent as a separate ``system`` block marked ``cache_control:
+ephemeral`` so its tokens are billed once and reused across questions in the
+caching window. Structured output is forced via a single tool call.
+"""
+
+from __future__ import annotations
+
+import anthropic
+
+from app.services.ai.base import SQL_OUTPUT_SCHEMA, AIProviderError, GeneratedSQL
+from app.services.ai.prompts import SYSTEM_PROMPT, build_question_block, build_schema_block
+
+_TOOL_NAME = "emit_sql"
+
+
+class AnthropicProvider:
+    """Generate SQL using the Anthropic Messages API."""
+
+    name = "anthropic"
+
+    def __init__(self, api_key: str, model: str) -> None:
+        self.model = model
+        self._client = anthropic.Anthropic(api_key=api_key)
+
+    def generate_sql(self, *, question: str, schema_text: str) -> GeneratedSQL:
+        tool = {
+            "name": _TOOL_NAME,
+            "description": "Return the single read-only SQL SELECT that answers the question.",
+            "input_schema": SQL_OUTPUT_SCHEMA,
+        }
+        try:
+            response = self._client.messages.create(  # type: ignore[call-overload]
+                model=self.model,
+                max_tokens=1500,
+                system=[
+                    {"type": "text", "text": SYSTEM_PROMPT},
+                    {
+                        "type": "text",
+                        "text": build_schema_block(schema_text),
+                        "cache_control": {"type": "ephemeral"},
+                    },
+                ],
+                tools=[tool],
+                tool_choice={"type": "tool", "name": _TOOL_NAME},
+                messages=[{"role": "user", "content": build_question_block(question)}],
+            )
+        except Exception as exc:
+            raise AIProviderError(f"Anthropic request failed: {exc}") from exc
+
+        for block in response.content:
+            if getattr(block, "type", None) == "tool_use" and block.name == _TOOL_NAME:
+                return GeneratedSQL.model_validate(block.input)
+
+        raise AIProviderError("Anthropic did not return a structured SQL result.")
