@@ -25,6 +25,7 @@ from app.models.import_run import ImportRun, ImportStatus
 from app.services.pg_version import check_restore_compatibility
 from app.services.readonly_role import ensure_readonly_role
 from app.services.schema.cache import rebuild_snapshot
+from app.services.sql_roles import ensure_roles_for_plain_dump
 
 
 class BackupFormat(StrEnum):
@@ -47,7 +48,16 @@ def detect_format(path: str) -> BackupFormat:
 def _restore(path: str, fmt: BackupFormat) -> tuple[bool, str]:
     """Run the restore command; return (success, captured output tail)."""
     dsn = get_settings().userdata_admin_dsn
+    note = ""
     if fmt is BackupFormat.PLAIN:
+        # A plain dump cannot have ownership stripped at load time, so pre-create
+        # any roles it references (e.g. the source DB owner) as NOLOGIN roles.
+        try:
+            created = ensure_roles_for_plain_dump(path)
+        except Exception as exc:
+            return False, f"could not pre-create roles referenced by the dump: {exc}"
+        if created:
+            note = f"pre-created roles: {', '.join(created)}\n"
         cmd = ["psql", dsn, "-v", "ON_ERROR_STOP=1", "-f", path]
     else:
         cmd = [
@@ -61,7 +71,7 @@ def _restore(path: str, fmt: BackupFormat) -> tuple[bool, str]:
             path,
         ]
     proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    output = f"{proc.stdout}\n{proc.stderr}".strip()
+    output = f"{note}{proc.stdout}\n{proc.stderr}".strip()
     return proc.returncode == 0, output[-4000:]
 
 

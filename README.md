@@ -255,9 +255,11 @@ The two modes are **mutually exclusive**, selected by `IMPORT_MODE`. The unused 
 An admin uploads a database backup through the panel:
 
 - **Plain SQL dumps** (`.sql`) are restored with `psql`.
-- **`pg_dump` custom or tar backups** are restored with `pg_restore`.
+- **`pg_dump` custom or tar backups** are restored with `pg_restore` (`--no-owner --no-privileges`).
 
 The format is auto-detected from the file's leading bytes. The restore runs as a background task using the admin role (DDL is required), so the upload returns immediately. On success the read-only role is re-granted and the schema snapshot is rebuilt. Progress and outcomes appear as **import runs**.
+
+> **Ownership/roles in plain dumps.** A plain `pg_dump` embeds `ALTER ... OWNER TO <role>` / `GRANT ... TO <role>` statements, so restoring into a fresh cluster would otherwise fail with `role "<x>" does not exist` (e.g. a source DB owned by `root`). Talk2Database scans the dump and **pre-creates any referenced roles as harmless `NOLOGIN` roles** before restoring, then re-grants the read-only role on top. Custom/tar archives sidestep this entirely via `--no-owner --no-privileges`.
 
 ### `scheduled`
 
