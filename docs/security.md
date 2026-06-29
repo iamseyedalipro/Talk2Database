@@ -109,8 +109,8 @@ When a schema exceeds `SCHEMA_MAX_TOKENS`, only the most relevant tables (plus F
 
 ## Operational notes
 
-- **Pin PostgreSQL versions.** The compose bundle pins `postgres:16` for both databases and for the cron image, so `pg_dump`/`pg_restore`/`psql` match the server major version. Keep these aligned when upgrading.
-- **Remote source version must be `<=` userdata version.** In scheduled mode, the remote source's major version must be less than or equal to the user-data Postgres major version; a newer source dump cannot be restored into an older server.
+- **Set `POSTGRES_VERSION` to match your source.** A single `POSTGRES_VERSION` knob (default `16`) drives the user-data server, the cron sync tooling, and the panel's restore client, so `pg_dump`/`pg_restore`/`psql` all line up. It must be **≥** your source database's major version.
+- **Source version must be `<=` `POSTGRES_VERSION`.** A newer source dump cannot be restored into an older server. Both the scheduled sync and manual uploads run a **preflight version check** that aborts early with an actionable message rather than failing partway through a restore; the atomic-swap design leaves live data untouched on such a failure.
 - **The read-only role must be re-granted after every data load.** A restore replaces the database contents and drops grants. Both the manual importer and the cron sync re-run the grant logic; if you restore data out of band, re-run `python -m app.cli ensure-readonly-role`.
 - **Keep the two grant implementations in sync.** `app/services/readonly_role.py` (manual/startup) and `cron/sync.sh` (scheduled) implement the same grants. Change them together.
 - **Network exposure.** The panel listens on `:8000`. Put it behind a TLS-terminating reverse proxy for any non-local deployment, and do not expose the Postgres ports publicly. Set `CORS_ORIGINS` only if the SPA is served from a different origin.

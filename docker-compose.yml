@@ -29,7 +29,10 @@ services:
   # query time via the t2db_readonly role).                                #
   # --------------------------------------------------------------------- #
   postgres-userdata:
-    image: postgres:16
+    # Major version must be >= your source database (manual upload or REMOTE_DB_DSN).
+    # Bumping POSTGRES_VERSION requires recreating the userdata volume (it is a
+    # rebuildable copy: re-import or the next sync repopulates it).
+    image: postgres:${POSTGRES_VERSION:-16}
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${USERDATA_DB_ADMIN_USER}
@@ -50,6 +53,8 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+      args:
+        POSTGRES_VERSION: ${POSTGRES_VERSION:-16}
     restart: unless-stopped
     env_file: .env
     ports:
@@ -69,6 +74,8 @@ services:
   cron:
     build:
       context: ./cron
+      args:
+        POSTGRES_VERSION: ${POSTGRES_VERSION:-16}
     restart: unless-stopped
     env_file: .env
     profiles: ["scheduled"]

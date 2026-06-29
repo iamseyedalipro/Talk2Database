@@ -16,11 +16,13 @@ import subprocess
 from datetime import UTC, datetime
 from enum import StrEnum
 
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from starlette.concurrency import run_in_threadpool
 
 from app.config import get_settings
 from app.db.panel import get_sessionmaker
 from app.models.import_run import ImportRun, ImportStatus
+from app.services.pg_version import check_restore_compatibility
 from app.services.readonly_role import ensure_readonly_role
 from app.services.schema.cache import rebuild_snapshot
 
@@ -63,11 +65,36 @@ def _restore(path: str, fmt: BackupFormat) -> tuple[bool, str]:
     return proc.returncode == 0, output[-4000:]
 
 
+async def _fail_run(
+    sessionmaker: async_sessionmaker[AsyncSession], run_id: int, message: str
+) -> None:
+    async with sessionmaker() as session:
+        run = await session.get(ImportRun, run_id)
+        if run is not None:
+            run.status = ImportStatus.FAILED
+            run.message = message
+            run.finished_at = datetime.now(tz=UTC)
+        await session.commit()
+
+
 async def process_manual_import(import_run_id: int, file_path: str, filename: str) -> None:
     """Background task: restore an uploaded backup and update its ImportRun row."""
     sessionmaker = get_sessionmaker()
     try:
         fmt = detect_format(file_path)
+
+        # Preflight: refuse incompatible major versions with an actionable message
+        # instead of letting pg_restore fail cryptically partway through.
+        incompatible = await run_in_threadpool(
+            check_restore_compatibility,
+            file_path,
+            fmt is BackupFormat.PLAIN,
+            get_settings().userdata_admin_dsn,
+        )
+        if incompatible:
+            await _fail_run(sessionmaker, import_run_id, f"Version check failed: {incompatible}")
+            return
+
         success, message = await run_in_threadpool(_restore, file_path, fmt)
 
         if success:
