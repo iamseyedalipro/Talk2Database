@@ -1,0 +1,84 @@
+# Talk2Database — full self-hosted bundle.
+#
+#   docker compose up -d --build                     # manual import mode
+#   docker compose --profile scheduled up -d --build # + scheduled sync cron
+#
+# Everything is configured through the single .env file (see .env.example).
+
+services:
+  # --------------------------------------------------------------------- #
+  # Panel metadata DB: users, history, import runs, schema snapshots.      #
+  # --------------------------------------------------------------------- #
+  postgres-panel:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${PANEL_DB_USER}
+      POSTGRES_PASSWORD: ${PANEL_DB_PASSWORD}
+      POSTGRES_DB: ${PANEL_DB_NAME}
+    volumes:
+      - panel_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PANEL_DB_USER} -d ${PANEL_DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # --------------------------------------------------------------------- #
+  # User-data DB: the queryable copy of the user's data (read-only at      #
+  # query time via the t2db_readonly role).                                #
+  # --------------------------------------------------------------------- #
+  postgres-userdata:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${USERDATA_DB_ADMIN_USER}
+      POSTGRES_PASSWORD: ${USERDATA_DB_ADMIN_PASSWORD}
+      POSTGRES_DB: ${USERDATA_DB_NAME}
+    volumes:
+      - userdata_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${USERDATA_DB_ADMIN_USER} -d ${USERDATA_DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # --------------------------------------------------------------------- #
+  # Panel: FastAPI API + built React SPA. Single user-facing endpoint.     #
+  # --------------------------------------------------------------------- #
+  panel:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres-panel:
+        condition: service_healthy
+      postgres-userdata:
+        condition: service_healthy
+    volumes:
+      - upload_tmp:/app/uploads
+
+  # --------------------------------------------------------------------- #
+  # Cron: scheduled full-refresh sync. Only started with                  #
+  # `--profile scheduled` (IMPORT_MODE=scheduled).                        #
+  # --------------------------------------------------------------------- #
+  cron:
+    build:
+      context: ./cron
+    restart: unless-stopped
+    env_file: .env
+    profiles: ["scheduled"]
+    depends_on:
+      postgres-userdata:
+        condition: service_healthy
+      postgres-panel:
+        condition: service_healthy
+
+volumes:
+  panel_data:
+  userdata_data:
+  upload_tmp:
