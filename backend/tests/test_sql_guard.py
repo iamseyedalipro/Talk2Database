@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from app.services.sql_guard import SqlGuardError, validate_select
 
 VALID = [

@@ -88,6 +88,7 @@ async def rerun_history(
         entry.last_status = QueryStatus.ERROR
         entry.error_message = str(exc)
         entry.executed_at = datetime.now(tz=UTC)
+        await session.commit()  # persist the error status before the request unwinds
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Query failed: {exc}"
         ) from exc

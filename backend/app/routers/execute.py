@@ -68,6 +68,7 @@ async def execute(
         await _record_history(
             session, user.id, payload.history_id, status_value=QueryStatus.ERROR, error=str(exc)
         )
+        await session.commit()  # persist the error status before the request unwinds
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Query failed: {exc}"
         ) from exc

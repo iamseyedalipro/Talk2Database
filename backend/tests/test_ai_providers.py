@@ -6,7 +6,6 @@ import json
 from typing import Any
 
 import pytest
-
 from app.services.ai.anthropic_provider import AnthropicProvider
 from app.services.ai.base import AIProviderError
 from app.services.ai.openai_provider import OpenAIProvider
