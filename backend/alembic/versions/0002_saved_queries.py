@@ -14,6 +14,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy import inspect
 
 # revision identifiers, used by Alembic.
 revision: str = "0002_saved_queries"
@@ -23,6 +24,13 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    # 0001 builds the panel schema via ``Base.metadata.create_all``, which now
+    # also creates this table on a fresh database. Guard so this migration is a
+    # no-op there yet still adds the table to databases initialized before it.
+    bind = op.get_bind()
+    if inspect(bind).has_table("saved_queries"):
+        return
+
     op.create_table(
         "saved_queries",
         sa.Column("id", sa.Integer(), primary_key=True),
@@ -53,5 +61,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    bind = op.get_bind()
+    if not inspect(bind).has_table("saved_queries"):
+        return
     op.drop_index("ix_saved_queries_owner_created", table_name="saved_queries")
     op.drop_table("saved_queries")
