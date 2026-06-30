@@ -217,6 +217,23 @@ export interface SavedQueryRunPayload {
   max_rows?: number;
 }
 
+/* ------------------------- Result summary (AI) --------------------------- */
+
+export type ChartType = 'bar' | 'line' | 'table' | 'none';
+
+export interface SummarizePayload {
+  question?: string | null;
+  columns: ResultColumn[];
+  rows: unknown[][];
+}
+
+export interface ResultSummary {
+  summary: string;
+  chart_type: ChartType;
+  x_column: string | null;
+  y_column: string | null;
+}
+
 /* -------------------------------- System --------------------------------- */
 
 export interface SystemStatus {

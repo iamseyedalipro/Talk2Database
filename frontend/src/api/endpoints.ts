@@ -22,10 +22,12 @@ import type {
   LoginPayload,
   RegisterPayload,
   RerunPayload,
+  ResultSummary,
   SavedQuery,
   SavedQueryCreate,
   SavedQueryRunPayload,
   SavedQueryUpdate,
+  SummarizePayload,
   SystemStatus,
   TokenResponse,
   User,
@@ -64,6 +66,9 @@ export const execute = (body: ExecutePayload) =>
 
 export const executeCsv = (body: ExecutePayload) =>
   api.download('/execute/csv', body, 'result.csv');
+
+export const summarizeResults = (body: SummarizePayload) =>
+  api.post<ResultSummary>('/results/summarize', body);
 
 /* -------------------------------- History -------------------------------- */
 

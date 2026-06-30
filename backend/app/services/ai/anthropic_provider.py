@@ -9,10 +9,17 @@ from __future__ import annotations
 
 import anthropic
 
-from app.services.ai.base import SQL_OUTPUT_SCHEMA, AIProviderError, GeneratedSQL
+from app.services.ai.base import (
+    RESULT_SUMMARY_SCHEMA,
+    SQL_OUTPUT_SCHEMA,
+    AIProviderError,
+    GeneratedSQL,
+    ResultSummary,
+)
 from app.services.ai.prompts import build_question_block
 
 _TOOL_NAME = "emit_sql"
+_SUMMARY_TOOL_NAME = "emit_summary"
 
 
 class AnthropicProvider:
@@ -54,3 +61,27 @@ class AnthropicProvider:
                 return GeneratedSQL.model_validate(block.input)
 
         raise AIProviderError("Anthropic did not return a structured SQL result.")
+
+    def summarize_results(self, *, system_prompt: str, context: str) -> ResultSummary:
+        tool = {
+            "name": _SUMMARY_TOOL_NAME,
+            "description": "Return a one-line summary of the results and a chart suggestion.",
+            "input_schema": RESULT_SUMMARY_SCHEMA,
+        }
+        try:
+            response = self._client.messages.create(  # type: ignore[call-overload]
+                model=self.model,
+                max_tokens=500,
+                system=[{"type": "text", "text": system_prompt}],
+                tools=[tool],
+                tool_choice={"type": "tool", "name": _SUMMARY_TOOL_NAME},
+                messages=[{"role": "user", "content": context}],
+            )
+        except Exception as exc:
+            raise AIProviderError(f"Anthropic request failed: {exc}") from exc
+
+        for block in response.content:
+            if getattr(block, "type", None) == "tool_use" and block.name == _SUMMARY_TOOL_NAME:
+                return ResultSummary.model_validate(block.input)
+
+        raise AIProviderError("Anthropic did not return a structured summary result.")

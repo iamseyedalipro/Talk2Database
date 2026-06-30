@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     ai_provider: AIProvider = AIProvider.ANTHROPIC
     ai_api_key: str = ""
     ai_model: str = "claude-opus-4-8"
+    # Result explanations send only column names/types + locally-computed
+    # aggregates by default (the no-row-data promise). Enabling this opts into
+    # also sending a small sample of result rows for richer summaries.
+    ai_allow_sample_rows: bool = False
+    ai_sample_rows: int = 5
 
     # -- Schema cost control ---------------------------------------------- #
     schema_max_tokens: int = 6000

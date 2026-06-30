@@ -34,6 +34,7 @@ export default function SavedQueriesPage() {
   const [runError, setRunError] = useState<string | null>(null);
   const [runningId, setRunningId] = useState<number | null>(null);
   const [activeId, setActiveId] = useState<number | null>(null);
+  const [activeQuestion, setActiveQuestion] = useState<string | null>(null);
   const [result, setResult] = useState<ExecuteResponse | null>(null);
 
   const [edit, setEdit] = useState<EditState | null>(null);
@@ -59,6 +60,7 @@ export default function SavedQueriesPage() {
     setResult(null);
     setRunningId(item.id);
     setActiveId(item.id);
+    setActiveQuestion(item.question);
     try {
       setResult(await runSavedQuery(item.id));
     } catch (err) {
@@ -231,7 +233,7 @@ export default function SavedQueriesPage() {
       {result && (
         <section className="card">
           <h2 className="page__title">Result</h2>
-          <ResultsView result={result} />
+          <ResultsView result={result} question={activeQuestion} />
         </section>
       )}
     </div>

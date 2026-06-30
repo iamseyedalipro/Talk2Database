@@ -177,7 +177,12 @@ export default function AskPage() {
             </button>
             {saveNotice && <span className="muted">{saveNotice}</span>}
           </div>
-          <ResultsView result={result} onDownloadCsv={handleDownloadCsv} csvBusy={csvBusy} />
+          <ResultsView
+            result={result}
+            onDownloadCsv={handleDownloadCsv}
+            csvBusy={csvBusy}
+            question={activeQuestion}
+          />
         </>
       )}
 

@@ -61,6 +61,32 @@ def test_anthropic_returns_structured_sql_and_caches_schema() -> None:
     assert any(block.get("cache_control") for block in system), "schema must be cache-marked"
 
 
+def test_anthropic_summarize_returns_structured_summary() -> None:
+    provider = AnthropicProvider(api_key="x", model="claude-test")
+    client = _AnthClient(
+        _AnthResponse(
+            [
+                _Block(
+                    "tool_use",
+                    "emit_summary",
+                    {
+                        "summary": "Orders rise over time.",
+                        "chart_type": "line",
+                        "x_column": "day",
+                        "y_column": "orders",
+                    },
+                ),
+            ]
+        )
+    )
+    provider._client = client  # type: ignore[assignment]
+
+    result = provider.summarize_results(system_prompt="SYS", context="stats...")
+    assert result.summary == "Orders rise over time."
+    assert result.chart_type == "line"
+    assert result.x_column == "day"
+
+
 def test_anthropic_without_tool_call_raises() -> None:
     provider = AnthropicProvider(api_key="x", model="claude-test")
     provider._client = _AnthClient(_AnthResponse([_Block("text")]))  # type: ignore[assignment]
@@ -118,6 +144,23 @@ def test_openai_parses_json_response() -> None:
     system_msg = client.chat.completions.calls[0]["messages"][0]
     assert system_msg["role"] == "system"
     assert "TABLE t" in system_msg["content"]
+
+
+def test_openai_summarize_parses_json() -> None:
+    provider = OpenAIProvider(api_key="x", model="gpt-test")
+    payload = json.dumps(
+        {
+            "summary": "Three categories, roughly equal.",
+            "chart_type": "bar",
+            "x_column": "category",
+            "y_column": "total",
+        }
+    )
+    provider._client = _OAClient(_OAResponse(payload))  # type: ignore[assignment]
+
+    result = provider.summarize_results(system_prompt="SYS", context="stats...")
+    assert result.chart_type == "bar"
+    assert result.y_column == "total"
 
 
 def test_openai_empty_response_raises() -> None:

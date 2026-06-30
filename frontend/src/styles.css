@@ -587,6 +587,23 @@ textarea {
   margin-bottom: 1rem;
 }
 
+.results-view__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.result-summary {
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.9rem;
+  background: var(--surface-muted, rgba(124, 58, 237, 0.08));
+  border-left: 3px solid var(--accent, #7c3aed);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
 .chart-toggle {
   display: inline-flex;
   border: 1px solid var(--border);

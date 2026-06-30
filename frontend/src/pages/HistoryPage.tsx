@@ -221,7 +221,7 @@ export default function HistoryPage() {
 
           <ErrorBanner message={detailError} />
 
-          {result && <ResultsView result={result} />}
+          {result && <ResultsView result={result} question={detail.item.question} />}
         </section>
       )}
 

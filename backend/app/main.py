@@ -17,6 +17,7 @@ from app.routers import (
     connections,
     execute,
     history,
+    results,
     saved_queries,
     system,
     users,
@@ -39,6 +40,7 @@ def _build_api_router() -> APIRouter:
     api.include_router(execute.router)
     api.include_router(history.router)
     api.include_router(saved_queries.router)
+    api.include_router(results.router)
     api.include_router(system.router)
     return api
 
