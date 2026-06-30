@@ -13,6 +13,7 @@ import type {
   ConnectionCreate,
   ConnectionTestResult,
   ConnectionUpdate,
+  DbSchema,
   ExecutePayload,
   ExecuteResponse,
   HistoryItem,
@@ -84,6 +85,14 @@ export const deleteConnection = (id: number) => api.del<void>(`/connections/${id
 
 export const testConnection = (id: number) =>
   api.post<ConnectionTestResult>(`/connections/${id}/test`);
+
+/** Cached structural schema (tables/columns/keys) for a connection's database. */
+export const getSchema = (connectionId: number) =>
+  api.get<DbSchema>(`/connections/${connectionId}/schema`);
+
+/** Force a fresh introspection of a connection's schema (e.g. after a DDL change). */
+export const refreshSchema = (connectionId: number) =>
+  api.post<DbSchema>(`/connections/${connectionId}/schema/refresh`);
 
 /* -------------------------------- System --------------------------------- */
 

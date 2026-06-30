@@ -19,8 +19,10 @@ from app.schemas.connections import (
     ConnectionTestResult,
     ConnectionUpdate,
 )
-from app.services.connections import build_connector, get_owned_connection
+from app.schemas.schema import DbSchema
+from app.services.connections import build_connector, get_owned_connection, load_connector
 from app.services.crypto import SecretCryptoError, encrypt_secret
+from app.services.schema.cache import ensure_snapshot, rebuild_snapshot
 
 router = APIRouter(prefix="/connections", tags=["connections"])
 
@@ -116,3 +118,39 @@ async def test_connection(
     return ConnectionTestResult(
         ok=ok, message=None if ok else "Could not open a read-only connection."
     )
+
+
+def _schema_error(connection: Connection, exc: Exception) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail=f"Could not read the schema of '{connection.name}': {exc}",
+    )
+
+
+@router.get("/{connection_id}/schema", response_model=DbSchema)
+async def get_connection_schema(
+    connection_id: int, user: CurrentUser, session: SessionDep
+) -> DbSchema:
+    """Return the cached structural schema (tables/columns/keys) for a connection.
+
+    Built lazily on first use; powers the schema browser. Never reads row data.
+    """
+    connection, connector = await load_connector(session, connection_id, user)
+    try:
+        snapshot = await ensure_snapshot(session, connection.id, connector)
+    except Exception as exc:
+        raise _schema_error(connection, exc) from exc
+    return DbSchema.model_validate(snapshot.content_json)
+
+
+@router.post("/{connection_id}/schema/refresh", response_model=DbSchema)
+async def refresh_connection_schema(
+    connection_id: int, user: CurrentUser, session: SessionDep
+) -> DbSchema:
+    """Re-introspect the connection and return the rebuilt schema (after a DDL change)."""
+    connection, connector = await load_connector(session, connection_id, user)
+    try:
+        snapshot = await rebuild_snapshot(session, connection.id, connector)
+    except Exception as exc:
+        raise _schema_error(connection, exc) from exc
+    return DbSchema.model_validate(snapshot.content_json)

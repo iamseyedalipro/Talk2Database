@@ -129,6 +129,35 @@ export interface ExecuteResponse {
   elapsed_ms: number;
 }
 
+/* --------------------------- Schema (browser) ---------------------------- */
+
+export interface SchemaColumn {
+  name: string;
+  type: string;
+  nullable: boolean;
+  comment: string | null;
+}
+
+export interface SchemaForeignKey {
+  columns: string[];
+  ref_schema: string;
+  ref_table: string;
+  ref_columns: string[];
+}
+
+export interface SchemaTable {
+  schema: string;
+  name: string;
+  comment: string | null;
+  columns: SchemaColumn[];
+  primary_key: string[];
+  foreign_keys: SchemaForeignKey[];
+}
+
+export interface DbSchema {
+  tables: SchemaTable[];
+}
+
 /* -------------------------------- History -------------------------------- */
 
 export type QueryStatus = 'preview' | 'success' | 'error';
