@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 
 class AskRequest(BaseModel):
+    connection_id: int
     question: str = Field(min_length=1, max_length=4000)
 
 

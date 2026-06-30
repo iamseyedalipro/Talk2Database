@@ -9,8 +9,9 @@ export default defineConfig({
     port: 5173,
     proxy: {
       // Forward all API traffic to the FastAPI backend during development.
+      // In Docker dev (docker-compose.dev.yml) VITE_API_HOST=http://panel:8000.
       '/api': {
-        target: 'http://localhost:8000',
+        target: process.env.VITE_API_HOST ?? 'http://localhost:8000',
         changeOrigin: true,
       },
     },

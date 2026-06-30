@@ -4,6 +4,7 @@ import RequireAuth from './components/RequireAuth';
 import RequireAdmin from './components/RequireAdmin';
 import AdminPage from './pages/AdminPage';
 import AskPage from './pages/AskPage';
+import ConnectionsPage from './pages/ConnectionsPage';
 import HistoryPage from './pages/HistoryPage';
 import LoginPage from './pages/LoginPage';
 import RegisterInvitePage from './pages/RegisterInvitePage';
@@ -22,6 +23,7 @@ export default function App() {
         }
       >
         <Route path="/" element={<AskPage />} />
+        <Route path="/connections" element={<ConnectionsPage />} />
         <Route path="/history" element={<HistoryPage />} />
         <Route
           path="/admin"

@@ -51,7 +51,9 @@ def test_anthropic_returns_structured_sql_and_caches_schema() -> None:
     )
     provider._client = client  # type: ignore[assignment]
 
-    result = provider.generate_sql(question="q?", schema_text="TABLE t")
+    result = provider.generate_sql(
+        question="q?", system_prompt="SYS", schema_block="SCHEMA: TABLE t"
+    )
     assert result.sql == "SELECT 1"
     assert result.explanation == "one"
 
@@ -63,7 +65,7 @@ def test_anthropic_without_tool_call_raises() -> None:
     provider = AnthropicProvider(api_key="x", model="claude-test")
     provider._client = _AnthClient(_AnthResponse([_Block("text")]))  # type: ignore[assignment]
     with pytest.raises(AIProviderError):
-        provider.generate_sql(question="q?", schema_text="TABLE t")
+        provider.generate_sql(question="q?", system_prompt="SYS", schema_block="SCHEMA: TABLE t")
 
 
 # --- OpenAI fakes ---------------------------------------------------------- #
@@ -108,7 +110,9 @@ def test_openai_parses_json_response() -> None:
     client = _OAClient(_OAResponse(payload))
     provider._client = client  # type: ignore[assignment]
 
-    result = provider.generate_sql(question="q?", schema_text="TABLE t")
+    result = provider.generate_sql(
+        question="q?", system_prompt="SYS", schema_block="SCHEMA: TABLE t"
+    )
     assert result.sql == "SELECT 2"
     # The schema is part of the leading system message (a stable, cacheable prefix).
     system_msg = client.chat.completions.calls[0]["messages"][0]
@@ -120,4 +124,4 @@ def test_openai_empty_response_raises() -> None:
     provider = OpenAIProvider(api_key="x", model="gpt-test")
     provider._client = _OAClient(_OAResponse(None))  # type: ignore[assignment]
     with pytest.raises(AIProviderError):
-        provider.generate_sql(question="q?", schema_text="TABLE t")
+        provider.generate_sql(question="q?", system_prompt="SYS", schema_block="SCHEMA: TABLE t")

@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app import __version__
 from app.config import get_settings
-from app.routers import ask, auth, execute, history, imports, system, users
+from app.routers import ask, auth, connections, execute, history, system, users
 
 _FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend_dist"
 
@@ -25,10 +25,10 @@ def _build_api_router() -> APIRouter:
 
     api.include_router(auth.router)
     api.include_router(users.router)
+    api.include_router(connections.router)
     api.include_router(ask.router)
     api.include_router(execute.router)
     api.include_router(history.router)
-    api.include_router(imports.router)
     api.include_router(system.router)
     return api
 

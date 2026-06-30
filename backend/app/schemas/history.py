@@ -13,6 +13,7 @@ class HistoryItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    connection_id: int | None = None
     question: str
     generated_sql: str
     provider: str | None = None

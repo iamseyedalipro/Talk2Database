@@ -2,9 +2,10 @@
 # Run `make help` for the list.
 
 .DEFAULT_GOAL := help
-COMPOSE := docker compose
+COMPOSE     := docker compose
+DEV_COMPOSE := $(COMPOSE) -f docker-compose.yml -f docker-compose.dev.yml
 
-.PHONY: help up up-scheduled down logs build dev backend-dev frontend-dev \
+.PHONY: help up up-scheduled down logs build dev dev-build backend-dev frontend-dev \
         lint lint-backend lint-frontend test test-backend test-frontend \
         format migrate revision clean
 
@@ -27,6 +28,12 @@ build: ## Build all images
 
 logs: ## Tail logs for all services
 	$(COMPOSE) logs -f
+
+dev: ## Start dev stack with hot-reload (backend + Vite; no rebuild on code changes)
+	$(DEV_COMPOSE) up
+
+dev-build: ## Build dev images (run once, or after dependency changes)
+	$(DEV_COMPOSE) up --build
 
 ## ----- Local development -------------------------------------------------
 backend-dev: ## Run the backend with autoreload (needs local Postgres + .env)

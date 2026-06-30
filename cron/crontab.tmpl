@@ -1,3 +1,0 @@
-# Rendered to /etc/cron.d/talk2database by entrypoint.sh (envsubst fills CRON_SCHEDULE).
-# The job sources the captured environment, then runs the full-refresh sync.
-${CRON_SCHEDULE} root /bin/bash -lc 'source /opt/talk2database/env.sh && /opt/talk2database/sync.sh' >> /var/log/t2db-sync.log 2>&1

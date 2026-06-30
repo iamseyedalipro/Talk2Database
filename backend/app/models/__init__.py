@@ -5,7 +5,7 @@ autogeneration and ``create_all`` can see them.
 """
 
 from app.db.base import Base
-from app.models.import_run import ImportKind, ImportRun, ImportStatus
+from app.models.connection import Connection, DataSourceType
 from app.models.invite import Invite
 from app.models.query_history import QueryHistory, QueryStatus
 from app.models.schema_snapshot import SchemaSnapshot
@@ -13,9 +13,8 @@ from app.models.user import User, UserRole
 
 __all__ = [
     "Base",
-    "ImportKind",
-    "ImportRun",
-    "ImportStatus",
+    "Connection",
+    "DataSourceType",
     "Invite",
     "QueryHistory",
     "QueryStatus",

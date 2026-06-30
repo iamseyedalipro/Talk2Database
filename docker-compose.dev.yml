@@ -1,0 +1,31 @@
+# Development overlay — mount source for hot-reload.
+# Backend Python changes → uvicorn auto-reloads (no rebuild needed).
+# Frontend changes      → Vite HMR updates the browser (no rebuild needed).
+#
+# First time:        make dev-build
+# Subsequent runs:   make dev   (no rebuild, just start)
+
+services:
+  panel:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.dev
+    volumes:
+      - ./backend/app:/app/app    # live-mount Python source
+
+  frontend-dev:
+    image: node:20-bookworm-slim
+    working_dir: /frontend
+    volumes:
+      - ./frontend:/frontend
+      - frontend_node_modules:/frontend/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_HOST: http://panel:8000
+    command: sh -c "npm install && npx vite --host 0.0.0.0"
+    depends_on:
+      - panel
+
+volumes:
+  frontend_node_modules:

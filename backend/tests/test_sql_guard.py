@@ -53,3 +53,33 @@ def test_normalized_output_is_executable_form() -> None:
     # The returned text is re-serialized from the validated AST.
     out = validate_select("select   1   as   one")
     assert "1" in out and out.count(";") == 0
+
+
+# --- Dialect awareness ----------------------------------------------------- #
+MYSQL_VALID = [
+    "SELECT 1",
+    "SELECT `id`, `name` FROM `customers` LIMIT 10",
+    "SELECT COUNT(*) FROM orders GROUP BY region",
+]
+
+MYSQL_INVALID = [
+    "DROP TABLE customers",
+    "DELETE FROM customers",
+    "INSERT INTO customers (id) VALUES (1)",
+    "UPDATE customers SET name = 'x'",
+    "SELECT SLEEP(5)",
+    "SELECT LOAD_FILE('/etc/passwd')",
+    "SELECT BENCHMARK(1000000, MD5('x'))",
+    "SELECT 1; SELECT 2",
+]
+
+
+@pytest.mark.parametrize("sql", MYSQL_VALID)
+def test_mysql_valid_selects_pass(sql: str) -> None:
+    assert validate_select(sql, dialect="mysql")
+
+
+@pytest.mark.parametrize("sql", MYSQL_INVALID)
+def test_mysql_invalid_statements_are_rejected(sql: str) -> None:
+    with pytest.raises(SqlGuardError):
+        validate_select(sql, dialect="mysql")

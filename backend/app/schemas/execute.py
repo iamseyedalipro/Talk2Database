@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 
 class ExecuteRequest(BaseModel):
+    connection_id: int
     sql: str = Field(min_length=1, max_length=20000)
     history_id: int | None = None
     max_rows: int | None = Field(default=None, ge=1, le=100000)

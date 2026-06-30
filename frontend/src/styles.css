@@ -245,6 +245,37 @@ textarea {
 .ask-form__actions {
   display: flex;
   justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.ask-form__field,
+.connection-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.connection-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.connection-form .ask-form__actions {
+  grid-column: 1 / -1;
+}
+
+.connection-form .banner {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 640px) {
+  .connection-form {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* -------------------------------- Buttons -------------------------------- */
