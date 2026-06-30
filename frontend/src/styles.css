@@ -614,6 +614,124 @@ textarea {
   color: var(--danger, #dc2626);
 }
 
+/* --- Semantic glossary (schema browser annotations + metrics) ------------ */
+
+.schema-tree__col-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.schema-tree__desc {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.15rem 0 0.35rem 1.6rem;
+}
+
+.schema-tree__desc-text {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.schema-tree__annotate-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.8rem;
+  padding: 0 0.2rem;
+}
+
+.schema-tree__annotate-btn:hover {
+  color: var(--accent, #7c3aed);
+}
+
+.schema-tree__annotate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0.25rem 0 0.4rem 1.6rem;
+}
+
+.schema-tree__annotate input {
+  flex: 1 1 8rem;
+  font-size: 0.85rem;
+  padding: 0.3rem 0.4rem;
+}
+
+.metrics-panel {
+  margin-top: 1rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+
+.metrics-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.metrics-panel__title {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.metrics-panel__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.metrics-panel__form-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.metrics-panel__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.metrics-panel__item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.metrics-panel__item-actions {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.metrics-panel__def {
+  margin: 0.2rem 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.metrics-panel__expr {
+  display: block;
+  font-size: 0.8rem;
+  background: var(--surface-muted, rgba(124, 58, 237, 0.08));
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.metrics-panel__empty {
+  font-size: 0.85rem;
+}
+
 .chart-toggle {
   display: inline-flex;
   border: 1px solid var(--border);

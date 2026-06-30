@@ -14,6 +14,12 @@ import type {
   ConnectionTestResult,
   ConnectionUpdate,
   DbSchema,
+  DescriptionUpsert,
+  GlossaryData,
+  GlossaryDescription,
+  Metric,
+  MetricCreate,
+  MetricUpdate,
   ExecutePayload,
   ExecuteResponse,
   ExplainPayload,
@@ -123,6 +129,26 @@ export const getSchema = (connectionId: number) =>
 /** Force a fresh introspection of a connection's schema (e.g. after a DDL change). */
 export const refreshSchema = (connectionId: number) =>
   api.post<DbSchema>(`/connections/${connectionId}/schema/refresh`);
+
+/* --------------------------- Semantic glossary --------------------------- */
+
+export const getGlossary = (connectionId: number) =>
+  api.get<GlossaryData>(`/connections/${connectionId}/glossary`);
+
+export const upsertDescription = (connectionId: number, body: DescriptionUpsert) =>
+  api.put<GlossaryDescription>(`/connections/${connectionId}/glossary/descriptions`, body);
+
+export const deleteDescription = (connectionId: number, descriptionId: number) =>
+  api.del<void>(`/connections/${connectionId}/glossary/descriptions/${descriptionId}`);
+
+export const createMetric = (connectionId: number, body: MetricCreate) =>
+  api.post<Metric>(`/connections/${connectionId}/glossary/metrics`, body);
+
+export const updateMetric = (connectionId: number, metricId: number, body: MetricUpdate) =>
+  api.patch<Metric>(`/connections/${connectionId}/glossary/metrics/${metricId}`, body);
+
+export const deleteMetric = (connectionId: number, metricId: number) =>
+  api.del<void>(`/connections/${connectionId}/glossary/metrics/${metricId}`);
 
 /* -------------------------------- System --------------------------------- */
 

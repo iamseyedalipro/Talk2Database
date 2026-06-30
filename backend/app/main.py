@@ -16,6 +16,7 @@ from app.routers import (
     auth,
     connections,
     execute,
+    glossary,
     history,
     results,
     saved_queries,
@@ -36,6 +37,7 @@ def _build_api_router() -> APIRouter:
     api.include_router(auth.router)
     api.include_router(users.router)
     api.include_router(connections.router)
+    api.include_router(glossary.router)
     api.include_router(ask.router)
     api.include_router(execute.router)
     api.include_router(history.router)

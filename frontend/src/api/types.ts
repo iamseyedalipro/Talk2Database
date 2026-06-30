@@ -246,6 +246,42 @@ export interface ExplainResult {
   rows: number | null;
 }
 
+/* --------------------------- Semantic glossary --------------------------- */
+
+export interface GlossaryDescription {
+  id: number;
+  table_name: string;
+  /** Empty string means the description applies to the table itself. */
+  column_name: string;
+  description: string;
+}
+
+export interface DescriptionUpsert {
+  table_name: string;
+  column_name?: string;
+  description: string;
+}
+
+export interface Metric {
+  id: number;
+  name: string;
+  definition: string;
+  expression: string | null;
+}
+
+export interface MetricCreate {
+  name: string;
+  definition: string;
+  expression?: string | null;
+}
+
+export type MetricUpdate = Partial<MetricCreate>;
+
+export interface GlossaryData {
+  descriptions: GlossaryDescription[];
+  metrics: Metric[];
+}
+
 /* -------------------------------- System --------------------------------- */
 
 export interface SystemStatus {

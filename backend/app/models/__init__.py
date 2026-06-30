@@ -6,6 +6,7 @@ autogeneration and ``create_all`` can see them.
 
 from app.db.base import Base
 from app.models.connection import Connection, DataSourceType
+from app.models.glossary import GlossaryDescription, Metric
 from app.models.invite import Invite
 from app.models.query_history import QueryHistory, QueryStatus
 from app.models.saved_query import SavedQuery
@@ -16,7 +17,9 @@ __all__ = [
     "Base",
     "Connection",
     "DataSourceType",
+    "GlossaryDescription",
     "Invite",
+    "Metric",
     "QueryHistory",
     "QueryStatus",
     "SavedQuery",
