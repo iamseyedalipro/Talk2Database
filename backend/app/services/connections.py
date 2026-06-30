@@ -15,15 +15,11 @@ from app.models.user import User
 from app.services.crypto import decrypt_secret
 
 
-async def get_owned_connection(
-    session: AsyncSession, connection_id: int, user: User
-) -> Connection:
+async def get_owned_connection(session: AsyncSession, connection_id: int, user: User) -> Connection:
     """Return the connection if it exists and belongs to ``user`` (else 404)."""
     conn = await session.get(Connection, connection_id)
     if conn is None or conn.owner_id != user.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Connection not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connection not found")
     return conn
 
 

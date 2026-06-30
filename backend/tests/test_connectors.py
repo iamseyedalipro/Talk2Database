@@ -17,9 +17,7 @@ from app.services.sql_guard import SqlGuardError
 
 
 def _cfg(type_: str) -> ConnectionConfig:
-    return ConnectionConfig(
-        type=type_, host="h", port=1, database="d", username="u", password="p"
-    )
+    return ConnectionConfig(type=type_, host="h", port=1, database="d", username="u", password="p")
 
 
 def test_factory_selects_postgres() -> None:

@@ -20,9 +20,7 @@ from app.models.schema_snapshot import SchemaSnapshot
 from app.services.schema.serialize import fingerprint, serialize_schema
 
 
-async def get_current_snapshot(
-    session: AsyncSession, connection_id: int
-) -> SchemaSnapshot | None:
+async def get_current_snapshot(session: AsyncSession, connection_id: int) -> SchemaSnapshot | None:
     """Return the latest snapshot for a connection, or ``None`` if none exists."""
     result = await session.execute(
         select(SchemaSnapshot)

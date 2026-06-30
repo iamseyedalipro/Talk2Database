@@ -24,7 +24,7 @@ def _fernet() -> Fernet:
     if not key:
         raise SecretCryptoError(
             "CONNECTIONS_SECRET_KEY is not set. Generate one with "
-            "`python -c \"from cryptography.fernet import Fernet; "
+            '`python -c "from cryptography.fernet import Fernet; '
             'print(Fernet.generate_key().decode())"` and add it to .env.'
         )
     try:

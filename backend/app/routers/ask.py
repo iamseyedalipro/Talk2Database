@@ -39,7 +39,8 @@ async def ask(payload: AskRequest, user: CurrentUser, session: SessionDep) -> As
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                f"No tables found in database '{connection.database}' on {connection.host}:{connection.port}. "
+                f"No tables found in database '{connection.database}' "
+                f"on {connection.host}:{connection.port}. "
                 "Check that the database name is correct and that it contains tables. "
                 "If your tables are in a specific schema, set it in the connection's Schemas field."
             ),

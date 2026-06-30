@@ -24,9 +24,7 @@ class AnthropicProvider:
         self.model = model
         self._client = anthropic.Anthropic(api_key=api_key)
 
-    def generate_sql(
-        self, *, question: str, system_prompt: str, schema_block: str
-    ) -> GeneratedSQL:
+    def generate_sql(self, *, question: str, system_prompt: str, schema_block: str) -> GeneratedSQL:
         tool = {
             "name": _TOOL_NAME,
             "description": "Return the single read-only SQL SELECT that answers the question.",

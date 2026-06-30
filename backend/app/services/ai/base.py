@@ -48,9 +48,7 @@ class LLMProvider(Protocol):
     name: str
     model: str
 
-    def generate_sql(
-        self, *, question: str, system_prompt: str, schema_block: str
-    ) -> GeneratedSQL:
+    def generate_sql(self, *, question: str, system_prompt: str, schema_block: str) -> GeneratedSQL:
         """Return SQL answering ``question`` grounded in ``schema_block``.
 
         Implementations MUST place ``schema_block`` as a stable leading prefix so

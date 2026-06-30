@@ -71,9 +71,7 @@ async def create_connection(
 
 
 @router.get("/{connection_id}", response_model=ConnectionOut)
-async def get_connection(
-    connection_id: int, user: CurrentUser, session: SessionDep
-) -> Connection:
+async def get_connection(connection_id: int, user: CurrentUser, session: SessionDep) -> Connection:
     return await get_owned_connection(session, connection_id, user)
 
 
@@ -97,9 +95,7 @@ async def update_connection(
 
 
 @router.delete("/{connection_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_connection(
-    connection_id: int, user: CurrentUser, session: SessionDep
-) -> Response:
+async def delete_connection(connection_id: int, user: CurrentUser, session: SessionDep) -> Response:
     connection = await get_owned_connection(session, connection_id, user)
     await session.delete(connection)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
