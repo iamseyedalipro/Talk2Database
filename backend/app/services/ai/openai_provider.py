@@ -24,9 +24,7 @@ class OpenAIProvider:
         self.model = model
         self._client = openai.OpenAI(api_key=api_key)
 
-    def generate_sql(
-        self, *, question: str, system_prompt: str, schema_block: str
-    ) -> GeneratedSQL:
+    def generate_sql(self, *, question: str, system_prompt: str, schema_block: str) -> GeneratedSQL:
         try:
             response = self._client.chat.completions.create(
                 model=self.model,

@@ -108,7 +108,8 @@ JOIN pg_catalog.pg_namespace n  ON n.oid = c.relnamespace
 JOIN pg_catalog.pg_class fc     ON fc.oid = con.confrelid
 JOIN pg_catalog.pg_namespace fn ON fn.oid = fc.relnamespace
 JOIN LATERAL unnest(con.conkey)  WITH ORDINALITY AS col(attnum, position)  ON TRUE
-JOIN LATERAL unnest(con.confkey) WITH ORDINALITY AS fcol(attnum, position) ON fcol.position = col.position
+JOIN LATERAL unnest(con.confkey) WITH ORDINALITY AS fcol(attnum, position)
+    ON fcol.position = col.position
 JOIN pg_catalog.pg_attribute a  ON a.attrelid = c.oid  AND a.attnum = col.attnum
 JOIN pg_catalog.pg_attribute fa ON fa.attrelid = fc.oid AND fa.attnum = fcol.attnum
 WHERE n.nspname::text = ANY(%(schemas)s)
@@ -117,9 +118,7 @@ ORDER BY n.nspname, c.relname, con.conname, col.position;
 """
 
 
-def introspect_postgres(
-    cur: Cursor, schemas: list[str] | None, allowlist: set[str]
-) -> SchemaData:
+def introspect_postgres(cur: Cursor, schemas: list[str] | None, allowlist: set[str]) -> SchemaData:
     """Read the structural schema of a PostgreSQL database via ``cur``.
 
     Returns a deterministic, sorted structure (tables and columns ordered) so

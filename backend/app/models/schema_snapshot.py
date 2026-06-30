@@ -17,9 +17,7 @@ from app.db.base import Base, TimestampMixin
 
 class SchemaSnapshot(Base, TimestampMixin):
     __tablename__ = "schema_snapshots"
-    __table_args__ = (
-        Index("ix_schema_snapshots_connection_version", "connection_id", "version"),
-    )
+    __table_args__ = (Index("ix_schema_snapshots_connection_version", "connection_id", "version"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     connection_id: Mapped[int] = mapped_column(
