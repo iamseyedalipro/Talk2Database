@@ -1,7 +1,7 @@
 [project]
 name = "talk2database"
 version = "0.1.0"
-description = "Self-hosted panel that turns natural-language questions into read-only SQL over a local Postgres copy of your data."
+description = "Self-hosted panel that turns natural-language questions into read-only SQL over your own databases (PostgreSQL, MySQL, MariaDB, ...)."
 requires-python = ">=3.12"
 license = { text = "MIT" }
 
@@ -12,6 +12,8 @@ dependencies = [
     "asyncpg>=0.29,<0.31",
     "alembic>=1.13,<1.15",
     "psycopg[binary]>=3.2,<3.3",
+    "pymysql>=1.1,<1.2",
+    "cryptography>=42.0,<45",
     "pydantic[email]>=2.7,<3",
     "pydantic-settings>=2.3,<3",
     "sqlglot>=25.0,<26",

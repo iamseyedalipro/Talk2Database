@@ -1,18 +1,23 @@
-import { useState } from 'react';
-import { ask, execute, executeCsv } from '../api/endpoints';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ask, execute, executeCsv, listConnections } from '../api/endpoints';
 import { triggerBlobDownload } from '../api/client';
-import type { AskResponse, ExecuteResponse } from '../api/types';
+import type { AskResponse, Connection, ExecuteResponse } from '../api/types';
 import ResultsView from '../components/ResultsView';
 import SqlPreviewModal from '../components/SqlPreviewModal';
 import { ErrorBanner } from '../components/ui';
 import { errorMessage } from '../utils/format';
 
 /**
- * Default authed route. The user types a question, we ask the backend for SQL,
- * preview it, then execute the accepted SQL and show results with CSV export
- * and chart toggle.
+ * Default authed route. The user picks a connection, types a question, we ask
+ * the backend for SQL, preview it, then execute the accepted SQL against that
+ * connection and show results with CSV export and chart toggle.
  */
 export default function AskPage() {
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [connectionId, setConnectionId] = useState<number | null>(null);
+  const [connError, setConnError] = useState<string | null>(null);
+
   const [question, setQuestion] = useState('');
   const [asking, setAsking] = useState(false);
   const [askError, setAskError] = useState<string | null>(null);
@@ -28,14 +33,24 @@ export default function AskPage() {
 
   const [csvBusy, setCsvBusy] = useState(false);
 
+  useEffect(() => {
+    listConnections()
+      .then((list) => {
+        setConnections(list);
+        const first = list[0];
+        if (first) setConnectionId((prev) => prev ?? first.id);
+      })
+      .catch((err) => setConnError(errorMessage(err)));
+  }, []);
+
   const handleAsk = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!question.trim()) return;
+    if (!question.trim() || connectionId === null) return;
     setAskError(null);
     setRunError(null);
     setAsking(true);
     try {
-      const res = await ask({ question: question.trim() });
+      const res = await ask({ connection_id: connectionId, question: question.trim() });
       setPreview(res);
     } catch (err) {
       setAskError(errorMessage(err));
@@ -45,11 +60,15 @@ export default function AskPage() {
   };
 
   const handleAccept = async (sql: string) => {
-    if (!preview) return;
+    if (!preview || connectionId === null) return;
     setRunError(null);
     setExecuting(true);
     try {
-      const res = await execute({ sql, history_id: preview.history_id });
+      const res = await execute({
+        connection_id: connectionId,
+        sql,
+        history_id: preview.history_id,
+      });
       setResult(res);
       setActiveSql(sql);
       setActiveHistoryId(preview.history_id);
@@ -62,11 +81,12 @@ export default function AskPage() {
   };
 
   const handleDownloadCsv = async () => {
-    if (!activeSql) return;
+    if (!activeSql || connectionId === null) return;
     setRunError(null);
     setCsvBusy(true);
     try {
       const { blob, filename } = await executeCsv({
+        connection_id: connectionId,
         sql: activeSql,
         history_id: activeHistoryId ?? undefined,
       });
@@ -78,6 +98,8 @@ export default function AskPage() {
     }
   };
 
+  const noConnections = connections.length === 0;
+
   return (
     <div className="page">
       <section className="card">
@@ -87,25 +109,48 @@ export default function AskPage() {
           review before it runs.
         </p>
 
-        <form className="ask-form" onSubmit={handleAsk}>
-          <textarea
-            className="ask-input"
-            placeholder="e.g. How many orders were placed in the last 30 days, by day?"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            rows={4}
-            aria-label="Your question"
-          />
-          <div className="ask-form__actions">
-            <button
-              type="submit"
-              className="btn btn--primary"
-              disabled={asking || !question.trim()}
-            >
-              {asking ? 'Generating SQL…' : 'Generate SQL'}
-            </button>
-          </div>
-        </form>
+        <ErrorBanner message={connError} />
+
+        {noConnections ? (
+          <p className="muted">
+            You have no connections yet. <Link to="/connections">Add a connection</Link> to start
+            asking questions.
+          </p>
+        ) : (
+          <form className="ask-form" onSubmit={handleAsk}>
+            <label className="ask-form__field">
+              Data source
+              <select
+                value={connectionId ?? ''}
+                onChange={(e) => setConnectionId(Number(e.target.value))}
+                aria-label="Data source"
+              >
+                {connections.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.type})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <textarea
+              className="ask-input"
+              placeholder="e.g. How many orders were placed in the last 30 days, by day?"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              rows={4}
+              aria-label="Your question"
+            />
+            <div className="ask-form__actions">
+              <button
+                type="submit"
+                className="btn btn--primary"
+                disabled={asking || !question.trim() || connectionId === null}
+              >
+                {asking ? 'Generating SQL…' : 'Generate SQL'}
+              </button>
+            </div>
+          </form>
+        )}
 
         <ErrorBanner message={askError} />
       </section>

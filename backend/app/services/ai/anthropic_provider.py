@@ -10,7 +10,7 @@ from __future__ import annotations
 import anthropic
 
 from app.services.ai.base import SQL_OUTPUT_SCHEMA, AIProviderError, GeneratedSQL
-from app.services.ai.prompts import SYSTEM_PROMPT, build_question_block, build_schema_block
+from app.services.ai.prompts import build_question_block
 
 _TOOL_NAME = "emit_sql"
 
@@ -24,7 +24,9 @@ class AnthropicProvider:
         self.model = model
         self._client = anthropic.Anthropic(api_key=api_key)
 
-    def generate_sql(self, *, question: str, schema_text: str) -> GeneratedSQL:
+    def generate_sql(
+        self, *, question: str, system_prompt: str, schema_block: str
+    ) -> GeneratedSQL:
         tool = {
             "name": _TOOL_NAME,
             "description": "Return the single read-only SQL SELECT that answers the question.",
@@ -35,10 +37,10 @@ class AnthropicProvider:
                 model=self.model,
                 max_tokens=1500,
                 system=[
-                    {"type": "text", "text": SYSTEM_PROMPT},
+                    {"type": "text", "text": system_prompt},
                     {
                         "type": "text",
-                        "text": build_schema_block(schema_text),
+                        "text": schema_block,
                         "cache_control": {"type": "ephemeral"},
                     },
                 ],

@@ -4,18 +4,18 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-import psycopg
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select
 from starlette.concurrency import run_in_threadpool
 
 from app.config import get_settings
+from app.connectors import ConnectorQueryError
 from app.deps import CurrentUser, SessionDep
 from app.models.query_history import QueryHistory, QueryStatus
 from app.schemas.execute import ExecuteResponse, ResultColumn
 from app.schemas.history import HistoryItem, RerunRequest
-from app.services.query_runner import run_select
-from app.services.sql_guard import SqlGuardError, validate_select
+from app.services.connections import load_connector
+from app.services.sql_guard import SqlGuardError
 
 router = APIRouter(prefix="/history", tags=["history"])
 
@@ -54,9 +54,15 @@ async def rerun_history(
     history_id: int, payload: RerunRequest, user: CurrentUser, session: SessionDep
 ) -> ExecuteResponse:
     original = await _owned_history(session, user.id, history_id)
+    if original.connection_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The connection for this history item no longer exists.",
+        )
+    _, connector = await load_connector(session, original.connection_id, user)
 
     try:
-        safe_sql = validate_select(payload.sql or original.generated_sql)
+        safe_sql = connector.validate(payload.sql or original.generated_sql)
     except SqlGuardError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -72,6 +78,7 @@ async def rerun_history(
 
     entry = QueryHistory(
         user_id=user.id,
+        connection_id=original.connection_id,
         question=original.question,
         generated_sql=safe_sql,
         provider=original.provider,
@@ -83,8 +90,8 @@ async def rerun_history(
     await session.flush()
 
     try:
-        result = await run_in_threadpool(run_select, safe_sql, max_rows)
-    except psycopg.Error as exc:
+        result = await run_in_threadpool(connector.run, safe_sql, max_rows)
+    except ConnectorQueryError as exc:
         entry.last_status = QueryStatus.ERROR
         entry.error_message = str(exc)
         entry.executed_at = datetime.now(tz=UTC)

@@ -27,6 +27,9 @@ export default function Layout() {
             <NavLink to="/" end className={linkClass}>
               Ask
             </NavLink>
+            <NavLink to="/connections" className={linkClass}>
+              Connections
+            </NavLink>
             <NavLink to="/history" className={linkClass}>
               History
             </NavLink>

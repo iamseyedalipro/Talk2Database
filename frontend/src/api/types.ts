@@ -55,9 +55,44 @@ export interface InviteResponse {
   accept_url: string;
 }
 
+/* ----------------------------- Connections ------------------------------- */
+
+export type DataSourceType = 'postgres' | 'mysql' | 'mariadb';
+
+export interface Connection {
+  id: number;
+  name: string;
+  type: DataSourceType;
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  options: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ConnectionCreate {
+  name: string;
+  type: DataSourceType;
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  password: string;
+  options?: Record<string, unknown>;
+}
+
+export type ConnectionUpdate = Partial<ConnectionCreate>;
+
+export interface ConnectionTestResult {
+  ok: boolean;
+  message: string | null;
+}
+
 /* ----------------------------- Ask / generate ---------------------------- */
 
 export interface AskPayload {
+  connection_id: number;
   question: string;
 }
 
@@ -79,6 +114,7 @@ export interface ResultColumn {
 }
 
 export interface ExecutePayload {
+  connection_id: number;
   sql: string;
   history_id?: number;
   max_rows?: number;
@@ -99,6 +135,7 @@ export type QueryStatus = 'preview' | 'success' | 'error';
 
 export interface HistoryItem {
   id: number;
+  connection_id: number | null;
   question: string;
   generated_sql: string;
   provider: string | null;
@@ -116,37 +153,11 @@ export interface RerunPayload {
   max_rows?: number;
 }
 
-/* ------------------------------- Imports --------------------------------- */
-
-export type ImportKind = 'manual' | 'scheduled';
-export type ImportStatus = 'running' | 'success' | 'failed';
-
-export interface ImportRun {
-  id: number;
-  kind: ImportKind;
-  status: ImportStatus;
-  filename: string | null;
-  bytes: number | null;
-  message: string | null;
-  started_at: string;
-  finished_at: string | null;
-}
-
-export interface UploadAccepted {
-  import_run_id: number;
-  status: ImportStatus;
-}
-
 /* -------------------------------- System --------------------------------- */
 
-export type ImportMode = 'manual' | 'scheduled';
-
 export interface SystemStatus {
-  import_mode: ImportMode;
   provider: string;
   model: string;
-  userdata_connected: boolean;
-  schema_table_count: number;
-  schema_version: number | null;
-  last_import: ImportRun | null;
+  connection_count: number;
+  supported_types: string[];
 }

@@ -13,10 +13,11 @@ from app.models.query_history import QueryHistory, QueryStatus
 from app.schemas.ask import AskRequest, AskResponse
 from app.services.ai.base import AIProviderError
 from app.services.ai.factory import get_ai_provider
+from app.services.connections import load_connector
 from app.services.schema.cache import ensure_snapshot
 from app.services.schema.introspect import SchemaData
 from app.services.schema.select import select_schema
-from app.services.sql_guard import SqlGuardError, validate_select
+from app.services.sql_guard import SqlGuardError
 
 router = APIRouter(prefix="/ask", tags=["ask"])
 
@@ -24,12 +25,20 @@ router = APIRouter(prefix="/ask", tags=["ask"])
 @router.post("", response_model=AskResponse)
 async def ask(payload: AskRequest, user: CurrentUser, session: SessionDep) -> AskResponse:
     settings = get_settings()
-    snapshot = await ensure_snapshot(session)
+    connection, connector = await load_connector(session, payload.connection_id, user)
+
+    try:
+        snapshot = await ensure_snapshot(session, connection.id, connector)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Could not read the schema of '{connection.name}': {exc}",
+        ) from exc
 
     if snapshot.table_count == 0:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="No data has been imported yet. Import a database before asking questions.",
+            detail="No tables were found on this data source for the configured schema.",
         )
 
     schema_data = cast(SchemaData, snapshot.content_json)
@@ -38,13 +47,16 @@ async def ask(payload: AskRequest, user: CurrentUser, session: SessionDep) -> As
     provider = get_ai_provider()
     try:
         generated = await run_in_threadpool(
-            provider.generate_sql, question=payload.question, schema_text=selected.text
+            provider.generate_sql,
+            question=payload.question,
+            system_prompt=connector.system_prompt(),
+            schema_block=connector.schema_block(selected.text),
         )
     except AIProviderError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
     try:
-        safe_sql = validate_select(generated.sql)
+        safe_sql = connector.validate(generated.sql)
     except SqlGuardError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -53,6 +65,7 @@ async def ask(payload: AskRequest, user: CurrentUser, session: SessionDep) -> As
 
     history = QueryHistory(
         user_id=user.id,
+        connection_id=connection.id,
         question=payload.question,
         generated_sql=safe_sql,
         provider=provider.name,
@@ -66,6 +79,7 @@ async def ask(payload: AskRequest, user: CurrentUser, session: SessionDep) -> As
         history_id=history.id,
         generated_sql=safe_sql,
         explanation=generated.explanation,
+        dialect=connector.dialect,
         provider=provider.name,
         model=provider.model,
         warnings=selected.warnings,

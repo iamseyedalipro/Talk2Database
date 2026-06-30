@@ -4,18 +4,17 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-import psycopg
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
 from app.config import get_settings
+from app.connectors import Connector, ConnectorQueryError
 from app.deps import CurrentUser, SessionDep
 from app.models.query_history import QueryHistory, QueryStatus
 from app.schemas.execute import ExecuteRequest, ExecuteResponse, ResultColumn
-from app.services.csv_export import stream_csv
-from app.services.query_runner import run_select
-from app.services.sql_guard import SqlGuardError, validate_select
+from app.services.connections import load_connector
+from app.services.sql_guard import SqlGuardError
 
 router = APIRouter(prefix="/execute", tags=["execute"])
 
@@ -25,9 +24,9 @@ def _effective_max_rows(requested: int | None) -> int:
     return min(requested, cap) if requested else cap
 
 
-def _validate(sql: str) -> str:
+def _validate(connector: Connector, sql: str) -> str:
     try:
-        return validate_select(sql)
+        return connector.validate(sql)
     except SqlGuardError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -59,12 +58,13 @@ async def _record_history(
 async def execute(
     payload: ExecuteRequest, user: CurrentUser, session: SessionDep
 ) -> ExecuteResponse:
-    safe_sql = _validate(payload.sql)
+    _, connector = await load_connector(session, payload.connection_id, user)
+    safe_sql = _validate(connector, payload.sql)
     max_rows = _effective_max_rows(payload.max_rows)
 
     try:
-        result = await run_in_threadpool(run_select, safe_sql, max_rows)
-    except psycopg.Error as exc:
+        result = await run_in_threadpool(connector.run, safe_sql, max_rows)
+    except ConnectorQueryError as exc:
         await _record_history(
             session, user.id, payload.history_id, status_value=QueryStatus.ERROR, error=str(exc)
         )
@@ -90,11 +90,14 @@ async def execute(
 
 
 @router.post("/csv")
-async def execute_csv(payload: ExecuteRequest, _: CurrentUser) -> StreamingResponse:
-    safe_sql = _validate(payload.sql)
+async def execute_csv(
+    payload: ExecuteRequest, user: CurrentUser, session: SessionDep
+) -> StreamingResponse:
+    _, connector = await load_connector(session, payload.connection_id, user)
+    safe_sql = _validate(connector, payload.sql)
     max_rows = _effective_max_rows(payload.max_rows)
     return StreamingResponse(
-        stream_csv(safe_sql, max_rows),
+        connector.stream_csv(safe_sql, max_rows),
         media_type="text/csv",
         headers={"Content-Disposition": 'attachment; filename="talk2database_result.csv"'},
     )

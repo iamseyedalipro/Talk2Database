@@ -49,32 +49,57 @@ _FORBIDDEN = _classes(
 )
 
 # Functions that can read the filesystem, sleep, or reach other systems.
-_DANGEROUS_FUNCTIONS = frozenset(
-    {
-        "pg_read_file",
-        "pg_read_binary_file",
-        "pg_ls_dir",
-        "pg_stat_file",
-        "pg_sleep",
-        "pg_sleep_for",
-        "pg_sleep_until",
-        "lo_import",
-        "lo_export",
-        "lo_get",
-        "lo_put",
-        "dblink",
-        "dblink_exec",
-        "dblink_connect",
-        "copy",
-    }
-)
+# The set is dialect-aware: each entry holds the names that are dangerous for
+# that dialect. The shared ``_COMMON`` names are blocked everywhere.
+_COMMON_DANGEROUS = frozenset({"copy", "sleep", "load_file"})
+
+_DANGEROUS_BY_DIALECT: dict[str, frozenset[str]] = {
+    "postgres": frozenset(
+        {
+            "pg_read_file",
+            "pg_read_binary_file",
+            "pg_ls_dir",
+            "pg_stat_file",
+            "pg_sleep",
+            "pg_sleep_for",
+            "pg_sleep_until",
+            "lo_import",
+            "lo_export",
+            "lo_get",
+            "lo_put",
+            "dblink",
+            "dblink_exec",
+            "dblink_connect",
+        }
+    ),
+    # MySQL / MariaDB share a dialect/grammar in sqlglot ("mysql").
+    "mysql": frozenset(
+        {
+            "load_file",
+            "sleep",
+            "benchmark",
+            "get_lock",
+            "release_lock",
+        }
+    ),
+}
 
 
-def validate_select(sql: str) -> str:
+def _dangerous_functions(dialect: str) -> frozenset[str]:
+    return _COMMON_DANGEROUS | _DANGEROUS_BY_DIALECT.get(dialect, frozenset())
+
+
+def validate_select(sql: str, dialect: str = "postgres") -> str:
     """Validate ``sql`` and return a normalized, safe-to-execute statement.
 
-    Returns the statement re-serialized from the parsed AST, so the text that is
-    executed is exactly the text that was validated.
+    Returns the statement re-serialized from the parsed AST (in ``dialect``), so
+    the text that is executed is exactly the text that was validated.
+
+    Args:
+        sql: The candidate statement.
+        dialect: The sqlglot dialect to parse/serialize with (e.g. ``postgres``,
+            ``mysql``). Non-SQL sources (e.g. Prometheus/PromQL) do their own
+            validation and must not call this function.
 
     Raises:
         SqlGuardError: if the input is not a single read-only ``SELECT``.
@@ -84,7 +109,7 @@ def validate_select(sql: str) -> str:
         raise SqlGuardError("empty statement")
 
     try:
-        statements = [s for s in sqlglot.parse(stripped, read="postgres") if s is not None]
+        statements = [s for s in sqlglot.parse(stripped, read=dialect) if s is not None]
     except Exception as exc:
         raise SqlGuardError(f"could not parse SQL: {exc}") from exc
 
@@ -105,12 +130,13 @@ def validate_select(sql: str) -> str:
         if node is not None:
             raise SqlGuardError(f"statement contains a forbidden operation: {type(node).__name__}")
 
+    dangerous = _dangerous_functions(dialect)
     for func in statement.find_all(exp.Func):
         name = (func.sql_name() or "").lower()  # type: ignore[no-untyped-call]
-        if name in _DANGEROUS_FUNCTIONS:
+        if name in dangerous:
             raise SqlGuardError(f"function not allowed: {name}")
     for anon in statement.find_all(exp.Anonymous):
-        if (anon.name or "").lower() in _DANGEROUS_FUNCTIONS:
+        if (anon.name or "").lower() in dangerous:
             raise SqlGuardError(f"function not allowed: {anon.name}")
 
-    return statement.sql(dialect="postgres")
+    return statement.sql(dialect=dialect)

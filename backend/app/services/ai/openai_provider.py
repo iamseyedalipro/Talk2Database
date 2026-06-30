@@ -12,7 +12,7 @@ import json
 import openai
 
 from app.services.ai.base import SQL_OUTPUT_SCHEMA, AIProviderError, GeneratedSQL
-from app.services.ai.prompts import SYSTEM_PROMPT, build_question_block, build_schema_block
+from app.services.ai.prompts import build_question_block
 
 
 class OpenAIProvider:
@@ -24,7 +24,9 @@ class OpenAIProvider:
         self.model = model
         self._client = openai.OpenAI(api_key=api_key)
 
-    def generate_sql(self, *, question: str, schema_text: str) -> GeneratedSQL:
+    def generate_sql(
+        self, *, question: str, system_prompt: str, schema_block: str
+    ) -> GeneratedSQL:
         try:
             response = self._client.chat.completions.create(
                 model=self.model,
@@ -32,7 +34,7 @@ class OpenAIProvider:
                 messages=[
                     {
                         "role": "system",
-                        "content": f"{SYSTEM_PROMPT}\n\n{build_schema_block(schema_text)}",
+                        "content": f"{system_prompt}\n\n{schema_block}",
                     },
                     {"role": "user", "content": build_question_block(question)},
                 ],

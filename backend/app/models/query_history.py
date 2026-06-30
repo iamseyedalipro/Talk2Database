@@ -23,6 +23,9 @@ class QueryHistory(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    connection_id: Mapped[int | None] = mapped_column(
+        ForeignKey("connections.id", ondelete="SET NULL"), nullable=True
+    )
     question: Mapped[str] = mapped_column(Text, nullable=False)
     generated_sql: Mapped[str] = mapped_column(Text, nullable=False)
     provider: Mapped[str | None] = mapped_column(String(32), nullable=True)

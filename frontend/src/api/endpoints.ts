@@ -9,10 +9,13 @@ import type {
   AskResponse,
   BootstrapAvailable,
   BootstrapPayload,
+  Connection,
+  ConnectionCreate,
+  ConnectionTestResult,
+  ConnectionUpdate,
   ExecutePayload,
   ExecuteResponse,
   HistoryItem,
-  ImportRun,
   InvitePayload,
   InviteResponse,
   LoginPayload,
@@ -20,7 +23,6 @@ import type {
   RerunPayload,
   SystemStatus,
   TokenResponse,
-  UploadAccepted,
   User,
 } from './types';
 
@@ -68,17 +70,20 @@ export const getHistory = (id: number) => api.get<HistoryItem>(`/history/${id}`)
 export const rerunHistory = (id: number, body: RerunPayload) =>
   api.post<ExecuteResponse>(`/history/${id}/rerun`, body);
 
-/* -------------------------------- Imports -------------------------------- */
+/* ------------------------------ Connections ------------------------------ */
 
-export const listImports = () => api.get<ImportRun[]>('/imports');
+export const listConnections = () => api.get<Connection[]>('/connections');
 
-export const getImport = (id: number) => api.get<ImportRun>(`/imports/${id}`);
+export const createConnection = (body: ConnectionCreate) =>
+  api.post<Connection>('/connections', body);
 
-export const uploadImport = (file: File) => {
-  const form = new FormData();
-  form.append('file', file);
-  return api.postForm<UploadAccepted>('/imports/upload', form);
-};
+export const updateConnection = (id: number, body: ConnectionUpdate) =>
+  api.patch<Connection>(`/connections/${id}`, body);
+
+export const deleteConnection = (id: number) => api.del<void>(`/connections/${id}`);
+
+export const testConnection = (id: number) =>
+  api.post<ConnectionTestResult>(`/connections/${id}/test`);
 
 /* -------------------------------- System --------------------------------- */
 
