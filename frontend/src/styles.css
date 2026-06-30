@@ -5,13 +5,13 @@
   --border: #e2e8f0;
   --text: #0f172a;
   --muted: #64748b;
-  --primary: #2563eb;
-  --primary-dark: #1d4ed8;
+  --primary: #7c3aed;
+  --primary-dark: #6d28d9;
   --danger: #dc2626;
   --ok: #16a34a;
   --warn: #b45309;
   --radius: 10px;
-  --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 16px rgba(15, 23, 42, 0.06);
+  --shadow: 0 1px 2px rgba(124, 58, 237, 0.06), 0 6px 20px rgba(124, 58, 237, 0.08);
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
@@ -19,21 +19,21 @@
   --tone-ok-fg: #166534;
   --tone-bad-bg: #fee2e2;
   --tone-bad-fg: #991b1b;
-  --tone-busy-bg: #e0e7ff;
-  --tone-busy-fg: #3730a3;
+  --tone-busy-bg: #ede9fe;
+  --tone-busy-fg: #6d28d9;
   --tone-neutral-bg: #e2e8f0;
   --tone-neutral-fg: #475569;
   --tone-pk-bg: #fef3c7;
   --tone-pk-fg: #92400e;
-  --tone-fk-bg: #e0e7ff;
-  --tone-fk-fg: #3730a3;
+  --tone-fk-bg: #ede9fe;
+  --tone-fk-fg: #6d28d9;
   --banner-error-bg: #fef2f2;
   --banner-error-border: #fecaca;
   --banner-error-fg: #991b1b;
   --banner-info-bg: #eff6ff;
   --banner-info-border: #bfdbfe;
   --banner-info-fg: #1e3a8a;
-  --nav-active-bg: #eef2ff;
+  --nav-active-bg: #f3e8ff;
   --danger-btn-border: #fecaca;
   --danger-btn-hover-bg: #fef2f2;
 }
@@ -45,8 +45,8 @@
   --border: #334155;
   --text: #e2e8f0;
   --muted: #94a3b8;
-  --primary: #3b82f6;
-  --primary-dark: #60a5fa;
+  --primary: #8b5cf6;
+  --primary-dark: #a78bfa;
   --danger: #f87171;
   --ok: #4ade80;
   --warn: #fbbf24;
@@ -56,21 +56,21 @@
   --tone-ok-fg: #86efac;
   --tone-bad-bg: #7f1d1d;
   --tone-bad-fg: #fca5a5;
-  --tone-busy-bg: #312e81;
-  --tone-busy-fg: #a5b4fc;
+  --tone-busy-bg: #4c1d95;
+  --tone-busy-fg: #c4b5fd;
   --tone-neutral-bg: #334155;
   --tone-neutral-fg: #cbd5e1;
   --tone-pk-bg: #78350f;
   --tone-pk-fg: #fcd34d;
-  --tone-fk-bg: #312e81;
-  --tone-fk-fg: #a5b4fc;
+  --tone-fk-bg: #4c1d95;
+  --tone-fk-fg: #c4b5fd;
   --banner-error-bg: #450a0a;
   --banner-error-border: #7f1d1d;
   --banner-error-fg: #fca5a5;
   --banner-info-bg: #172554;
   --banner-info-border: #1e3a8a;
   --banner-info-fg: #bfdbfe;
-  --nav-active-bg: #1e2a4a;
+  --nav-active-bg: #2a1e4a;
   --danger-btn-border: #7f1d1d;
   --danger-btn-hover-bg: #2a1212;
 }
@@ -174,6 +174,9 @@ code {
   color: var(--muted);
   text-decoration: none;
   font-weight: 500;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
 }
 
 .nav-link:hover {
@@ -291,7 +294,7 @@ select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
 }
 
 textarea {
@@ -350,7 +353,8 @@ textarea {
   cursor: pointer;
   transition:
     background 0.12s ease,
-    border-color 0.12s ease;
+    border-color 0.12s ease,
+    color 0.12s ease;
 }
 
 .btn:disabled {
@@ -418,6 +422,7 @@ textarea {
   cursor: pointer;
   font: inherit;
   padding: 0;
+  transition: color 0.12s ease;
 }
 
 /* -------------------------------- Banners -------------------------------- */
@@ -842,6 +847,7 @@ textarea {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: color 0.12s ease;
 }
 
 .schema-tree__name:hover {
@@ -889,6 +895,7 @@ textarea {
   color: var(--text);
   padding: 0.1rem 0;
   text-align: left;
+  transition: color 0.12s ease;
 }
 
 .schema-tree__col-name:hover {

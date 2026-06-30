@@ -105,7 +105,7 @@ export default function ResultsChart({ result, kind }: Props) {
                 <XAxis dataKey="x" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
-                <Bar dataKey="y" name={yName} fill="#2563eb" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="y" name={yName} fill="#7c3aed" radius={[4, 4, 0, 0]} />
               </BarChart>
             ) : (
               <LineChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
@@ -117,7 +117,7 @@ export default function ResultsChart({ result, kind }: Props) {
                   type="monotone"
                   dataKey="y"
                   name={yName}
-                  stroke="#2563eb"
+                  stroke="#7c3aed"
                   strokeWidth={2}
                   dot={false}
                 />
