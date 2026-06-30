@@ -38,7 +38,11 @@ async def ask(payload: AskRequest, user: CurrentUser, session: SessionDep) -> As
     if snapshot.table_count == 0:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="No tables were found on this data source for the configured schema.",
+            detail=(
+                f"No tables found in database '{connection.database}' on {connection.host}:{connection.port}. "
+                "Check that the database name is correct and that it contains tables. "
+                "If your tables are in a specific schema, set it in the connection's Schemas field."
+            ),
         )
 
     schema_data = cast(SchemaData, snapshot.content_json)

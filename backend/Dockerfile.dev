@@ -1,0 +1,14 @@
+# Lightweight dev image — no frontend build stage.
+# Source is mounted at runtime (see docker-compose.dev.yml), so this only
+# installs the Python package once; code changes hot-reload via uvicorn.
+FROM python:3.12-slim
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+COPY backend/ ./
+RUN pip install -e . && chmod +x scripts/entrypoint.dev.sh
+
+EXPOSE 8000
+ENTRYPOINT ["scripts/entrypoint.dev.sh"]

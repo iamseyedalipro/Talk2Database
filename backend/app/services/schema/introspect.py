@@ -46,65 +46,92 @@ class Cursor(Protocol):
     def fetchall(self) -> list[Any]: ...
 
 
+# Use pg_catalog throughout instead of information_schema so that any database
+# user who can connect sees tables — information_schema filters by privilege.
+_USER_SCHEMAS_SQL = """
+SELECT nspname
+FROM pg_catalog.pg_namespace
+WHERE nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+  AND nspname NOT LIKE 'pg_%'
+ORDER BY nspname;
+"""
+
 _COLUMNS_SQL = """
 SELECT
-    c.table_schema,
-    c.table_name,
-    c.column_name,
-    c.data_type,
-    (c.is_nullable = 'YES')                         AS nullable,
-    c.ordinal_position,
-    col_description(pgc.oid, c.ordinal_position)    AS column_comment,
-    obj_description(pgc.oid)                         AS table_comment
-FROM information_schema.columns c
-JOIN pg_namespace ns ON ns.nspname = c.table_schema
-JOIN pg_class pgc ON pgc.relname = c.table_name AND pgc.relnamespace = ns.oid
-WHERE c.table_schema = ANY(%(schemas)s)
-ORDER BY c.table_schema, c.table_name, c.ordinal_position;
+    n.nspname                                                   AS table_schema,
+    c.relname                                                   AS table_name,
+    a.attname                                                   AS column_name,
+    pg_catalog.format_type(a.atttypid, a.atttypmod)            AS data_type,
+    NOT a.attnotnull                                            AS nullable,
+    a.attnum                                                    AS ordinal_position,
+    pg_catalog.col_description(c.oid, a.attnum)                AS column_comment,
+    pg_catalog.obj_description(c.oid, 'pg_class')              AS table_comment
+FROM pg_catalog.pg_attribute a
+JOIN pg_catalog.pg_class c      ON c.oid = a.attrelid
+JOIN pg_catalog.pg_namespace n  ON n.oid = c.relnamespace
+WHERE n.nspname::text = ANY(%(schemas)s)
+  AND c.relkind IN ('r', 'p', 'v', 'f', 'm')
+  AND a.attnum > 0
+  AND NOT a.attisdropped
+ORDER BY n.nspname, c.relname, a.attnum;
 """
 
 _PRIMARY_KEY_SQL = """
-SELECT tc.table_schema, tc.table_name, kcu.column_name, kcu.ordinal_position
-FROM information_schema.table_constraints tc
-JOIN information_schema.key_column_usage kcu
-  ON kcu.constraint_name = tc.constraint_name
- AND kcu.constraint_schema = tc.constraint_schema
-WHERE tc.constraint_type = 'PRIMARY KEY'
-  AND tc.table_schema = ANY(%(schemas)s)
-ORDER BY tc.table_schema, tc.table_name, kcu.ordinal_position;
+SELECT
+    n.nspname                   AS table_schema,
+    c.relname                   AS table_name,
+    a.attname                   AS column_name,
+    col.position
+FROM pg_catalog.pg_constraint con
+JOIN pg_catalog.pg_class c      ON c.oid = con.conrelid
+JOIN pg_catalog.pg_namespace n  ON n.oid = c.relnamespace
+JOIN LATERAL unnest(con.conkey) WITH ORDINALITY AS col(attnum, position) ON TRUE
+JOIN pg_catalog.pg_attribute a  ON a.attrelid = c.oid AND a.attnum = col.attnum
+WHERE n.nspname::text = ANY(%(schemas)s)
+  AND con.contype = 'p'
+ORDER BY n.nspname, c.relname, col.position;
 """
 
 _FOREIGN_KEY_SQL = """
 SELECT
-    tc.table_schema,
-    tc.table_name,
-    tc.constraint_name,
-    kcu.column_name,
-    kcu.ordinal_position,
-    ccu.table_schema AS ref_schema,
-    ccu.table_name   AS ref_table,
-    ccu.column_name  AS ref_column
-FROM information_schema.table_constraints tc
-JOIN information_schema.key_column_usage kcu
-  ON kcu.constraint_name = tc.constraint_name
- AND kcu.constraint_schema = tc.constraint_schema
-JOIN information_schema.constraint_column_usage ccu
-  ON ccu.constraint_name = tc.constraint_name
- AND ccu.constraint_schema = tc.constraint_schema
-WHERE tc.constraint_type = 'FOREIGN KEY'
-  AND tc.table_schema = ANY(%(schemas)s)
-ORDER BY tc.table_schema, tc.table_name, tc.constraint_name, kcu.ordinal_position;
+    n.nspname                   AS table_schema,
+    c.relname                   AS table_name,
+    con.conname                 AS constraint_name,
+    a.attname                   AS column_name,
+    col.position,
+    fn.nspname                  AS ref_schema,
+    fc.relname                  AS ref_table,
+    fa.attname                  AS ref_column
+FROM pg_catalog.pg_constraint con
+JOIN pg_catalog.pg_class c      ON c.oid = con.conrelid
+JOIN pg_catalog.pg_namespace n  ON n.oid = c.relnamespace
+JOIN pg_catalog.pg_class fc     ON fc.oid = con.confrelid
+JOIN pg_catalog.pg_namespace fn ON fn.oid = fc.relnamespace
+JOIN LATERAL unnest(con.conkey)  WITH ORDINALITY AS col(attnum, position)  ON TRUE
+JOIN LATERAL unnest(con.confkey) WITH ORDINALITY AS fcol(attnum, position) ON fcol.position = col.position
+JOIN pg_catalog.pg_attribute a  ON a.attrelid = c.oid  AND a.attnum = col.attnum
+JOIN pg_catalog.pg_attribute fa ON fa.attrelid = fc.oid AND fa.attnum = fcol.attnum
+WHERE n.nspname::text = ANY(%(schemas)s)
+  AND con.contype = 'f'
+ORDER BY n.nspname, c.relname, con.conname, col.position;
 """
 
 
 def introspect_postgres(
-    cur: Cursor, schemas: list[str], allowlist: set[str]
+    cur: Cursor, schemas: list[str] | None, allowlist: set[str]
 ) -> SchemaData:
     """Read the structural schema of a PostgreSQL database via ``cur``.
 
     Returns a deterministic, sorted structure (tables and columns ordered) so
     the serialized form and its fingerprint are stable across runs.
+
+    When ``schemas`` is ``None`` or empty, all non-system schemas are discovered
+    automatically so tables outside the ``public`` schema are found.
     """
+    if not schemas:
+        cur.execute(_USER_SCHEMAS_SQL)
+        schemas = [row[0] for row in cur.fetchall()] or ["public"]
+
     params: dict[str, Any] = {"schemas": schemas}
 
     cur.execute(_COLUMNS_SQL, params)

@@ -17,7 +17,7 @@ const DEFAULT_PORT: Record<DataSourceType, number> = {
   mariadb: 3306,
 };
 
-type FormState = ConnectionCreate;
+type FormState = ConnectionCreate & { schemas: string };
 
 const emptyForm = (): FormState => ({
   name: '',
@@ -27,6 +27,7 @@ const emptyForm = (): FormState => ({
   database: '',
   username: '',
   password: '',
+  schemas: '',
 });
 
 /**
@@ -67,6 +68,7 @@ export default function ConnectionsPage() {
   const startEdit = (c: Connection) => {
     setEditingId(c.id);
     setFormError(null);
+    const savedSchemas = c.options?.schemas;
     setForm({
       name: c.name,
       type: c.type,
@@ -75,7 +77,20 @@ export default function ConnectionsPage() {
       database: c.database,
       username: c.username,
       password: '', // blank = keep existing
+      schemas: Array.isArray(savedSchemas) ? savedSchemas.join(', ') : '',
     });
+  };
+
+  const buildPayload = (f: FormState): ConnectionCreate => {
+    const { schemas, ...rest } = f;
+    const schemaList = schemas
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return {
+      ...rest,
+      options: schemaList.length > 0 ? { schemas: schemaList } : {},
+    };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -85,10 +100,11 @@ export default function ConnectionsPage() {
     try {
       if (editingId !== null) {
         // Omit password when left blank so the stored secret is kept.
-        const { password, ...rest } = form;
-        await updateConnection(editingId, password ? form : rest);
+        const payload = buildPayload(form);
+        const { password, ...rest } = payload;
+        await updateConnection(editingId, form.password ? payload : rest);
       } else {
-        await createConnection(form);
+        await createConnection(buildPayload(form));
       }
       resetForm();
       await load();
@@ -278,6 +294,16 @@ export default function ConnectionsPage() {
               placeholder={editingId !== null ? 'leave blank to keep current' : ''}
             />
           </label>
+          {form.type === 'postgres' && (
+            <label>
+              Schemas
+              <input
+                value={form.schemas}
+                onChange={(e) => update('schemas', e.target.value)}
+                placeholder="auto-discover (leave blank, or: public, sales, …)"
+              />
+            </label>
+          )}
 
           <ErrorBanner message={formError} />
 

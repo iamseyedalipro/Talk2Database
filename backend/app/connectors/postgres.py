@@ -42,7 +42,11 @@ class PostgresConnector:
     def __init__(self, config: ConnectionConfig) -> None:
         self._config = config
         settings = get_settings()
-        self._schemas: list[str] = config.options.get("schemas") or settings.schema_namespaces
+        # None → auto-discover all user schemas during introspect.
+        # Explicit list (from connection options or env var) → filter to those schemas.
+        self._schemas: list[str] | None = config.options.get("schemas") or (
+            settings.schema_namespaces if settings.schema_include_schemas.strip() else None
+        )
         self._allowlist: set[str] = set(
             config.options.get("tables") or settings.schema_table_allowlist
         )
@@ -139,13 +143,10 @@ class PostgresConnector:
             raise ConnectorQueryError(str(exc)) from exc
 
     def reachable(self) -> bool:
-        try:
-            with self._connect() as conn, conn.cursor() as cur:
-                cur.execute("SELECT 1")
-                cur.fetchone()
-            return True
-        except Exception:
-            return False
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT 1")
+            cur.fetchone()
+        return True
 
     def system_prompt(self) -> str:
         return build_system_prompt(_LABEL)

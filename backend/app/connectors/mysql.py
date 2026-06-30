@@ -148,13 +148,10 @@ class MySQLConnector:
             raise ConnectorQueryError(str(exc)) from exc
 
     def reachable(self) -> bool:
-        try:
-            with self._connect() as conn, conn.cursor() as cur:
-                cur.execute("SELECT 1")
-                cur.fetchone()
-            return True
-        except Exception:
-            return False
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT 1")
+            cur.fetchone()
+        return True
 
     def system_prompt(self) -> str:
         return build_system_prompt(self._label)

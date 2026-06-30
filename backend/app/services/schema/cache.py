@@ -64,8 +64,12 @@ async def rebuild_snapshot(
 async def ensure_snapshot(
     session: AsyncSession, connection_id: int, connector: Connector
 ) -> SchemaSnapshot:
-    """Return the current snapshot for a connection, building one on first use."""
+    """Return the current snapshot for a connection, building one on first use.
+
+    If the stored snapshot is empty (0 tables), it is rebuilt automatically so
+    that a previously-failing connection recovers without a manual refresh.
+    """
     current = await get_current_snapshot(session, connection_id)
-    if current is not None:
+    if current is not None and current.table_count > 0:
         return current
     return await rebuild_snapshot(session, connection_id, connector)

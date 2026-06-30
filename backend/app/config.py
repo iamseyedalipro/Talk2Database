@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     # Default namespace/table scoping. A connection may override these in its
     # ``options`` (e.g. {"schemas": ["public", "sales"]}).
     schema_tables: str = ""  # comma-separated allowlist; empty => all tables
-    schema_include_schemas: str = "public"
+    schema_include_schemas: str = ""  # comma-separated; empty => auto-discover all user schemas
 
     # -- Auth -------------------------------------------------------------- #
     jwt_secret: str = "change-me"
