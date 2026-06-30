@@ -12,6 +12,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 import psycopg
+from psycopg import sql
 
 from app.config import get_settings
 
@@ -31,8 +32,8 @@ def readonly_connection() -> Iterator[psycopg.Connection]:
     try:
         with conn.cursor() as cur:
             cur.execute("SET default_transaction_read_only = on")
-            cur.execute("SET statement_timeout = %s", (timeout_ms,))
-            cur.execute("SET idle_in_transaction_session_timeout = %s", (timeout_ms,))
+            cur.execute(sql.SQL("SET statement_timeout = {}").format(timeout_ms))
+            cur.execute(sql.SQL("SET idle_in_transaction_session_timeout = {}").format(timeout_ms))
         conn.commit()
         yield conn
     finally:
