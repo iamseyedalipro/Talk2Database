@@ -604,6 +604,16 @@ textarea {
   font-size: 0.95rem;
 }
 
+.explain-estimate {
+  margin: 0.75rem 0 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.explain-estimate__error {
+  color: var(--danger, #dc2626);
+}
+
 .chart-toggle {
   display: inline-flex;
   border: 1px solid var(--border);

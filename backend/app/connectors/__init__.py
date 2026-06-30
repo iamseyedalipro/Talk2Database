@@ -15,6 +15,7 @@ from app.connectors.base import (
     Connector,
     ConnectorError,
     ConnectorQueryError,
+    ExplainResult,
     QueryResult,
     to_jsonable,
 )
@@ -25,6 +26,7 @@ __all__ = [
     "Connector",
     "ConnectorError",
     "ConnectorQueryError",
+    "ExplainResult",
     "QueryResult",
     "get_connector",
     "supported_types",

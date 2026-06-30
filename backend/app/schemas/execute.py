@@ -25,3 +25,13 @@ class ExecuteResponse(BaseModel):
     row_count: int
     truncated: bool
     elapsed_ms: int
+
+
+class ExplainRequest(BaseModel):
+    connection_id: int
+    sql: str = Field(min_length=1, max_length=20000)
+
+
+class ExplainResponse(BaseModel):
+    cost: float | None = None
+    rows: int | None = None

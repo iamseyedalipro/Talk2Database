@@ -16,6 +16,8 @@ import type {
   DbSchema,
   ExecutePayload,
   ExecuteResponse,
+  ExplainPayload,
+  ExplainResult,
   HistoryItem,
   InvitePayload,
   InviteResponse,
@@ -69,6 +71,9 @@ export const executeCsv = (body: ExecutePayload) =>
 
 export const summarizeResults = (body: SummarizePayload) =>
   api.post<ResultSummary>('/results/summarize', body);
+
+export const explainPlan = (body: ExplainPayload) =>
+  api.post<ExplainResult>('/execute/explain', body);
 
 /* -------------------------------- History -------------------------------- */
 

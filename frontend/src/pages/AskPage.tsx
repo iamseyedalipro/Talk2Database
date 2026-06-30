@@ -186,9 +186,10 @@ export default function AskPage() {
         </>
       )}
 
-      {preview && (
+      {preview && connectionId !== null && (
         <SqlPreviewModal
           preview={preview}
+          connectionId={connectionId}
           busy={executing}
           onAccept={handleAccept}
           onCancel={() => setPreview(null)}

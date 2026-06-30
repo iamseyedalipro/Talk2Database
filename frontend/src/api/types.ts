@@ -234,6 +234,18 @@ export interface ResultSummary {
   y_column: string | null;
 }
 
+/* ----------------------------- EXPLAIN preview --------------------------- */
+
+export interface ExplainPayload {
+  connection_id: number;
+  sql: string;
+}
+
+export interface ExplainResult {
+  cost: number | null;
+  rows: number | null;
+}
+
 /* -------------------------------- System --------------------------------- */
 
 export interface SystemStatus {
