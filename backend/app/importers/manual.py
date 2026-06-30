@@ -140,6 +140,10 @@ async def process_manual_import(import_run_id: int, file_path: str, filename: st
             if success:
                 await rebuild_snapshot(session)
             await session.commit()
+    except Exception as exc:
+        # Anything unexpected (e.g. snapshot rebuild or DB error) must still move
+        # the run off RUNNING; otherwise the import appears stuck forever.
+        await _fail_run(sessionmaker, import_run_id, f"Import failed: {exc}")
     finally:
         if os.path.exists(file_path):
             os.remove(file_path)
