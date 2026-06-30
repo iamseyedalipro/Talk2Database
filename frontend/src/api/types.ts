@@ -182,6 +182,41 @@ export interface RerunPayload {
   max_rows?: number;
 }
 
+/* ----------------------------- Saved queries ----------------------------- */
+
+export interface SavedQuery {
+  id: number;
+  owner_id: number;
+  owner_email: string | null;
+  connection_id: number | null;
+  name: string;
+  question: string | null;
+  generated_sql: string;
+  shared: boolean;
+  is_owner: boolean;
+  created_at: string;
+}
+
+export interface SavedQueryCreate {
+  name: string;
+  generated_sql: string;
+  connection_id?: number | null;
+  question?: string | null;
+  shared?: boolean;
+}
+
+export interface SavedQueryUpdate {
+  name?: string;
+  generated_sql?: string;
+  connection_id?: number | null;
+  question?: string | null;
+  shared?: boolean;
+}
+
+export interface SavedQueryRunPayload {
+  max_rows?: number;
+}
+
 /* -------------------------------- System --------------------------------- */
 
 export interface SystemStatus {

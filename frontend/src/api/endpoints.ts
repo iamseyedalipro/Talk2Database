@@ -22,6 +22,10 @@ import type {
   LoginPayload,
   RegisterPayload,
   RerunPayload,
+  SavedQuery,
+  SavedQueryCreate,
+  SavedQueryRunPayload,
+  SavedQueryUpdate,
   SystemStatus,
   TokenResponse,
   User,
@@ -70,6 +74,22 @@ export const getHistory = (id: number) => api.get<HistoryItem>(`/history/${id}`)
 
 export const rerunHistory = (id: number, body: RerunPayload) =>
   api.post<ExecuteResponse>(`/history/${id}/rerun`, body);
+
+/* ----------------------------- Saved queries ----------------------------- */
+
+export const listSavedQueries = (limit = 100, offset = 0) =>
+  api.get<SavedQuery[]>(`/saved-queries?limit=${limit}&offset=${offset}`);
+
+export const createSavedQuery = (body: SavedQueryCreate) =>
+  api.post<SavedQuery>('/saved-queries', body);
+
+export const updateSavedQuery = (id: number, body: SavedQueryUpdate) =>
+  api.patch<SavedQuery>(`/saved-queries/${id}`, body);
+
+export const deleteSavedQuery = (id: number) => api.del<void>(`/saved-queries/${id}`);
+
+export const runSavedQuery = (id: number, body: SavedQueryRunPayload = {}) =>
+  api.post<ExecuteResponse>(`/saved-queries/${id}/run`, body);
 
 /* ------------------------------ Connections ------------------------------ */
 

@@ -8,6 +8,7 @@ from app.db.base import Base
 from app.models.connection import Connection, DataSourceType
 from app.models.invite import Invite
 from app.models.query_history import QueryHistory, QueryStatus
+from app.models.saved_query import SavedQuery
 from app.models.schema_snapshot import SchemaSnapshot
 from app.models.user import User, UserRole
 
@@ -18,6 +19,7 @@ __all__ = [
     "Invite",
     "QueryHistory",
     "QueryStatus",
+    "SavedQuery",
     "SchemaSnapshot",
     "User",
     "UserRole",

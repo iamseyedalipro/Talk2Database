@@ -1047,6 +1047,24 @@ textarea {
   flex-wrap: wrap;
 }
 
+.result-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+  flex-wrap: wrap;
+}
+
+.field--checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.field--checkbox input {
+  width: auto;
+}
+
 @media (max-width: 640px) {
   .app-header__inner {
     gap: 0.75rem;
