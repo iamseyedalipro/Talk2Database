@@ -732,6 +732,19 @@ textarea {
   font-size: 0.85rem;
 }
 
+.audit-filters {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+  flex-wrap: wrap;
+}
+
+.audit-filters input[type='search'] {
+  flex: 1 1 14rem;
+  max-width: 22rem;
+}
+
 .chart-toggle {
   display: inline-flex;
   border: 1px solid var(--border);

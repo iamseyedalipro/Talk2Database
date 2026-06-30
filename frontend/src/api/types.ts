@@ -282,6 +282,32 @@ export interface GlossaryData {
   metrics: Metric[];
 }
 
+/* ------------------------------- Audit feed ------------------------------ */
+
+export interface AuditItem {
+  id: number;
+  user_id: number;
+  user_email: string | null;
+  connection_id: number | null;
+  question: string;
+  generated_sql: string;
+  provider: string | null;
+  model: string | null;
+  last_status: QueryStatus;
+  error_message: string | null;
+  row_count: number | null;
+  executed_at: string | null;
+  created_at: string;
+}
+
+export interface AuditQuery {
+  user_id?: number;
+  status?: QueryStatus;
+  q?: string;
+  limit?: number;
+  offset?: number;
+}
+
 /* -------------------------------- System --------------------------------- */
 
 export interface SystemStatus {

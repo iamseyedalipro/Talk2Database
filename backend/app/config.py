@@ -69,6 +69,11 @@ class Settings(BaseSettings):
     query_max_rows: int = 1000
     query_timeout_seconds: int = 30
 
+    # -- Admin audit feed -------------------------------------------------- #
+    # When enabled, admins can review every user's questions + generated SQL
+    # (never row data, which is not stored). Disable to hide the feed entirely.
+    admin_audit_enabled: bool = True
+
     # -- Panel DB ---------------------------------------------------------- #
     panel_db_host: str = "postgres-panel"
     panel_db_port: int = 5432

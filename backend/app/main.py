@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from app import __version__
 from app.config import get_settings
 from app.routers import (
+    admin_audit,
     ask,
     auth,
     connections,
@@ -36,6 +37,7 @@ def _build_api_router() -> APIRouter:
 
     api.include_router(auth.router)
     api.include_router(users.router)
+    api.include_router(admin_audit.router)
     api.include_router(connections.router)
     api.include_router(glossary.router)
     api.include_router(ask.router)

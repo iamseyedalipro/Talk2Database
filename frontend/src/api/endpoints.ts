@@ -7,6 +7,8 @@ import { api } from './client';
 import type {
   AskPayload,
   AskResponse,
+  AuditItem,
+  AuditQuery,
   BootstrapAvailable,
   BootstrapPayload,
   Connection,
@@ -64,6 +66,16 @@ export const inviteUser = (body: InvitePayload) =>
   api.post<InviteResponse>('/users/invite', body);
 
 export const deleteUser = (id: number) => api.del<void>(`/users/${id}`);
+
+export const listAudit = (params: AuditQuery = {}) => {
+  const qs = new URLSearchParams();
+  if (params.user_id != null) qs.set('user_id', String(params.user_id));
+  if (params.status) qs.set('status', params.status);
+  if (params.q) qs.set('q', params.q);
+  qs.set('limit', String(params.limit ?? 100));
+  qs.set('offset', String(params.offset ?? 0));
+  return api.get<AuditItem[]>(`/admin/audit?${qs.toString()}`);
+};
 
 /* ------------------------------ Ask / execute ---------------------------- */
 
