@@ -40,6 +40,7 @@ class PostgresConnector:
 
     type = "postgres"
     dialect = "postgres"
+    label = _LABEL
 
     def __init__(self, config: ConnectionConfig) -> None:
         self._config = config

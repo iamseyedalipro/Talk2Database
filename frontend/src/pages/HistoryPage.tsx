@@ -49,9 +49,9 @@ export default function HistoryPage() {
     // Fetch the full item to guarantee we have the latest SQL/explanation.
     try {
       const full = await getHistory(item.id);
-      setDetail({ item: full, editing: false, sql: full.generated_sql });
+      setDetail({ item: full, editing: false, sql: full.generated_sql ?? '' });
     } catch {
-      setDetail({ item, editing: false, sql: item.generated_sql });
+      setDetail({ item, editing: false, sql: item.generated_sql ?? '' });
     }
   };
 
@@ -111,7 +111,11 @@ export default function HistoryPage() {
                   <tr key={item.id}>
                     <td title={item.question}>{truncate(item.question, 60)}</td>
                     <td>
-                      <code className="inline-sql">{truncate(item.generated_sql, 50)}</code>
+                      {item.generated_sql ? (
+                        <code className="inline-sql">{truncate(item.generated_sql, 50)}</code>
+                      ) : (
+                        <span className="muted">clarification asked</span>
+                      )}
                     </td>
                     <td>
                       <StatusPill status={item.last_status} />
@@ -160,12 +164,19 @@ export default function HistoryPage() {
               aria-label="Editable SQL"
               onChange={(e) => setDetail({ ...detail, sql: e.target.value })}
             />
-          ) : (
+          ) : detail.item.generated_sql ? (
             <pre className="sql-box">
               <code>{detail.item.generated_sql}</code>
             </pre>
+          ) : (
+            <p className="muted">
+              No SQL was generated —{' '}
+              {detail.item.clarification_json?.clarification_question ??
+                'the assistant asked for clarification instead.'}
+            </p>
           )}
 
+          {(detail.item.generated_sql || detail.editing) && (
           <div className="detail-actions">
             {detail.editing ? (
               <>
@@ -182,7 +193,7 @@ export default function HistoryPage() {
                   className="btn btn--ghost"
                   disabled={running}
                   onClick={() =>
-                    setDetail({ ...detail, editing: false, sql: detail.item.generated_sql })
+                    setDetail({ ...detail, editing: false, sql: detail.item.generated_sql ?? '' })
                   }
                 >
                   Cancel edit
@@ -218,6 +229,7 @@ export default function HistoryPage() {
               </>
             )}
           </div>
+          )}
 
           <ErrorBanner message={detailError} />
 
@@ -225,7 +237,7 @@ export default function HistoryPage() {
         </section>
       )}
 
-      {saveOpen && detail && (
+      {saveOpen && detail && detail.item.generated_sql && (
         <SaveQueryModal
           draft={{
             generated_sql: detail.item.generated_sql,

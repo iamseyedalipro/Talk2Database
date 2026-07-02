@@ -96,14 +96,34 @@ export interface AskPayload {
   question: string;
 }
 
+export type AskStatus = 'ok' | 'needs_clarification' | 'unanswerable' | 'verification_failed';
+
+export interface SuggestedInterpretation {
+  /** Short button text. */
+  label: string;
+  /** A complete, self-contained question sent back to /ask when clicked. */
+  description: string;
+}
+
 export interface AskResponse {
   history_id: number;
-  generated_sql: string;
+  status: AskStatus;
+  /** Null for clarification/unanswerable turns that produced no SQL. */
+  generated_sql: string | null;
   explanation: string | null;
+  clarification_question: string | null;
+  suggested_interpretations: SuggestedInterpretation[];
+  /** Hallucinated tables/columns, populated when status is 'verification_failed'. */
+  invalid_identifiers: string[];
+  retry_count: number;
   dialect: string;
   provider: string;
   model: string;
   warnings: string[];
+}
+
+export interface SuggestedQuestionsResponse {
+  questions: string[];
 }
 
 /* -------------------------------- Execute -------------------------------- */
@@ -166,7 +186,14 @@ export interface HistoryItem {
   id: number;
   connection_id: number | null;
   question: string;
-  generated_sql: string;
+  /** Null for clarification turns that produced no SQL. */
+  generated_sql: string | null;
+  response_status: AskStatus;
+  clarification_json: {
+    clarification_question: string | null;
+    suggested_interpretations: SuggestedInterpretation[];
+  } | null;
+  retry_count: number;
   provider: string | null;
   model: string | null;
   last_status: QueryStatus;

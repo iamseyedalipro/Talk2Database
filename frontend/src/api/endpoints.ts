@@ -37,6 +37,7 @@ import type {
   SavedQueryCreate,
   SavedQueryRunPayload,
   SavedQueryUpdate,
+  SuggestedQuestionsResponse,
   SummarizePayload,
   SystemStatus,
   TokenResponse,
@@ -141,6 +142,10 @@ export const getSchema = (connectionId: number) =>
 /** Force a fresh introspection of a connection's schema (e.g. after a DDL change). */
 export const refreshSchema = (connectionId: number) =>
   api.post<DbSchema>(`/connections/${connectionId}/schema/refresh`);
+
+/** AI-generated example questions for a connection (cached per schema version). */
+export const getSuggestedQuestions = (connectionId: number) =>
+  api.get<SuggestedQuestionsResponse>(`/connections/${connectionId}/suggested-questions`);
 
 /* --------------------------- Semantic glossary --------------------------- */
 

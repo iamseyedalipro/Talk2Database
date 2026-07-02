@@ -48,6 +48,13 @@ class Settings(BaseSettings):
     ai_allow_sample_rows: bool = False
     ai_sample_rows: int = 5
 
+    # -- Ask flow ----------------------------------------------------------- #
+    # Corrective re-prompts after a generated statement references tables or
+    # columns that do not exist in the schema snapshot (or fails the guard).
+    ask_max_retries: int = 2
+    ask_verify_identifiers: bool = True
+    suggested_questions_count: int = 5
+
     # -- Schema cost control ---------------------------------------------- #
     schema_max_tokens: int = 6000
     # Default namespace/table scoping. A connection may override these in its

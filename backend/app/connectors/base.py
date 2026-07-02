@@ -94,6 +94,9 @@ class Connector(Protocol):
     dialect: str
     """sqlglot dialect for the guard/AST, or a non-SQL marker (e.g. ``"promql"``)."""
 
+    label: str
+    """Human-readable dialect name used in prompts, e.g. ``"PostgreSQL"``."""
+
     def introspect(self) -> SchemaData:
         """Read structural metadata (tables/columns/PK/FK), never row data."""
         ...

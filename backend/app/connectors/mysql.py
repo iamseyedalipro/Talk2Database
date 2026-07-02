@@ -51,6 +51,7 @@ class MySQLConnector:
         self._config = config
         self.type = config.type  # "mysql" or "mariadb"
         self._label = "MariaDB" if config.type == "mariadb" else "MySQL"
+        self.label = self._label
         settings = get_settings()
         self._allowlist: set[str] = set(
             config.options.get("tables") or settings.schema_table_allowlist
