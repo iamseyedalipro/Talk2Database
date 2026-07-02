@@ -123,6 +123,32 @@ def test_anthropic_invalid_structured_result_raises() -> None:
         provider.generate_sql(messages=_QUESTION, system_prompt="S", schema_block="B")
 
 
+def test_anthropic_summarize_returns_structured_summary() -> None:
+    provider = AnthropicProvider(api_key="x", model="claude-test")
+    client = _AnthClient(
+        _AnthResponse(
+            [
+                _Block(
+                    "tool_use",
+                    "emit_summary",
+                    {
+                        "summary": "Orders rise over time.",
+                        "chart_type": "line",
+                        "x_column": "day",
+                        "y_column": "orders",
+                    },
+                ),
+            ]
+        )
+    )
+    provider._client = client  # type: ignore[assignment]
+
+    result = provider.summarize_results(system_prompt="SYS", context="stats...")
+    assert result.summary == "Orders rise over time."
+    assert result.chart_type == "line"
+    assert result.x_column == "day"
+
+
 def test_anthropic_without_tool_call_raises() -> None:
     provider = AnthropicProvider(api_key="x", model="claude-test")
     provider._client = _AnthClient(_AnthResponse([_Block("text")]))  # type: ignore[assignment]
@@ -143,17 +169,6 @@ def test_anthropic_suggest_questions() -> None:
         "q3",
         "q4",
     ]
-
-
-def test_anthropic_summarize() -> None:
-    provider = AnthropicProvider(api_key="x", model="claude-test")
-
-    class _TextBlock:
-        type = "text"
-        text = "Total income was $10."
-
-    provider._client = _AnthClient(_AnthResponse([_TextBlock()]))  # type: ignore[assignment]
-    assert provider.summarize(system_prompt="S", user_prompt="U") == "Total income was $10."
 
 
 # --- OpenAI fakes ---------------------------------------------------------- #
@@ -224,6 +239,23 @@ def test_openai_passes_message_list_after_system() -> None:
     assert [m["role"] for m in sent] == ["system", "user", "assistant", "user"]
 
 
+def test_openai_summarize_parses_json() -> None:
+    provider = OpenAIProvider(api_key="x", model="gpt-test")
+    payload = json.dumps(
+        {
+            "summary": "Three categories, roughly equal.",
+            "chart_type": "bar",
+            "x_column": "category",
+            "y_column": "total",
+        }
+    )
+    provider._client = _OAClient(_OAResponse(payload))  # type: ignore[assignment]
+
+    result = provider.summarize_results(system_prompt="SYS", context="stats...")
+    assert result.chart_type == "bar"
+    assert result.y_column == "total"
+
+
 def test_openai_empty_response_raises() -> None:
     provider = OpenAIProvider(api_key="x", model="gpt-test")
     provider._client = _OAClient(_OAResponse(None))  # type: ignore[assignment]
@@ -231,15 +263,12 @@ def test_openai_empty_response_raises() -> None:
         provider.generate_sql(messages=_QUESTION, system_prompt="SYS", schema_block="SCHEMA")
 
 
-def test_openai_suggest_questions_and_summarize() -> None:
+def test_openai_suggest_questions() -> None:
     provider = OpenAIProvider(api_key="x", model="gpt-test")
     provider._client = _OAClient(  # type: ignore[assignment]
         _OAResponse(json.dumps({"questions": ["a", "b", "c", "d"]}))
     )
     assert provider.suggest_questions(system_prompt="S", schema_block="B") == ["a", "b", "c", "d"]
-
-    provider._client = _OAClient(_OAResponse("The answer is 42."))  # type: ignore[assignment]
-    assert provider.summarize(system_prompt="S", user_prompt="U") == "The answer is 42."
 
 
 # --- output schema shape ---------------------------------------------------- #

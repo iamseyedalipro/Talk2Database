@@ -15,9 +15,11 @@ import openai
 
 from app.services.ai.base import (
     QUESTIONS_OUTPUT_SCHEMA,
+    RESULT_SUMMARY_SCHEMA,
     SQL_OUTPUT_SCHEMA,
     AIProviderError,
     ChatMessage,
+    ResultSummary,
     SqlGenerationResult,
 )
 
@@ -100,19 +102,14 @@ class OpenAIProvider:
             raise AIProviderError("OpenAI returned no example questions.")
         return [str(q) for q in questions]
 
-    def summarize(self, *, system_prompt: str, user_prompt: str) -> str:
+    def summarize_results(self, *, system_prompt: str, context: str) -> ResultSummary:
+        data = self._structured_call(
+            system_content=system_prompt,
+            messages=[{"role": "user", "content": context}],
+            schema_name="result_summary",
+            output_schema=RESULT_SUMMARY_SCHEMA,
+        )
         try:
-            response = self._client.chat.completions.create(
-                model=self.model,
-                temperature=0,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-            )
-        except Exception as exc:
-            raise AIProviderError(f"OpenAI request failed: {exc}") from exc
-        content = (response.choices[0].message.content or "").strip()
-        if not content:
-            raise AIProviderError("OpenAI returned an empty summary.")
-        return content
+            return ResultSummary.model_validate(data)
+        except ValueError as exc:
+            raise AIProviderError(f"OpenAI returned an invalid summary: {exc}") from exc

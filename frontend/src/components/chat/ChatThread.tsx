@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import type { AskResponse, ExecuteResponse } from '../../api/types';
 import { ErrorBanner } from '../ui';
 import ResultsView from '../ResultsView';
-import AnswerSummary from './AnswerSummary';
 import ClarificationCard from './ClarificationCard';
 import SqlBlock from './SqlBlock';
 
@@ -11,22 +10,25 @@ export type ChatTurn =
   | {
       kind: 'assistant';
       ask: AskResponse;
+      /** The question this turn answered (for summaries and saved queries). */
+      question: string;
       result?: ExecuteResponse;
       /** The exact (possibly user-edited) SQL that produced `result`. */
       executedSql?: string;
-      summary?: string | null;
       executing?: boolean;
-      summarizing?: boolean;
       runError?: string | null;
     };
 
 interface Props {
   turns: ChatTurn[];
+  connectionId: number;
   /** Run (possibly edited) SQL for the assistant turn at `index`. */
   onRun: (index: number, sql: string) => void;
   /** Re-ask with a clarification interpretation's full question. */
   onPickInterpretation: (question: string) => void;
   onDownloadCsv: (index: number, sql: string) => void;
+  /** Open the save-query dialog for an executed turn. */
+  onSave: (index: number) => void;
   csvBusy?: boolean;
   busy?: boolean;
 }
@@ -34,9 +36,11 @@ interface Props {
 /** The conversation: user bubbles and assistant cards with SQL, results, charts. */
 export default function ChatThread({
   turns,
+  connectionId,
   onRun,
   onPickInterpretation,
   onDownloadCsv,
+  onSave,
   csvBusy,
   busy,
 }: Props) {
@@ -83,25 +87,36 @@ export default function ChatThread({
                 {ask.generated_sql && (
                   <SqlBlock
                     sql={ask.generated_sql}
+                    connectionId={connectionId}
                     onRun={(sql) => onRun(index, sql)}
                     busy={turn.executing}
                     ran={turn.result !== undefined}
                   />
                 )}
                 <ErrorBanner message={turn.runError ?? null} />
-                {(turn.summarizing || turn.summary) && (
-                  <AnswerSummary summary={turn.summary ?? null} loading={turn.summarizing} />
-                )}
                 {turn.result && (
-                  <ResultsView
-                    result={turn.result}
-                    onDownloadCsv={
-                      turn.executedSql
-                        ? () => onDownloadCsv(index, turn.executedSql as string)
-                        : undefined
-                    }
-                    csvBusy={csvBusy}
-                  />
+                  <>
+                    <div className="result-actions">
+                      <button
+                        type="button"
+                        className="btn btn--secondary"
+                        onClick={() => onSave(index)}
+                        disabled={!turn.executedSql}
+                      >
+                        Save query
+                      </button>
+                    </div>
+                    <ResultsView
+                      result={turn.result}
+                      onDownloadCsv={
+                        turn.executedSql
+                          ? () => onDownloadCsv(index, turn.executedSql as string)
+                          : undefined
+                      }
+                      csvBusy={csvBusy}
+                      question={turn.question}
+                    />
+                  </>
                 )}
               </>
             )}

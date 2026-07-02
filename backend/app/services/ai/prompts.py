@@ -67,29 +67,6 @@ def build_guard_feedback(error: str) -> str:
     )
 
 
-_SUMMARY_SYSTEM = """\
-You are a data analyst. Given a question, the SQL that answered it, and a \
-sample of the result rows, write a 1-3 sentence factual answer in plain \
-language. State concrete numbers from the sample when they answer the \
-question. If the sample is truncated, only make claims the sample supports. \
-Never speculate beyond the data shown. Respond with the answer text only."""
-
-
-def build_summary_system_prompt() -> str:
-    return _SUMMARY_SYSTEM
-
-
-def build_summary_user_prompt(
-    *, question: str, sql: str, table_text: str, row_count: int, truncated_note: str
-) -> str:
-    return (
-        f"Question: {question}\n\n"
-        f"SQL executed:\n{sql}\n\n"
-        f"Result ({row_count} rows{truncated_note}):\n{table_text}\n\n"
-        "Write the short answer."
-    )
-
-
 _SUGGESTIONS_TEMPLATE = """\
 You are helping a user discover what they can ask about their {label} database. \
 Based on the schema provided, propose example questions in plain language that \

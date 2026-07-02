@@ -7,6 +7,8 @@ import { api } from './client';
 import type {
   AskPayload,
   AskResponse,
+  AuditItem,
+  AuditQuery,
   BootstrapAvailable,
   BootstrapPayload,
   Connection,
@@ -14,17 +16,29 @@ import type {
   ConnectionTestResult,
   ConnectionUpdate,
   DbSchema,
+  DescriptionUpsert,
+  GlossaryData,
+  GlossaryDescription,
+  Metric,
+  MetricCreate,
+  MetricUpdate,
   ExecutePayload,
   ExecuteResponse,
+  ExplainPayload,
+  ExplainResult,
   HistoryItem,
   InvitePayload,
   InviteResponse,
   LoginPayload,
   RegisterPayload,
   RerunPayload,
+  ResultSummary,
+  SavedQuery,
+  SavedQueryCreate,
+  SavedQueryRunPayload,
+  SavedQueryUpdate,
   SuggestedQuestionsResponse,
   SummarizePayload,
-  SummarizeResponse,
   SystemStatus,
   TokenResponse,
   User,
@@ -54,6 +68,16 @@ export const inviteUser = (body: InvitePayload) =>
 
 export const deleteUser = (id: number) => api.del<void>(`/users/${id}`);
 
+export const listAudit = (params: AuditQuery = {}) => {
+  const qs = new URLSearchParams();
+  if (params.user_id != null) qs.set('user_id', String(params.user_id));
+  if (params.status) qs.set('status', params.status);
+  if (params.q) qs.set('q', params.q);
+  qs.set('limit', String(params.limit ?? 100));
+  qs.set('offset', String(params.offset ?? 0));
+  return api.get<AuditItem[]>(`/admin/audit?${qs.toString()}`);
+};
+
 /* ------------------------------ Ask / execute ---------------------------- */
 
 export const ask = (body: AskPayload) => api.post<AskResponse>('/ask', body);
@@ -64,9 +88,11 @@ export const execute = (body: ExecutePayload) =>
 export const executeCsv = (body: ExecutePayload) =>
   api.download('/execute/csv', body, 'result.csv');
 
-/** Natural-language answer summary (only when the deployment enables it). */
-export const summarize = (body: SummarizePayload) =>
-  api.post<SummarizeResponse>('/summarize', body);
+export const summarizeResults = (body: SummarizePayload) =>
+  api.post<ResultSummary>('/results/summarize', body);
+
+export const explainPlan = (body: ExplainPayload) =>
+  api.post<ExplainResult>('/execute/explain', body);
 
 /* -------------------------------- History -------------------------------- */
 
@@ -77,6 +103,22 @@ export const getHistory = (id: number) => api.get<HistoryItem>(`/history/${id}`)
 
 export const rerunHistory = (id: number, body: RerunPayload) =>
   api.post<ExecuteResponse>(`/history/${id}/rerun`, body);
+
+/* ----------------------------- Saved queries ----------------------------- */
+
+export const listSavedQueries = (limit = 100, offset = 0) =>
+  api.get<SavedQuery[]>(`/saved-queries?limit=${limit}&offset=${offset}`);
+
+export const createSavedQuery = (body: SavedQueryCreate) =>
+  api.post<SavedQuery>('/saved-queries', body);
+
+export const updateSavedQuery = (id: number, body: SavedQueryUpdate) =>
+  api.patch<SavedQuery>(`/saved-queries/${id}`, body);
+
+export const deleteSavedQuery = (id: number) => api.del<void>(`/saved-queries/${id}`);
+
+export const runSavedQuery = (id: number, body: SavedQueryRunPayload = {}) =>
+  api.post<ExecuteResponse>(`/saved-queries/${id}/run`, body);
 
 /* ------------------------------ Connections ------------------------------ */
 
@@ -104,6 +146,26 @@ export const refreshSchema = (connectionId: number) =>
 /** AI-generated example questions for a connection (cached per schema version). */
 export const getSuggestedQuestions = (connectionId: number) =>
   api.get<SuggestedQuestionsResponse>(`/connections/${connectionId}/suggested-questions`);
+
+/* --------------------------- Semantic glossary --------------------------- */
+
+export const getGlossary = (connectionId: number) =>
+  api.get<GlossaryData>(`/connections/${connectionId}/glossary`);
+
+export const upsertDescription = (connectionId: number, body: DescriptionUpsert) =>
+  api.put<GlossaryDescription>(`/connections/${connectionId}/glossary/descriptions`, body);
+
+export const deleteDescription = (connectionId: number, descriptionId: number) =>
+  api.del<void>(`/connections/${connectionId}/glossary/descriptions/${descriptionId}`);
+
+export const createMetric = (connectionId: number, body: MetricCreate) =>
+  api.post<Metric>(`/connections/${connectionId}/glossary/metrics`, body);
+
+export const updateMetric = (connectionId: number, metricId: number, body: MetricUpdate) =>
+  api.patch<Metric>(`/connections/${connectionId}/glossary/metrics/${metricId}`, body);
+
+export const deleteMetric = (connectionId: number, metricId: number) =>
+  api.del<void>(`/connections/${connectionId}/glossary/metrics/${metricId}`);
 
 /* -------------------------------- System --------------------------------- */
 

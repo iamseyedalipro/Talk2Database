@@ -42,19 +42,17 @@ class Settings(BaseSettings):
     ai_provider: AIProvider = AIProvider.ANTHROPIC
     ai_api_key: str = ""
     ai_model: str = "claude-opus-4-8"
+    # Result explanations send only column names/types + locally-computed
+    # aggregates by default (the no-row-data promise). Enabling this opts into
+    # also sending a small sample of result rows for richer summaries.
+    ai_allow_sample_rows: bool = False
+    ai_sample_rows: int = 5
 
     # -- Ask flow ----------------------------------------------------------- #
     # Corrective re-prompts after a generated statement references tables or
     # columns that do not exist in the schema snapshot (or fails the guard).
     ask_max_retries: int = 2
     ask_verify_identifiers: bool = True
-    # Natural-language answer summaries send a *capped sample of result rows*
-    # to the AI provider — a deliberate exception to the "schema only" rule,
-    # so the feature is off unless explicitly enabled. See docs/security.md.
-    answer_summary_enabled: bool = False
-    answer_summary_max_rows: int = 20
-    answer_summary_max_columns: int = 15
-    answer_summary_max_cell_chars: int = 200
     suggested_questions_count: int = 5
 
     # -- Schema cost control ---------------------------------------------- #
@@ -77,6 +75,11 @@ class Settings(BaseSettings):
     # -- Query guard rails ------------------------------------------------- #
     query_max_rows: int = 1000
     query_timeout_seconds: int = 30
+
+    # -- Admin audit feed -------------------------------------------------- #
+    # When enabled, admins can review every user's questions + generated SQL
+    # (never row data, which is not stored). Disable to hide the feed entirely.
+    admin_audit_enabled: bool = True
 
     # -- Panel DB ---------------------------------------------------------- #
     panel_db_host: str = "postgres-panel"

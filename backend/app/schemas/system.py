@@ -10,5 +10,3 @@ class SystemStatus(BaseModel):
     model: str
     connection_count: int
     supported_types: list[str]
-    # Whether POST /api/summarize is available (sends capped result samples to the AI).
-    answer_summary_enabled: bool = False

@@ -130,7 +130,7 @@ After generation, `verify_identifiers` (`app/services/sql_verify.py`) resolves e
 
 ### 2c. Answer summaries and suggested questions
 
-- `POST /api/summarize` (opt-in via `ANSWER_SUMMARY_ENABLED`) turns an executed result into a 1–3 sentence natural-language answer. It sends a server-side-capped sample of the result rows to the provider — the one deliberate exception to "schema only"; see docs/security.md.
+- `POST /api/results/summarize` ("Explain results") turns an executed result into a short natural-language answer plus a chart suggestion. By default it sends only column metadata and locally-computed aggregates; `AI_ALLOW_SAMPLE_ROWS` opts into including a small row sample — see docs/security.md.
 - `GET /api/connections/{id}/suggested-questions` generates 4–6 example questions from the schema and caches them on the snapshot row, so a schema change (new snapshot version) refreshes them automatically.
 
 ### 3. Relevance trimming (only when needed)

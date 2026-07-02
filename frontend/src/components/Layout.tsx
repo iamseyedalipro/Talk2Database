@@ -39,6 +39,9 @@ export default function Layout() {
             <NavLink to="/history" className={linkClass}>
               History
             </NavLink>
+            <NavLink to="/saved" className={linkClass}>
+              Saved
+            </NavLink>
             {user?.role === 'admin' && (
               <NavLink to="/admin" className={linkClass}>
                 Admin

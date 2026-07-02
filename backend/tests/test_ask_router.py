@@ -95,8 +95,12 @@ def harness(monkeypatch: pytest.MonkeyPatch):
     async def fake_ensure_snapshot(*_args: Any, **_kwargs: Any):
         return snapshot
 
+    async def fake_load_glossary(*_args: Any, **_kwargs: Any):
+        return [], []
+
     monkeypatch.setattr(ask_module, "load_connector", fake_load_connector)
     monkeypatch.setattr(ask_module, "ensure_snapshot", fake_ensure_snapshot)
+    monkeypatch.setattr(ask_module, "load_glossary", fake_load_glossary)
     monkeypatch.setattr(ask_module, "get_ai_provider", lambda: provider_holder["provider"])
     monkeypatch.setattr(
         ask_module, "get_settings", lambda: Settings(ai_api_key="test", ask_max_retries=1)

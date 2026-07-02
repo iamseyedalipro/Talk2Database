@@ -10,6 +10,7 @@ import ConnectionsPage from './pages/ConnectionsPage';
 import HistoryPage from './pages/HistoryPage';
 import LoginPage from './pages/LoginPage';
 import RegisterInvitePage from './pages/RegisterInvitePage';
+import SavedQueriesPage from './pages/SavedQueriesPage';
 
 // The browse page pulls in the CodeMirror editor; code-split it so that weight
 // only loads when the user actually opens it.
@@ -39,6 +40,7 @@ export default function App() {
         />
         <Route path="/connections" element={<ConnectionsPage />} />
         <Route path="/history" element={<HistoryPage />} />
+        <Route path="/saved" element={<SavedQueriesPage />} />
         <Route
           path="/admin"
           element={

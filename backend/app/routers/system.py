@@ -25,5 +25,4 @@ async def system_status(user: CurrentUser, session: SessionDep) -> SystemStatus:
         model=settings.ai_model,
         connection_count=int(count or 0),
         supported_types=supported_types(),
-        answer_summary_enabled=settings.answer_summary_enabled,
     )

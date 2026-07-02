@@ -3,15 +3,26 @@ import { Link } from 'react-router-dom';
 import CodeMirror, { type EditorView, Prec, keymap, placeholder } from '@uiw/react-codemirror';
 import { MariaSQL, MySQL, PostgreSQL, type SQLDialect, sql } from '@codemirror/lang-sql';
 import { oneDark } from '@codemirror/theme-one-dark';
-import { execute, executeCsv, getSchema, listConnections, refreshSchema } from '../api/endpoints';
+import {
+  deleteDescription,
+  execute,
+  executeCsv,
+  getGlossary,
+  getSchema,
+  listConnections,
+  refreshSchema,
+  upsertDescription,
+} from '../api/endpoints';
 import { triggerBlobDownload } from '../api/client';
 import type {
   Connection,
   DataSourceType,
   DbSchema,
   ExecuteResponse,
+  GlossaryData,
   SchemaTable,
 } from '../api/types';
+import MetricsPanel from '../components/MetricsPanel';
 import ResultsView from '../components/ResultsView';
 import SchemaTree from '../components/SchemaTree';
 import { ErrorBanner } from '../components/ui';
@@ -42,6 +53,7 @@ export default function BrowsePage() {
   const [schemaLoading, setSchemaLoading] = useState(false);
   const [schemaError, setSchemaError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [glossary, setGlossary] = useState<GlossaryData>({ descriptions: [], metrics: [] });
 
   const [sqlText, setSqlText] = useState('');
   const [running, setRunning] = useState(false);
@@ -95,6 +107,39 @@ export default function BrowsePage() {
       cancelled = true;
     };
   }, [connectionId]);
+
+  // Load the connection's glossary (descriptions + metrics) alongside the schema.
+  const loadGlossary = (id: number) => {
+    getGlossary(id)
+      .then(setGlossary)
+      .catch(() => setGlossary({ descriptions: [], metrics: [] }));
+  };
+
+  useEffect(() => {
+    if (connectionId === null) return;
+    setGlossary({ descriptions: [], metrics: [] });
+    loadGlossary(connectionId);
+  }, [connectionId]);
+
+  const handleSaveDescription = async (
+    tableName: string,
+    columnName: string,
+    description: string,
+  ) => {
+    if (connectionId === null) return;
+    await upsertDescription(connectionId, {
+      table_name: tableName,
+      column_name: columnName,
+      description,
+    });
+    loadGlossary(connectionId);
+  };
+
+  const handleDeleteDescription = async (id: number) => {
+    if (connectionId === null) return;
+    await deleteDescription(connectionId, id);
+    loadGlossary(connectionId);
+  };
 
   // Schema-aware autocomplete: { tableName: [col, col, …] }.
   const completionSchema = useMemo(() => {
@@ -237,7 +282,17 @@ export default function BrowsePage() {
           type={type}
           onInsert={insertAtCursor}
           onPreview={handlePreview}
+          descriptions={glossary.descriptions}
+          onSaveDescription={handleSaveDescription}
+          onDeleteDescription={handleDeleteDescription}
         />
+        {connectionId !== null && (
+          <MetricsPanel
+            connectionId={connectionId}
+            metrics={glossary.metrics}
+            onChange={() => loadGlossary(connectionId)}
+          />
+        )}
       </aside>
 
       <section className="browse__main">

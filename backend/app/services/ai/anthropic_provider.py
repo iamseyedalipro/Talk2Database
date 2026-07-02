@@ -14,14 +14,17 @@ import anthropic
 
 from app.services.ai.base import (
     QUESTIONS_OUTPUT_SCHEMA,
+    RESULT_SUMMARY_SCHEMA,
     SQL_OUTPUT_SCHEMA,
     AIProviderError,
     ChatMessage,
+    ResultSummary,
     SqlGenerationResult,
 )
 
 _TOOL_NAME = "emit_sql"
 _QUESTIONS_TOOL_NAME = "emit_questions"
+_SUMMARY_TOOL_NAME = "emit_summary"
 
 
 class AnthropicProvider:
@@ -108,21 +111,15 @@ class AnthropicProvider:
             raise AIProviderError("Anthropic returned no example questions.")
         return [str(q) for q in questions]
 
-    def summarize(self, *, system_prompt: str, user_prompt: str) -> str:
+    def summarize_results(self, *, system_prompt: str, context: str) -> ResultSummary:
+        data = self._structured_call(
+            system=[{"type": "text", "text": system_prompt}],
+            messages=[{"role": "user", "content": context}],
+            tool_name=_SUMMARY_TOOL_NAME,
+            tool_description="Return a one-line summary of the results and a chart suggestion.",
+            output_schema=RESULT_SUMMARY_SCHEMA,
+        )
         try:
-            response = self._client.messages.create(
-                model=self.model,
-                max_tokens=500,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_prompt}],
-            )
-        except Exception as exc:
-            raise AIProviderError(f"Anthropic request failed: {exc}") from exc
-        text = "".join(
-            getattr(block, "text", "")
-            for block in response.content
-            if getattr(block, "type", None) == "text"
-        ).strip()
-        if not text:
-            raise AIProviderError("Anthropic returned an empty summary.")
-        return text
+            return ResultSummary.model_validate(data)
+        except ValueError as exc:
+            raise AIProviderError(f"Anthropic returned an invalid summary: {exc}") from exc

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ask,
@@ -6,13 +6,12 @@ import {
   executeCsv,
   getSuggestedQuestions,
   listConnections,
-  summarize,
-  systemStatus,
 } from '../api/endpoints';
 import { triggerBlobDownload } from '../api/client';
 import type { Connection } from '../api/types';
 import ChatThread, { type ChatTurn } from '../components/chat/ChatThread';
 import SuggestedQuestions from '../components/chat/SuggestedQuestions';
+import SaveQueryModal from '../components/SaveQueryModal';
 import { ErrorBanner } from '../components/ui';
 import { errorMessage } from '../utils/format';
 
@@ -34,11 +33,11 @@ export default function AskPage() {
 
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
-  const [summariesEnabled, setSummariesEnabled] = useState(false);
   const [csvBusy, setCsvBusy] = useState(false);
 
-  // The question each assistant turn answered, for /summarize (index-aligned).
-  const questionsByTurn = useRef<Map<number, string>>(new Map());
+  // Index of the turn being bookmarked, or null when the dialog is closed.
+  const [saveIndex, setSaveIndex] = useState<number | null>(null);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
 
   useEffect(() => {
     listConnections()
@@ -48,17 +47,15 @@ export default function AskPage() {
         if (first) setConnectionId((prev) => prev ?? first.id);
       })
       .catch((err) => setConnError(errorMessage(err)));
-    systemStatus()
-      .then((status) => setSummariesEnabled(status.answer_summary_enabled))
-      .catch(() => setSummariesEnabled(false));
   }, []);
 
   // New connection: fresh conversation and fresh example questions.
   useEffect(() => {
     if (connectionId === null) return;
     setTurns([]);
-    questionsByTurn.current.clear();
     setAskError(null);
+    setSaveIndex(null);
+    setSaveNotice(null);
     setSuggestions([]);
     setSuggestionsLoading(true);
     let cancelled = false;
@@ -85,10 +82,7 @@ export default function AskPage() {
     setTurns((prev) => [...prev, { kind: 'user', text: trimmed }]);
     try {
       const res = await ask({ connection_id: connectionId, question: trimmed });
-      setTurns((prev) => {
-        questionsByTurn.current.set(prev.length, trimmed);
-        return [...prev, { kind: 'assistant', ask: res }];
-      });
+      setTurns((prev) => [...prev, { kind: 'assistant', ask: res, question: trimmed }]);
     } catch (err) {
       setAskError(errorMessage(err));
     } finally {
@@ -120,24 +114,6 @@ export default function AskPage() {
         history_id: turn.ask.history_id,
       });
       patchTurn(index, { executing: false, result, executedSql: sql });
-      if (summariesEnabled) {
-        const asked = questionsByTurn.current.get(index);
-        if (asked) {
-          patchTurn(index, { summarizing: true });
-          summarize({
-            connection_id: connectionId,
-            history_id: turn.ask.history_id,
-            question: asked,
-            sql,
-            columns: result.columns.map((c) => c.name),
-            rows: result.rows,
-            row_count: result.row_count,
-            truncated: result.truncated,
-          })
-            .then((res) => patchTurn(index, { summarizing: false, summary: res.summary }))
-            .catch(() => patchTurn(index, { summarizing: false }));
-        }
-      }
     } catch (err) {
       patchTurn(index, { executing: false, runError: errorMessage(err) });
     }
@@ -160,6 +136,16 @@ export default function AskPage() {
       setCsvBusy(false);
     }
   };
+
+  const saveTurn = saveIndex !== null ? turns[saveIndex] : null;
+  const saveDraft =
+    saveTurn && saveTurn.kind === 'assistant' && saveTurn.executedSql
+      ? {
+          generated_sql: saveTurn.executedSql,
+          question: saveTurn.question,
+          connection_id: connectionId,
+        }
+      : null;
 
   const noConnections = connections.length === 0;
   const emptyThread = turns.length === 0;
@@ -202,7 +188,7 @@ export default function AskPage() {
         )}
       </section>
 
-      {!noConnections && (
+      {!noConnections && connectionId !== null && (
         <>
           {emptyThread && (
             <section className="card">
@@ -218,13 +204,19 @@ export default function AskPage() {
 
           <ChatThread
             turns={turns}
+            connectionId={connectionId}
             onRun={handleRun}
             onPickInterpretation={submitQuestion}
             onDownloadCsv={handleDownloadCsv}
+            onSave={(index) => {
+              setSaveNotice(null);
+              setSaveIndex(index);
+            }}
             csvBusy={csvBusy}
             busy={asking}
           />
 
+          {saveNotice && <p className="muted">{saveNotice}</p>}
           {asking && <p className="muted chat-pending">Thinking…</p>}
           <ErrorBanner message={askError} />
 
@@ -257,6 +249,17 @@ export default function AskPage() {
               {asking ? 'Generating…' : 'Send'}
             </button>
           </form>
+
+          {saveDraft && (
+            <SaveQueryModal
+              draft={saveDraft}
+              onSaved={() => {
+                setSaveIndex(null);
+                setSaveNotice('Saved to your query library.');
+              }}
+              onCancel={() => setSaveIndex(null)}
+            />
+          )}
         </>
       )}
     </div>

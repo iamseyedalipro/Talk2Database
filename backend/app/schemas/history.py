@@ -21,7 +21,6 @@ class HistoryItem(BaseModel):
     response_status: str = "ok"
     clarification_json: dict[str, Any] | None = None
     retry_count: int = 0
-    summary_text: str | None = None
     provider: str | None = None
     model: str | None = None
     last_status: QueryStatus

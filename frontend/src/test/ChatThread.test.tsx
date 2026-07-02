@@ -24,9 +24,11 @@ function renderThread(turns: ChatTurn[], onRun = vi.fn()) {
   render(
     <ChatThread
       turns={turns}
+      connectionId={7}
       onRun={onRun}
       onPickInterpretation={noop}
       onDownloadCsv={noop}
+      onSave={noop}
     />,
   );
   return onRun;
@@ -36,7 +38,7 @@ describe('ChatThread', () => {
   it('renders user bubbles and ok turns with SQL and a Run button', () => {
     const onRun = renderThread([
       { kind: 'user', text: 'total income?' },
-      { kind: 'assistant', ask: askBase },
+      { kind: 'assistant', ask: askBase, question: 'total income?' },
     ]);
     expect(screen.getByText('total income?')).toBeInTheDocument();
     expect(screen.getByText('Sums all payments.')).toBeInTheDocument();
@@ -49,6 +51,7 @@ describe('ChatThread', () => {
     renderThread([
       {
         kind: 'assistant',
+        question: 'income?',
         ask: {
           ...askBase,
           status: 'needs_clarification',
@@ -67,6 +70,7 @@ describe('ChatThread', () => {
     renderThread([
       {
         kind: 'assistant',
+        question: 'income?',
         ask: {
           ...askBase,
           status: 'verification_failed',
@@ -79,23 +83,34 @@ describe('ChatThread', () => {
     expect(screen.getByText('Run')).toBeInTheDocument();
   });
 
-  it('renders results and summary when a turn has executed', () => {
-    renderThread([
-      {
-        kind: 'assistant',
-        ask: askBase,
-        executedSql: askBase.generated_sql as string,
-        summary: 'Total income was $10.',
-        result: {
-          columns: [{ name: 'sum', type: 'numeric' }],
-          rows: [[10]],
-          row_count: 1,
-          truncated: false,
-          elapsed_ms: 5,
-        },
-      },
-    ]);
-    expect(screen.getByText('Total income was $10.')).toBeInTheDocument();
+  it('renders results and a save button when a turn has executed', () => {
+    const onSave = vi.fn();
+    render(
+      <ChatThread
+        turns={[
+          {
+            kind: 'assistant',
+            ask: askBase,
+            question: 'total income?',
+            executedSql: askBase.generated_sql as string,
+            result: {
+              columns: [{ name: 'sum', type: 'numeric' }],
+              rows: [[10]],
+              row_count: 1,
+              truncated: false,
+              elapsed_ms: 5,
+            },
+          },
+        ]}
+        connectionId={7}
+        onRun={noop}
+        onPickInterpretation={noop}
+        onDownloadCsv={noop}
+        onSave={onSave}
+      />,
+    );
     expect(screen.getByText('1 row')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Save query'));
+    expect(onSave).toHaveBeenCalledWith(0);
   });
 });

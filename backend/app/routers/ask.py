@@ -15,6 +15,7 @@ from app.services.ai.factory import get_ai_provider
 from app.services.ai.generate import generate_with_verification
 from app.services.connections import load_connector
 from app.services.schema.cache import ensure_snapshot
+from app.services.schema.glossary import build_glossary_block, load_glossary
 from app.services.schema.introspect import SchemaData
 from app.services.schema.select import select_schema
 from app.services.sql_guard import SqlGuardError
@@ -49,6 +50,11 @@ async def ask(payload: AskRequest, user: CurrentUser, session: SessionDep) -> As
     schema_data = cast(SchemaData, snapshot.content_json)
     selected = select_schema(schema_data, payload.question, settings.schema_max_tokens)
 
+    # Ground the model with the connection's business glossary + metrics, when set.
+    descriptions, metrics = await load_glossary(session, connection.id)
+    glossary_text = build_glossary_block(descriptions, metrics)
+    schema_text = f"{selected.text}\n\n{glossary_text}" if glossary_text else selected.text
+
     provider = get_ai_provider()
     try:
         outcome = await generate_with_verification(
@@ -56,7 +62,7 @@ async def ask(payload: AskRequest, user: CurrentUser, session: SessionDep) -> As
             connector=connector,
             question=payload.question,
             full_schema=schema_data,
-            selected_text=selected.text,
+            selected_text=schema_text,
             settings=settings,
         )
     except AIProviderError as exc:

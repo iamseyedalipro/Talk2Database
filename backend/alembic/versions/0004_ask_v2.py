@@ -1,15 +1,15 @@
-"""ask flow v2: clarification statuses, retries, summaries, suggested questions
+"""ask flow v2: clarification statuses, retries, suggested questions
 
 - query_history.generated_sql becomes nullable (clarification turns have no SQL)
-- query_history gains response_status / clarification_json / retry_count / summary_text
+- query_history gains response_status / clarification_json / retry_count
 - schema_snapshots gains suggested_questions_json
 
 ``0001_initial`` creates tables with ``Base.metadata.create_all``, so a fresh
 database already has these columns when this migration runs — every step here
 checks the live schema first and no-ops when the change is already present.
 
-Revision ID: 0002_ask_v2
-Revises: 0001_initial
+Revision ID: 0004_ask_v2
+Revises: 0003_glossary
 Create Date: 2026-07-02 00:00:00
 """
 
@@ -21,8 +21,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "0002_ask_v2"
-down_revision: str | None = "0001_initial"
+revision: str = "0004_ask_v2"
+down_revision: str | None = "0003_glossary"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -49,8 +49,6 @@ def upgrade() -> None:
             "query_history",
             sa.Column("retry_count", sa.Integer(), nullable=False, server_default="0"),
         )
-    if "summary_text" not in history:
-        op.add_column("query_history", sa.Column("summary_text", sa.Text(), nullable=True))
 
     snapshots = _columns("schema_snapshots")
     if "suggested_questions_json" not in snapshots:
@@ -61,7 +59,6 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_column("schema_snapshots", "suggested_questions_json")
-    op.drop_column("query_history", "summary_text")
     op.drop_column("query_history", "retry_count")
     op.drop_column("query_history", "clarification_json")
     op.drop_column("query_history", "response_status")
