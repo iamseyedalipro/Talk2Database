@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     ai_provider: AIProvider = AIProvider.ANTHROPIC
     ai_api_key: str = ""
     ai_model: str = "claude-opus-4-8"
+    # Result explanations send only column names/types + locally-computed
+    # aggregates by default (the no-row-data promise). Enabling this opts into
+    # also sending a small sample of result rows for richer summaries.
+    ai_allow_sample_rows: bool = False
+    ai_sample_rows: int = 5
 
     # -- Schema cost control ---------------------------------------------- #
     schema_max_tokens: int = 6000
@@ -63,6 +68,11 @@ class Settings(BaseSettings):
     # -- Query guard rails ------------------------------------------------- #
     query_max_rows: int = 1000
     query_timeout_seconds: int = 30
+
+    # -- Admin audit feed -------------------------------------------------- #
+    # When enabled, admins can review every user's questions + generated SQL
+    # (never row data, which is not stored). Disable to hide the feed entirely.
+    admin_audit_enabled: bool = True
 
     # -- Panel DB ---------------------------------------------------------- #
     panel_db_host: str = "postgres-panel"

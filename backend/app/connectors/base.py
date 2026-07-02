@@ -42,6 +42,15 @@ class QueryResult:
     elapsed_ms: int
 
 
+@dataclass
+class ExplainResult:
+    """The planner's estimate for a query (from EXPLAIN, never executed)."""
+
+    cost: float | None
+    rows: int | None
+    plan: str  # raw plan JSON text, for display/debugging
+
+
 class ConnectorError(RuntimeError):
     """Base error for connector connect/introspect/execute failures."""
 
@@ -95,6 +104,10 @@ class Connector(Protocol):
 
     def run(self, query: str, max_rows: int) -> QueryResult:
         """Execute a validated read-only query and return up to ``max_rows`` rows."""
+        ...
+
+    def explain(self, query: str) -> ExplainResult:
+        """Return the planner's cost/row estimate for a query without running it."""
         ...
 
     def stream_csv(self, query: str, max_rows: int) -> Iterator[str]:

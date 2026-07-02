@@ -11,7 +11,13 @@ import json
 
 import openai
 
-from app.services.ai.base import SQL_OUTPUT_SCHEMA, AIProviderError, GeneratedSQL
+from app.services.ai.base import (
+    RESULT_SUMMARY_SCHEMA,
+    SQL_OUTPUT_SCHEMA,
+    AIProviderError,
+    GeneratedSQL,
+    ResultSummary,
+)
 from app.services.ai.prompts import build_question_block
 
 
@@ -56,3 +62,33 @@ class OpenAIProvider:
         except json.JSONDecodeError as exc:
             raise AIProviderError("OpenAI returned invalid JSON.") from exc
         return GeneratedSQL.model_validate(data)
+
+    def summarize_results(self, *, system_prompt: str, context: str) -> ResultSummary:
+        try:
+            response = self._client.chat.completions.create(
+                model=self.model,
+                temperature=0,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": context},
+                ],
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "result_summary",
+                        "schema": RESULT_SUMMARY_SCHEMA,
+                        "strict": True,
+                    },
+                },
+            )
+        except Exception as exc:
+            raise AIProviderError(f"OpenAI request failed: {exc}") from exc
+
+        content = response.choices[0].message.content
+        if not content:
+            raise AIProviderError("OpenAI returned an empty response.")
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError as exc:
+            raise AIProviderError("OpenAI returned invalid JSON.") from exc
+        return ResultSummary.model_validate(data)

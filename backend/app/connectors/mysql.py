@@ -19,10 +19,12 @@ from app.connectors.base import (
     ConnectionConfig,
     ConnectorError,
     ConnectorQueryError,
+    ExplainResult,
     QueryResult,
     to_jsonable,
 )
 from app.services.ai.prompts import build_schema_block, build_system_prompt
+from app.services.explain import parse_mysql_explain
 from app.services.schema.introspect import SchemaData, introspect_mysql
 from app.services.sql_guard import validate_select
 
@@ -116,6 +118,20 @@ class MySQLConnector:
             truncated=truncated,
             elapsed_ms=elapsed_ms,
         )
+
+    def explain(self, query: str) -> ExplainResult:
+        safe = self.validate(query)
+        try:
+            with self._connect() as conn, conn.cursor() as cur:
+                cur.execute(f"EXPLAIN FORMAT=JSON {safe}")
+                row = cur.fetchone()
+        except pymysql.Error as exc:
+            raise ConnectorQueryError(str(exc)) from exc
+
+        payload = row[0] if row else None  # MySQL returns the plan as a JSON string
+        cost, rows = parse_mysql_explain(payload)
+        plan = "" if payload is None else str(payload)
+        return ExplainResult(cost=cost, rows=rows, plan=plan)
 
     def stream_csv(self, query: str, max_rows: int) -> Iterator[str]:
         import csv

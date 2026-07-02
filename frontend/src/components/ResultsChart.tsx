@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Bar,
   BarChart,
@@ -18,6 +18,9 @@ export type ChartKind = 'bar' | 'line';
 interface Props {
   result: ExecuteResponse;
   kind: ChartKind;
+  /** AI-suggested initial axis columns; applied when they match real columns. */
+  suggestedX?: string | null;
+  suggestedY?: string | null;
 }
 
 interface ChartRow {
@@ -40,7 +43,7 @@ function toNumber(value: unknown): number | null {
  * (any column) and a Y column (must be numeric) from dropdowns built from the
  * result `columns`.
  */
-export default function ResultsChart({ result, kind }: Props) {
+export default function ResultsChart({ result, kind, suggestedX, suggestedY }: Props) {
   const { columns, rows } = result;
 
   // Columns whose values are at least partly numeric are eligible for the Y axis.
@@ -52,6 +55,14 @@ export default function ResultsChart({ result, kind }: Props) {
   const [yName, setYName] = useState<string>(
     () => numericCols[0]?.name ?? columns[0]?.name ?? '',
   );
+
+  // Apply an AI suggestion when it names a column that actually exists.
+  useEffect(() => {
+    if (suggestedX && columns.some((c) => c.name === suggestedX)) setXName(suggestedX);
+  }, [suggestedX, columns]);
+  useEffect(() => {
+    if (suggestedY && columns.some((c) => c.name === suggestedY)) setYName(suggestedY);
+  }, [suggestedY, columns]);
 
   const xIndex = columns.findIndex((c) => c.name === xName);
   const yIndex = columns.findIndex((c) => c.name === yName);

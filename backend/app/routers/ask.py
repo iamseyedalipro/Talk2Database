@@ -15,6 +15,7 @@ from app.services.ai.base import AIProviderError
 from app.services.ai.factory import get_ai_provider
 from app.services.connections import load_connector
 from app.services.schema.cache import ensure_snapshot
+from app.services.schema.glossary import build_glossary_block, load_glossary
 from app.services.schema.introspect import SchemaData
 from app.services.schema.select import select_schema
 from app.services.sql_guard import SqlGuardError
@@ -49,13 +50,18 @@ async def ask(payload: AskRequest, user: CurrentUser, session: SessionDep) -> As
     schema_data = cast(SchemaData, snapshot.content_json)
     selected = select_schema(schema_data, payload.question, settings.schema_max_tokens)
 
+    # Ground the model with the connection's business glossary + metrics, when set.
+    descriptions, metrics = await load_glossary(session, connection.id)
+    glossary_text = build_glossary_block(descriptions, metrics)
+    schema_text = f"{selected.text}\n\n{glossary_text}" if glossary_text else selected.text
+
     provider = get_ai_provider()
     try:
         generated = await run_in_threadpool(
             provider.generate_sql,
             question=payload.question,
             system_prompt=connector.system_prompt(),
-            schema_block=connector.schema_block(selected.text),
+            schema_block=connector.schema_block(schema_text),
         )
     except AIProviderError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc

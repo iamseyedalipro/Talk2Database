@@ -4,6 +4,7 @@ import { ask, execute, executeCsv, listConnections } from '../api/endpoints';
 import { triggerBlobDownload } from '../api/client';
 import type { AskResponse, Connection, ExecuteResponse } from '../api/types';
 import ResultsView from '../components/ResultsView';
+import SaveQueryModal from '../components/SaveQueryModal';
 import SqlPreviewModal from '../components/SqlPreviewModal';
 import { ErrorBanner } from '../components/ui';
 import { errorMessage } from '../utils/format';
@@ -32,6 +33,10 @@ export default function AskPage() {
   const [runError, setRunError] = useState<string | null>(null);
 
   const [csvBusy, setCsvBusy] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  // The question that produced the active result (stored when we run).
+  const [activeQuestion, setActiveQuestion] = useState<string | null>(null);
 
   useEffect(() => {
     listConnections()
@@ -72,6 +77,8 @@ export default function AskPage() {
       setResult(res);
       setActiveSql(sql);
       setActiveHistoryId(preview.history_id);
+      setActiveQuestion(question.trim() || null);
+      setSaveNotice(null);
       setPreview(null);
     } catch (err) {
       setRunError(errorMessage(err));
@@ -158,15 +165,49 @@ export default function AskPage() {
       <ErrorBanner message={runError} />
 
       {result && (
-        <ResultsView result={result} onDownloadCsv={handleDownloadCsv} csvBusy={csvBusy} />
+        <>
+          <div className="result-actions">
+            <button
+              type="button"
+              className="btn btn--secondary"
+              onClick={() => setSaveOpen(true)}
+              disabled={!activeSql}
+            >
+              Save query
+            </button>
+            {saveNotice && <span className="muted">{saveNotice}</span>}
+          </div>
+          <ResultsView
+            result={result}
+            onDownloadCsv={handleDownloadCsv}
+            csvBusy={csvBusy}
+            question={activeQuestion}
+          />
+        </>
       )}
 
-      {preview && (
+      {preview && connectionId !== null && (
         <SqlPreviewModal
           preview={preview}
+          connectionId={connectionId}
           busy={executing}
           onAccept={handleAccept}
           onCancel={() => setPreview(null)}
+        />
+      )}
+
+      {saveOpen && activeSql && (
+        <SaveQueryModal
+          draft={{
+            generated_sql: activeSql,
+            question: activeQuestion,
+            connection_id: connectionId,
+          }}
+          onSaved={() => {
+            setSaveOpen(false);
+            setSaveNotice('Saved to your library.');
+          }}
+          onCancel={() => setSaveOpen(false)}
         />
       )}
     </div>

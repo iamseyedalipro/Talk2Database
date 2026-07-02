@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
-import type { AskResponse } from '../api/types';
+import { explainPlan } from '../api/endpoints';
+import type { AskResponse, ExplainResult } from '../api/types';
+import { errorMessage } from '../utils/format';
 
 interface Props {
   preview: AskResponse;
+  /** Connection the SQL runs against; needed for the cost estimate. */
+  connectionId: number;
   /** True while the accepted SQL is executing. */
   busy?: boolean;
   /** Accept the (possibly edited) SQL for execution. */
@@ -14,15 +18,39 @@ interface Props {
  * Modal showing the AI-generated SQL, its explanation, and any warnings.
  * The user can Accept, switch to Edit mode to tweak the SQL, or Cancel.
  */
-export default function SqlPreviewModal({ preview, busy, onAccept, onCancel }: Props) {
+export default function SqlPreviewModal({
+  preview,
+  connectionId,
+  busy,
+  onAccept,
+  onCancel,
+}: Props) {
   const [editing, setEditing] = useState(false);
   const [sql, setSql] = useState(preview.generated_sql);
 
-  // Reset local SQL whenever a fresh preview arrives.
+  const [estimate, setEstimate] = useState<ExplainResult | null>(null);
+  const [explaining, setExplaining] = useState(false);
+  const [explainError, setExplainError] = useState<string | null>(null);
+
+  // Reset local SQL (and any stale estimate) whenever a fresh preview arrives.
   useEffect(() => {
     setSql(preview.generated_sql);
     setEditing(false);
+    setEstimate(null);
+    setExplainError(null);
   }, [preview]);
+
+  const handleExplain = async () => {
+    setExplainError(null);
+    setExplaining(true);
+    try {
+      setEstimate(await explainPlan({ connection_id: connectionId, sql }));
+    } catch (err) {
+      setExplainError(errorMessage(err));
+    } finally {
+      setExplaining(false);
+    }
+  };
 
   // Close on Escape.
   useEffect(() => {
@@ -70,11 +98,34 @@ export default function SqlPreviewModal({ preview, busy, onAccept, onCancel }: P
               <code>{sql}</code>
             </pre>
           )}
+
+          {(estimate || explainError) && (
+            <p className="explain-estimate" role="status">
+              {explainError ? (
+                <span className="explain-estimate__error">{explainError}</span>
+              ) : (
+                <>
+                  Estimated cost:{' '}
+                  <strong>{estimate?.cost != null ? estimate.cost.toLocaleString() : 'n/a'}</strong>
+                  {' · '}estimated rows:{' '}
+                  <strong>{estimate?.rows != null ? estimate.rows.toLocaleString() : 'n/a'}</strong>
+                </>
+              )}
+            </p>
+          )}
         </div>
 
         <footer className="modal__footer">
           <button type="button" className="btn btn--ghost" onClick={onCancel} disabled={busy}>
             Cancel
+          </button>
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={() => void handleExplain()}
+            disabled={busy || explaining || sql.trim().length === 0}
+          >
+            {explaining ? 'Estimating…' : 'Show cost estimate'}
           </button>
           {!editing && (
             <button
