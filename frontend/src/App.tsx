@@ -5,6 +5,7 @@ import RequireAuth from './components/RequireAuth';
 import RequireAdmin from './components/RequireAdmin';
 import { Spinner } from './components/ui';
 import AdminPage from './pages/AdminPage';
+import AnalysisPage from './pages/AnalysisPage';
 import AskPage from './pages/AskPage';
 import ConnectionsPage from './pages/ConnectionsPage';
 import HistoryPage from './pages/HistoryPage';
@@ -29,6 +30,7 @@ export default function App() {
         }
       >
         <Route path="/" element={<AskPage />} />
+        <Route path="/analysis" element={<AnalysisPage />} />
         <Route
           path="/browse"
           element={

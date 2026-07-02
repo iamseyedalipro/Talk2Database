@@ -190,3 +190,94 @@ export interface SystemStatus {
   connection_count: number;
   supported_types: string[];
 }
+
+/* ------------------------------- Analysis -------------------------------- */
+
+export interface AnalysisPayload {
+  question: string;
+  connection_ids: number[];
+  include_clarity: boolean;
+}
+
+export interface AnalysisStep {
+  connection_id: number | null;
+  connection_name: string | null;
+  purpose: string | null;
+  sql: string;
+  row_count: number | null;
+  error: string | null;
+}
+
+export interface AnalysisResponse {
+  answer: string;
+  steps: AnalysisStep[];
+  provider: string;
+  model: string;
+  warnings: string[];
+}
+
+/* -------------------------------- Clarity -------------------------------- */
+
+export interface ClaritySettings {
+  token_set: boolean;
+  project_id: string | null;
+  fetch_time: string;
+  timezone: string;
+  dimension_combos: string[][];
+  allowed_dimensions: string[];
+  next_run_at: string | null;
+}
+
+export interface ClaritySettingsUpdate {
+  api_token?: string;
+  project_id?: string;
+  fetch_time?: string;
+  timezone?: string;
+  dimension_combos?: string[][];
+}
+
+export interface ClaritySnapshotInfo {
+  combo_key: string;
+  dimensions: string[];
+  status: string;
+  error: string | null;
+}
+
+export interface ClarityRun {
+  id: number;
+  trigger: string;
+  data_date: string;
+  status: string;
+  requests_attempted: number;
+  requests_succeeded: number;
+  created_at: string;
+  finished_at: string | null;
+  error_summary: string | null;
+  snapshots: ClaritySnapshotInfo[];
+}
+
+export interface ClarityStatus {
+  configured: boolean;
+  requests_used_today: number;
+  daily_budget: number;
+  latest_data_date: string | null;
+  days_stored: number;
+  next_run_at: string | null;
+}
+
+export interface ClarityAvailability {
+  available: boolean;
+  latest_data_date: string | null;
+  days_stored: number;
+}
+
+/* -------------------------------- Prompts -------------------------------- */
+
+export interface PromptTemplate {
+  key: string;
+  title: string;
+  description: string;
+  content: string;
+  default_content: string;
+  is_customized: boolean;
+}

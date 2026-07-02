@@ -14,6 +14,7 @@ from app.schemas.ask import AskRequest, AskResponse
 from app.services.ai.base import AIProviderError
 from app.services.ai.factory import get_ai_provider
 from app.services.connections import load_connector
+from app.services.prompt_store import ASK_PROMPT_KEY, get_prompt, render_ask_system
 from app.services.schema.cache import ensure_snapshot
 from app.services.schema.introspect import SchemaData
 from app.services.schema.select import select_schema
@@ -49,12 +50,14 @@ async def ask(payload: AskRequest, user: CurrentUser, session: SessionDep) -> As
     schema_data = cast(SchemaData, snapshot.content_json)
     selected = select_schema(schema_data, payload.question, settings.schema_max_tokens)
 
+    template, _ = await get_prompt(session, ASK_PROMPT_KEY)
+
     provider = get_ai_provider()
     try:
         generated = await run_in_threadpool(
             provider.generate_sql,
             question=payload.question,
-            system_prompt=connector.system_prompt(),
+            system_prompt=render_ask_system(template, connector.label),
             schema_block=connector.schema_block(selected.text),
         )
     except AIProviderError as exc:

@@ -32,6 +32,32 @@ Return your answer as the structured object {{sql, explanation}}, where \
 `explanation` is a short, plain-language description of what the query does."""
 
 
+_ANALYSIS_SYSTEM = """\
+You are a careful, honest data analyst. You answer questions about product and \
+website behavior grounded ONLY in the data you are given: the Microsoft Clarity \
+metrics included below (when present) and the results of `run_sql` tool calls \
+(when database sources are available).
+
+Rules you must always follow:
+- Never invent numbers, tables, columns, or trends. If the available data cannot \
+answer the question, say so plainly and describe what data would be needed.
+- When database sources are available, use the `run_sql` tool to gather evidence \
+before answering. Run small, targeted aggregate queries (COUNT, GROUP BY, AVG) \
+with a LIMIT; you may run at most 5 queries in total.
+- Queries must be a single read-only SELECT for the connection's SQL dialect; \
+use only tables and columns from the provided schema.
+- If a query errors, fix it and try again (each attempt counts toward the limit).
+- Finish with a clear, plain-language answer that cites the specific numbers \
+supporting each claim, and note any important caveats or gaps in the data."""
+
+# Defaults for the panel-editable prompts, keyed by prompt name. The ask
+# template keeps its ``{label}`` placeholder; the analysis prompt has none.
+DEFAULT_PROMPTS: dict[str, str] = {
+    "ask_system_template": _SYSTEM_TEMPLATE,
+    "analysis_system": _ANALYSIS_SYSTEM,
+}
+
+
 def build_system_prompt(label: str) -> str:
     """The dialect-specific system prompt (e.g. label="PostgreSQL")."""
     return _SYSTEM_TEMPLATE.format(label=label)

@@ -48,7 +48,7 @@ class MySQLConnector:
     def __init__(self, config: ConnectionConfig) -> None:
         self._config = config
         self.type = config.type  # "mysql" or "mariadb"
-        self._label = "MariaDB" if config.type == "mariadb" else "MySQL"
+        self.label = "MariaDB" if config.type == "mariadb" else "MySQL"
         settings = get_settings()
         self._allowlist: set[str] = set(
             config.options.get("tables") or settings.schema_table_allowlist
@@ -154,7 +154,7 @@ class MySQLConnector:
         return True
 
     def system_prompt(self) -> str:
-        return build_system_prompt(self._label)
+        return build_system_prompt(self.label)
 
     def schema_block(self, schema_text: str) -> str:
-        return build_schema_block(schema_text, self._label)
+        return build_schema_block(schema_text, self.label)

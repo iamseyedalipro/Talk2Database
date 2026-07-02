@@ -101,6 +101,14 @@ export const api = {
     });
   },
 
+  put<T>(path: string, body?: unknown): Promise<T> {
+    return request<T>(path, {
+      method: 'PUT',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  },
+
   patch<T>(path: string, body?: unknown): Promise<T> {
     return request<T>(path, {
       method: 'PATCH',
