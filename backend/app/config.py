@@ -43,6 +43,20 @@ class Settings(BaseSettings):
     ai_api_key: str = ""
     ai_model: str = "claude-opus-4-8"
 
+    # -- Ask flow ----------------------------------------------------------- #
+    # Corrective re-prompts after a generated statement references tables or
+    # columns that do not exist in the schema snapshot (or fails the guard).
+    ask_max_retries: int = 2
+    ask_verify_identifiers: bool = True
+    # Natural-language answer summaries send a *capped sample of result rows*
+    # to the AI provider — a deliberate exception to the "schema only" rule,
+    # so the feature is off unless explicitly enabled. See docs/security.md.
+    answer_summary_enabled: bool = False
+    answer_summary_max_rows: int = 20
+    answer_summary_max_columns: int = 15
+    answer_summary_max_cell_chars: int = 200
+    suggested_questions_count: int = 5
+
     # -- Schema cost control ---------------------------------------------- #
     schema_max_tokens: int = 6000
     # Default namespace/table scoping. A connection may override these in its

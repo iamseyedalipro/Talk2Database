@@ -7,12 +7,16 @@ database into the panel, a user points the panel at their own database.
 
 from __future__ import annotations
 
+from typing import cast
+
 from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy import select
 from starlette.concurrency import run_in_threadpool
 
+from app.config import get_settings
 from app.deps import CurrentUser, SessionDep
 from app.models.connection import Connection
+from app.schemas.ask import SuggestedQuestionsResponse
 from app.schemas.connections import (
     ConnectionCreate,
     ConnectionOut,
@@ -20,9 +24,14 @@ from app.schemas.connections import (
     ConnectionUpdate,
 )
 from app.schemas.schema import DbSchema
+from app.services.ai.base import AIProviderError
+from app.services.ai.factory import get_ai_provider
+from app.services.ai.prompts import build_suggestions_prompt
 from app.services.connections import build_connector, get_owned_connection, load_connector
 from app.services.crypto import SecretCryptoError, encrypt_secret
 from app.services.schema.cache import ensure_snapshot, rebuild_snapshot
+from app.services.schema.introspect import SchemaData
+from app.services.schema.serialize import estimate_tokens, table_directory
 
 router = APIRouter(prefix="/connections", tags=["connections"])
 
@@ -137,6 +146,50 @@ async def get_connection_schema(
     except Exception as exc:
         raise _schema_error(connection, exc) from exc
     return DbSchema.model_validate(snapshot.content_json)
+
+
+@router.get("/{connection_id}/suggested-questions", response_model=SuggestedQuestionsResponse)
+async def suggested_questions(
+    connection_id: int, user: CurrentUser, session: SessionDep
+) -> SuggestedQuestionsResponse:
+    """AI-generated example questions for this connection's schema.
+
+    Cached on the schema snapshot row, so a schema change (which creates a new
+    snapshot version) naturally refreshes the suggestions.
+    """
+    connection, connector = await load_connector(session, connection_id, user)
+    try:
+        snapshot = await ensure_snapshot(session, connection.id, connector)
+    except Exception as exc:
+        raise _schema_error(connection, exc) from exc
+
+    if snapshot.table_count == 0:
+        return SuggestedQuestionsResponse(questions=[])
+    if snapshot.suggested_questions_json:
+        return SuggestedQuestionsResponse(questions=list(snapshot.suggested_questions_json))
+
+    settings = get_settings()
+    # Full schema when it fits the token budget; otherwise just the directory —
+    # names alone are enough to propose plausible starter questions.
+    if estimate_tokens(snapshot.content_text) <= settings.schema_max_tokens:
+        schema_text = snapshot.content_text
+    else:
+        schema_text = table_directory(cast(SchemaData, snapshot.content_json))
+
+    provider = get_ai_provider()
+    try:
+        questions = await run_in_threadpool(
+            provider.suggest_questions,
+            system_prompt=build_suggestions_prompt(connector.label),
+            schema_block=connector.schema_block(schema_text),
+        )
+    except AIProviderError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+    questions = questions[: max(1, settings.suggested_questions_count)]
+    snapshot.suggested_questions_json = questions
+    await session.flush()
+    return SuggestedQuestionsResponse(questions=questions)
 
 
 @router.post("/{connection_id}/schema/refresh", response_model=DbSchema)

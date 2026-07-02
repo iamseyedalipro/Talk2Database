@@ -122,7 +122,16 @@ The serialized schema is sent as a stable *leading prefix* so provider prompt ca
 - **Anthropic:** the schema is a separate `system` block marked `cache_control: {"type": "ephemeral"}`, so its tokens are billed once and reused within the caching window (`app/services/ai/anthropic_provider.py`).
 - **OpenAI:** the schema is placed in the leading `system` message so OpenAI's automatic prefix caching applies (`app/services/ai/openai_provider.py`).
 
-Both providers force structured `{sql, explanation}` output — Anthropic via a single tool call, OpenAI via a strict JSON schema response format.
+Both providers force structured `{status, sql, explanation, clarification_question, suggested_interpretations}` output — Anthropic via a single tool call, OpenAI via a strict JSON schema response format. `status` lets the model ask the user a clarifying question (with clickable interpretations) instead of inventing tables when the question does not map to the schema.
+
+### 2b. Verification and corrective retries
+
+After generation, `verify_identifiers` (`app/services/sql_verify.py`) resolves every table and column reference in the SQL against the **full schema snapshot** using sqlglot scope analysis (CTEs, aliases, subqueries and set operations resolve natively). If the model hallucinated an identifier — or the statement failed the read-only guard — the orchestrator (`app/services/ai/generate.py`) appends the previous answer plus a corrective message (invalid identifiers, close-match suggestions, the table directory) to the conversation and retries, up to `ASK_MAX_RETRIES` times (default 2). The system prompt and schema block stay byte-identical across retries, so prompt caching still applies. If retries are exhausted the response carries `status: "verification_failed"` with the offending identifiers, and the last SQL is still shown for manual editing.
+
+### 2c. Answer summaries and suggested questions
+
+- `POST /api/summarize` (opt-in via `ANSWER_SUMMARY_ENABLED`) turns an executed result into a 1–3 sentence natural-language answer. It sends a server-side-capped sample of the result rows to the provider — the one deliberate exception to "schema only"; see docs/security.md.
+- `GET /api/connections/{id}/suggested-questions` generates 4–6 example questions from the schema and caches them on the snapshot row, so a schema change (new snapshot version) refreshes them automatically.
 
 ### 3. Relevance trimming (only when needed)
 

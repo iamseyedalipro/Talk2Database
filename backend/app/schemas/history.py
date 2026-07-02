@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -15,7 +16,12 @@ class HistoryItem(BaseModel):
     id: int
     connection_id: int | None = None
     question: str
-    generated_sql: str
+    # NULL for clarification/unanswerable turns that produced no SQL.
+    generated_sql: str | None = None
+    response_status: str = "ok"
+    clarification_json: dict[str, Any] | None = None
+    retry_count: int = 0
+    summary_text: str | None = None
     provider: str | None = None
     model: str | None = None
     last_status: QueryStatus
