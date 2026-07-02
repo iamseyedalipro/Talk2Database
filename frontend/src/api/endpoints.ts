@@ -22,6 +22,9 @@ import type {
   LoginPayload,
   RegisterPayload,
   RerunPayload,
+  SuggestedQuestionsResponse,
+  SummarizePayload,
+  SummarizeResponse,
   SystemStatus,
   TokenResponse,
   User,
@@ -61,6 +64,10 @@ export const execute = (body: ExecutePayload) =>
 export const executeCsv = (body: ExecutePayload) =>
   api.download('/execute/csv', body, 'result.csv');
 
+/** Natural-language answer summary (only when the deployment enables it). */
+export const summarize = (body: SummarizePayload) =>
+  api.post<SummarizeResponse>('/summarize', body);
+
 /* -------------------------------- History -------------------------------- */
 
 export const listHistory = (limit = 50, offset = 0) =>
@@ -93,6 +100,10 @@ export const getSchema = (connectionId: number) =>
 /** Force a fresh introspection of a connection's schema (e.g. after a DDL change). */
 export const refreshSchema = (connectionId: number) =>
   api.post<DbSchema>(`/connections/${connectionId}/schema/refresh`);
+
+/** AI-generated example questions for a connection (cached per schema version). */
+export const getSuggestedQuestions = (connectionId: number) =>
+  api.get<SuggestedQuestionsResponse>(`/connections/${connectionId}/suggested-questions`);
 
 /* -------------------------------- System --------------------------------- */
 
