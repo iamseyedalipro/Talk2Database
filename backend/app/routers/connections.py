@@ -16,6 +16,7 @@ from starlette.concurrency import run_in_threadpool
 from app.config import get_settings
 from app.deps import CurrentUser, SessionDep
 from app.models.connection import Connection
+from app.models.connection_access import ConnectionAccess
 from app.schemas.ask import SuggestedQuestionsResponse
 from app.schemas.connections import (
     ConnectionCreate,
@@ -27,7 +28,12 @@ from app.schemas.schema import DbSchema
 from app.services.ai.base import AIProviderError
 from app.services.ai.factory import get_ai_provider
 from app.services.ai.prompts import build_suggestions_prompt
-from app.services.connections import build_connector, get_owned_connection, load_connector
+from app.services.connections import (
+    build_connector,
+    get_accessible_connection,
+    get_owned_connection,
+    load_connector,
+)
 from app.services.crypto import SecretCryptoError, encrypt_secret
 from app.services.schema.cache import ensure_snapshot, rebuild_snapshot
 from app.services.schema.introspect import SchemaData
@@ -38,11 +44,20 @@ router = APIRouter(prefix="/connections", tags=["connections"])
 
 @router.get("", response_model=list[ConnectionOut])
 async def list_connections(user: CurrentUser, session: SessionDep) -> list[Connection]:
-    result = await session.execute(
-        select(Connection)
-        .where(Connection.owner_id == user.id)
-        .order_by(Connection.created_at.desc())
-    )
+    """List the connections the caller can use.
+
+    Admins see every connection; other users see the ones they own plus any
+    that have been shared with them via :class:`ConnectionAccess`.
+    """
+    query = select(Connection).order_by(Connection.created_at.desc())
+    if not user.is_admin:
+        query = query.where(
+            (Connection.owner_id == user.id)
+            | Connection.id.in_(
+                select(ConnectionAccess.connection_id).where(ConnectionAccess.user_id == user.id)
+            )
+        )
+    result = await session.execute(query)
     return list(result.scalars().all())
 
 
@@ -81,7 +96,7 @@ async def create_connection(
 
 @router.get("/{connection_id}", response_model=ConnectionOut)
 async def get_connection(connection_id: int, user: CurrentUser, session: SessionDep) -> Connection:
-    return await get_owned_connection(session, connection_id, user)
+    return await get_accessible_connection(session, connection_id, user)
 
 
 @router.patch("/{connection_id}", response_model=ConnectionOut)
@@ -114,7 +129,7 @@ async def delete_connection(connection_id: int, user: CurrentUser, session: Sess
 async def test_connection(
     connection_id: int, user: CurrentUser, session: SessionDep
 ) -> ConnectionTestResult:
-    connection = await get_owned_connection(session, connection_id, user)
+    connection = await get_accessible_connection(session, connection_id, user)
     try:
         connector = build_connector(connection)
         ok = await run_in_threadpool(connector.reachable)

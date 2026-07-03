@@ -1,8 +1,9 @@
 """Semantic layer: per-connection table/column descriptions and business metrics.
 
-Connections are owned per user, so the connection's owner manages its glossary
-(``get_owned_connection`` enforces this — there is no cross-tenant access). The
-annotations are fed into the AI prompt by the ask flow to improve SQL accuracy.
+Anyone with *use* access to a connection — its owner, an admin, or a user the
+connection has been shared with — may view and edit its glossary
+(``get_accessible_connection`` enforces this). The annotations are fed into the
+AI prompt by the ask flow to improve SQL accuracy.
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ from app.schemas.glossary import (
     MetricOut,
     MetricUpdate,
 )
-from app.services.connections import get_owned_connection
+from app.services.connections import get_accessible_connection
 from app.services.schema.glossary import load_glossary
 
 router = APIRouter(prefix="/connections/{connection_id}/glossary", tags=["glossary"])
@@ -28,7 +29,7 @@ router = APIRouter(prefix="/connections/{connection_id}/glossary", tags=["glossa
 
 @router.get("", response_model=GlossaryData)
 async def get_glossary(connection_id: int, user: CurrentUser, session: SessionDep) -> GlossaryData:
-    await get_owned_connection(session, connection_id, user)
+    await get_accessible_connection(session, connection_id, user)
     descriptions, metrics = await load_glossary(session, connection_id)
     return GlossaryData(
         descriptions=[DescriptionOut.model_validate(d) for d in descriptions],
@@ -43,7 +44,7 @@ async def upsert_description(
     user: CurrentUser,
     session: SessionDep,
 ) -> DescriptionOut:
-    await get_owned_connection(session, connection_id, user)
+    await get_accessible_connection(session, connection_id, user)
     existing = await session.scalar(
         select(GlossaryDescription).where(
             GlossaryDescription.connection_id == connection_id,
@@ -69,7 +70,7 @@ async def upsert_description(
 async def delete_description(
     connection_id: int, description_id: int, user: CurrentUser, session: SessionDep
 ) -> Response:
-    await get_owned_connection(session, connection_id, user)
+    await get_accessible_connection(session, connection_id, user)
     entry = await session.get(GlossaryDescription, description_id)
     if entry is None or entry.connection_id != connection_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Description not found.")
@@ -81,7 +82,7 @@ async def delete_description(
 async def create_metric(
     connection_id: int, payload: MetricCreate, user: CurrentUser, session: SessionDep
 ) -> MetricOut:
-    await get_owned_connection(session, connection_id, user)
+    await get_accessible_connection(session, connection_id, user)
     metric = Metric(
         connection_id=connection_id,
         name=payload.name,
@@ -103,7 +104,7 @@ async def create_metric(
 async def _owned_metric(
     session: SessionDep, connection_id: int, metric_id: int, user: CurrentUser
 ) -> Metric:
-    await get_owned_connection(session, connection_id, user)
+    await get_accessible_connection(session, connection_id, user)
     metric = await session.get(Metric, metric_id)
     if metric is None or metric.connection_id != connection_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Metric not found.")

@@ -15,6 +15,7 @@ from app.routers import (
     admin_audit,
     ask,
     auth,
+    connection_access,
     connections,
     execute,
     glossary,
@@ -38,6 +39,7 @@ def _build_api_router() -> APIRouter:
     api.include_router(auth.router)
     api.include_router(users.router)
     api.include_router(admin_audit.router)
+    api.include_router(connection_access.router)
     api.include_router(connections.router)
     api.include_router(glossary.router)
     api.include_router(ask.router)
