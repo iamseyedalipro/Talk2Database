@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { register } from '../api/endpoints';
+import AppFooter from '../components/AppFooter';
 import { ErrorBanner } from '../components/ui';
 import { useAuthStore } from '../store/auth';
 import { errorMessage } from '../utils/format';
@@ -89,6 +90,7 @@ export default function RegisterInvitePage() {
           </button>
         </p>
       </div>
+      <AppFooter />
     </div>
   );
 }
