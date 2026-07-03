@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { useThemeStore } from '../store/theme';
+import AppFooter from './AppFooter';
 
 /** App shell: top navigation + routed page content. */
 export default function Layout() {
@@ -71,6 +72,7 @@ export default function Layout() {
       <main className="app-main">
         <Outlet />
       </main>
+      <AppFooter />
     </div>
   );
 }

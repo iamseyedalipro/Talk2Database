@@ -212,6 +212,23 @@ code {
   padding: 1.5rem 1.25rem 3rem;
 }
 
+.app-footer {
+  border-top: 1px solid var(--border);
+  padding: 1rem 1.25rem;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.app-footer a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.app-footer a:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
 /* --------------------------------- Pages --------------------------------- */
 
 .page {
@@ -1252,8 +1269,11 @@ textarea {
 
 .auth-screen {
   min-height: 100vh;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
   padding: 1.5rem;
   background: linear-gradient(160deg, var(--nav-active-bg) 0%, var(--bg) 60%);
 }
