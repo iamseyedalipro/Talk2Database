@@ -35,6 +35,26 @@ def test_audit_item_maps_from_query_history() -> None:
     assert item.user_email == "user@example.com"
 
 
+def test_audit_item_maps_null_generated_sql() -> None:
+    # generated_sql is NULL when generation produced a clarification request
+    # instead of SQL; the audit item must tolerate it rather than fail to validate.
+    history = QueryHistory(
+        id=8,
+        user_id=3,
+        connection_id=2,
+        question="what do you mean?",
+        generated_sql=None,
+        provider="anthropic",
+        model="claude",
+        last_status=QueryStatus.PREVIEW,
+        created_at=datetime.now(tz=UTC),
+    )
+    item = AuditItem.model_validate(history, from_attributes=True)
+
+    assert item.id == 8
+    assert item.generated_sql is None
+
+
 async def test_audit_disabled_returns_404(monkeypatch: pytest.MonkeyPatch) -> None:
     disabled = Settings(admin_audit_enabled=False, ai_api_key="x", jwt_secret="s")
     monkeypatch.setattr(admin_audit, "get_settings", lambda: disabled)

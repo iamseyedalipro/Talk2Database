@@ -17,7 +17,8 @@ class AuditItem(BaseModel):
     user_email: str | None = None
     connection_id: int | None = None
     question: str
-    generated_sql: str
+    # NULL when generation produced a clarification request instead of SQL.
+    generated_sql: str | None = None
     provider: str | None = None
     model: str | None = None
     last_status: QueryStatus
