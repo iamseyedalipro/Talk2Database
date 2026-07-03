@@ -15,14 +15,18 @@ from fastapi.staticfiles import StaticFiles
 from app import __version__
 from app.config import get_settings
 from app.routers import (
+    admin_audit,
     analysis,
     ask,
     auth,
     clarity,
     connections,
     execute,
+    glossary,
     history,
     prompts,
+    results,
+    saved_queries,
     system,
     users,
 )
@@ -40,11 +44,15 @@ def _build_api_router() -> APIRouter:
 
     api.include_router(auth.router)
     api.include_router(users.router)
+    api.include_router(admin_audit.router)
     api.include_router(connections.router)
+    api.include_router(glossary.router)
     api.include_router(ask.router)
     api.include_router(analysis.router)
     api.include_router(execute.router)
     api.include_router(history.router)
+    api.include_router(saved_queries.router)
+    api.include_router(results.router)
     api.include_router(clarity.router)
     api.include_router(prompts.router)
     api.include_router(system.router)

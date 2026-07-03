@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 from app.connectors.base import QueryResult
-from app.services.ai.base import ChatMessage, ChatTurn, ToolCall, ToolSpec
+from app.services.ai.base import ChatTurn, ToolCall, ToolChatMessage, ToolSpec
 from app.services.analysis import agent as agent_module
 from app.services.analysis.agent import MAX_QUERIES, run_analysis
 from app.services.sql_guard import SqlGuardError
@@ -40,7 +40,7 @@ class FakeProvider:
         self,
         *,
         system: str,
-        messages: list[ChatMessage],
+        messages: list[ToolChatMessage],
         tools: list[ToolSpec],
         force_text: bool = False,
     ) -> ChatTurn:

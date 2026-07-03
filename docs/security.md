@@ -86,7 +86,9 @@ Result size is bounded too: queries return at most `QUERY_MAX_ROWS` rows (the ru
 
 ## Schema-only AI grounding
 
-Only **structural metadata** is ever sent to the AI provider: table and column names, data types, nullability, primary keys, foreign keys, and any object/column comments. This comes from `information_schema`/`pg_catalog` introspection (`app/services/schema/introspect.py`) run through the read-only connection. **No row data is ever read for introspection, and none is ever sent to the provider.** Results of executed queries are returned only to the authenticated user in the panel; they are not sent back to the model.
+Only **structural metadata** is ever sent to the AI provider: table and column names, data types, nullability, primary keys, foreign keys, and any object/column comments. This comes from `information_schema`/`pg_catalog` introspection (`app/services/schema/introspect.py`) run through the read-only connection. **No row data is ever read for introspection, and none is sent to the provider by default.** Results of executed queries are returned only to the authenticated user in the panel; they are not sent back to the model.
+
+**Result summaries keep the same promise by default.** `POST /api/results/summarize` ("Explain results" in the panel) sends only column names/types and *locally-computed* aggregates to the provider — no raw rows. A deployment may opt into also sending a small sample of result rows for richer summaries via `AI_ALLOW_SAMPLE_ROWS=true` (capped at `AI_SAMPLE_ROWS`, default 5). Leave it off if your data must never reach the provider.
 
 You can further restrict what the model sees:
 

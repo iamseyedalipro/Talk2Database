@@ -1,7 +1,8 @@
 """OpenAI implementation of the SQL provider.
 
 The schema is placed in the leading ``system`` message so OpenAI's automatic
-prompt caching applies to the shared prefix across questions. Structured output
+prompt caching applies to the shared prefix across questions — and across
+correction retries, which only append to the message list. Structured output
 is enforced with a strict JSON schema.
 """
 
@@ -13,20 +14,23 @@ from typing import Any
 import openai
 
 from app.services.ai.base import (
+    QUESTIONS_OUTPUT_SCHEMA,
+    RESULT_SUMMARY_SCHEMA,
     SQL_OUTPUT_SCHEMA,
     AIProviderError,
     ChatMessage,
     ChatTurn,
-    GeneratedSQL,
+    ResultSummary,
+    SqlGenerationResult,
     ToolCall,
+    ToolChatMessage,
     ToolSpec,
 )
-from app.services.ai.prompts import build_question_block
 
 
-def _to_openai_messages(system: str, messages: list[ChatMessage]) -> list[Any]:
-    """Translate neutral chat turns into Chat Completions messages."""
-    out: list[dict[str, Any]] = [{"role": "system", "content": system}]
+def _to_openai_messages(system: str, messages: list[ToolChatMessage]) -> list[Any]:
+    """Translate neutral tool-chat turns into Chat Completions messages."""
+    out: list[Any] = [{"role": "system", "content": system}]
     for msg in messages:
         if msg.role == "assistant":
             entry: dict[str, Any] = {"role": "assistant", "content": msg.text or None}
@@ -61,23 +65,29 @@ class OpenAIProvider:
         self.model = model
         self._client = openai.OpenAI(api_key=api_key)
 
-    def generate_sql(self, *, question: str, system_prompt: str, schema_block: str) -> GeneratedSQL:
+    def _structured_call(
+        self,
+        *,
+        system_content: str,
+        messages: list[ChatMessage],
+        schema_name: str,
+        output_schema: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Run one strict-JSON-schema call and return the parsed object."""
+        chat_messages: list[Any] = [
+            {"role": "system", "content": system_content},
+            *[dict(m) for m in messages],
+        ]
         try:
             response = self._client.chat.completions.create(
                 model=self.model,
                 temperature=0,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": f"{system_prompt}\n\n{schema_block}",
-                    },
-                    {"role": "user", "content": build_question_block(question)},
-                ],
+                messages=chat_messages,
                 response_format={
                     "type": "json_schema",
                     "json_schema": {
-                        "name": "sql_result",
-                        "schema": SQL_OUTPUT_SCHEMA,
+                        "name": schema_name,
+                        "schema": output_schema,
                         "strict": True,
                     },
                 },
@@ -92,13 +102,53 @@ class OpenAIProvider:
             data = json.loads(content)
         except json.JSONDecodeError as exc:
             raise AIProviderError("OpenAI returned invalid JSON.") from exc
-        return GeneratedSQL.model_validate(data)
+        if not isinstance(data, dict):
+            raise AIProviderError("OpenAI returned a non-object JSON payload.")
+        return data
+
+    def generate_sql(
+        self, *, messages: list[ChatMessage], system_prompt: str, schema_block: str
+    ) -> SqlGenerationResult:
+        data = self._structured_call(
+            system_content=f"{system_prompt}\n\n{schema_block}",
+            messages=messages,
+            schema_name="sql_result",
+            output_schema=SQL_OUTPUT_SCHEMA,
+        )
+        try:
+            return SqlGenerationResult.model_validate(data)
+        except ValueError as exc:
+            raise AIProviderError(f"OpenAI returned an invalid structured result: {exc}") from exc
+
+    def suggest_questions(self, *, system_prompt: str, schema_block: str) -> list[str]:
+        data = self._structured_call(
+            system_content=f"{system_prompt}\n\n{schema_block}",
+            messages=[{"role": "user", "content": "Propose example questions for this schema."}],
+            schema_name="example_questions",
+            output_schema=QUESTIONS_OUTPUT_SCHEMA,
+        )
+        questions = data.get("questions")
+        if not isinstance(questions, list) or not questions:
+            raise AIProviderError("OpenAI returned no example questions.")
+        return [str(q) for q in questions]
+
+    def summarize_results(self, *, system_prompt: str, context: str) -> ResultSummary:
+        data = self._structured_call(
+            system_content=system_prompt,
+            messages=[{"role": "user", "content": context}],
+            schema_name="result_summary",
+            output_schema=RESULT_SUMMARY_SCHEMA,
+        )
+        try:
+            return ResultSummary.model_validate(data)
+        except ValueError as exc:
+            raise AIProviderError(f"OpenAI returned an invalid summary: {exc}") from exc
 
     def chat(
         self,
         *,
         system: str,
-        messages: list[ChatMessage],
+        messages: list[ToolChatMessage],
         tools: list[ToolSpec],
         force_text: bool = False,
     ) -> ChatTurn:

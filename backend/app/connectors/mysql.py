@@ -19,10 +19,12 @@ from app.connectors.base import (
     ConnectionConfig,
     ConnectorError,
     ConnectorQueryError,
+    ExplainResult,
     QueryResult,
     to_jsonable,
 )
 from app.services.ai.prompts import build_schema_block, build_system_prompt
+from app.services.explain import parse_mysql_explain
 from app.services.schema.introspect import SchemaData, introspect_mysql
 from app.services.sql_guard import validate_select
 
@@ -48,7 +50,8 @@ class MySQLConnector:
     def __init__(self, config: ConnectionConfig) -> None:
         self._config = config
         self.type = config.type  # "mysql" or "mariadb"
-        self.label = "MariaDB" if config.type == "mariadb" else "MySQL"
+        self._label = "MariaDB" if config.type == "mariadb" else "MySQL"
+        self.label = self._label
         settings = get_settings()
         self._allowlist: set[str] = set(
             config.options.get("tables") or settings.schema_table_allowlist
@@ -117,6 +120,20 @@ class MySQLConnector:
             elapsed_ms=elapsed_ms,
         )
 
+    def explain(self, query: str) -> ExplainResult:
+        safe = self.validate(query)
+        try:
+            with self._connect() as conn, conn.cursor() as cur:
+                cur.execute(f"EXPLAIN FORMAT=JSON {safe}")
+                row = cur.fetchone()
+        except pymysql.Error as exc:
+            raise ConnectorQueryError(str(exc)) from exc
+
+        payload = row[0] if row else None  # MySQL returns the plan as a JSON string
+        cost, rows = parse_mysql_explain(payload)
+        plan = "" if payload is None else str(payload)
+        return ExplainResult(cost=cost, rows=rows, plan=plan)
+
     def stream_csv(self, query: str, max_rows: int) -> Iterator[str]:
         import csv
         import io
@@ -154,7 +171,7 @@ class MySQLConnector:
         return True
 
     def system_prompt(self) -> str:
-        return build_system_prompt(self.label)
+        return build_system_prompt(self._label)
 
     def schema_block(self, schema_text: str) -> str:
-        return build_schema_block(schema_text, self.label)
+        return build_schema_block(schema_text, self._label)

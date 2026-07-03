@@ -21,7 +21,7 @@ from app.config import get_settings
 from app.connectors.base import Connector, ConnectorError, QueryResult
 from app.models.connection import Connection
 from app.models.user import User
-from app.services.ai.base import ChatMessage, ChatTurn, ToolCall, ToolResult, ToolSpec
+from app.services.ai.base import ChatTurn, ToolCall, ToolChatMessage, ToolResult, ToolSpec
 from app.services.ai.factory import get_ai_provider
 from app.services.clarity.reader import load_clarity_context
 from app.services.connections import load_connector
@@ -223,7 +223,7 @@ async def run_analysis(
     )
 
     provider = get_ai_provider()
-    messages: list[ChatMessage] = [ChatMessage(role="user", text=f"Question: {question}")]
+    messages: list[ToolChatMessage] = [ToolChatMessage(role="user", text=f"Question: {question}")]
     steps: list[AnalysisStep] = []
     queries_used = 0
 
@@ -237,7 +237,7 @@ async def run_analysis(
             break  # empty turn - force a text answer below
 
         messages.append(
-            ChatMessage(role="assistant", text=turn.text, tool_calls=list(turn.tool_calls))
+            ToolChatMessage(role="assistant", text=turn.text, tool_calls=list(turn.tool_calls))
         )
         results: list[ToolResult] = []
         for call in turn.tool_calls:
@@ -252,13 +252,13 @@ async def run_analysis(
                 continue
             queries_used += 1
             results.append(await _execute_tool_call(call, sources, steps))
-        messages.append(ChatMessage(role="user", tool_results=results))
+        messages.append(ToolChatMessage(role="user", tool_results=results))
 
         if queries_used >= MAX_QUERIES:
             break
 
     messages.append(
-        ChatMessage(
+        ToolChatMessage(
             role="user",
             text="Give your final answer now, based only on the data gathered so far.",
         )

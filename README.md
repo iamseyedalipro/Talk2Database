@@ -37,7 +37,12 @@ It ships as a single `docker compose` bundle: a FastAPI + React panel, two Postg
 - **Low, predictable AI cost.** The schema is introspected once per import and reused as a cacheable prompt prefix; oversized schemas are trimmed to the tables most relevant to your question. See [docs/architecture.md](docs/architecture.md).
 - **Configurable AI provider.** Anthropic (Claude) or OpenAI, selected with one environment variable.
 - **Results, charts & export.** Tabular results, simple charts (Recharts), and one-click CSV download.
+- **AI-explained results.** One click summarizes a result set and suggests the best chart. By default only column names/types and locally-computed aggregates are sent to the model (the no-row-data promise stays the default); `AI_ALLOW_SAMPLE_ROWS` opts into a small bounded sample.
+- **Cost preview.** Before running, see the planner's estimated cost/rows via `EXPLAIN` (not `EXPLAIN ANALYZE`) under the read-only role — PostgreSQL and MySQL/MariaDB.
+- **Saved queries (Questions library).** Bookmark a vetted query and re-run it without re-asking the AI; share it with everyone (owner/admin managed).
+- **Semantic layer.** Annotate tables/columns and define business metrics ("MRR = …") per connection; these ground the AI prompt for far better SQL on real schemas.
 - **Query history.** Per-user history of questions, generated SQL, and outcomes — with re-run and edit-then-run.
+- **Admin audit feed.** Admins can review who asked what (questions + SQL only; never row data). Toggle with `ADMIN_AUDIT_ENABLED`.
 - **Multi-user with roles.** First account bootstraps as admin; admins invite others via tokenized links. Passwords hashed with Argon2; JWT bearer auth.
 - **Two data-load modes.** Upload a `.sql`/`pg_dump` backup through the panel (**manual**), or let a cron container full-refresh from a remote source on a schedule (**scheduled**).
 - **Self-hosted, single command.** `docker compose up -d --build` and you are running.

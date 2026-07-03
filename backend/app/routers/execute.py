@@ -12,7 +12,13 @@ from app.config import get_settings
 from app.connectors import Connector, ConnectorQueryError
 from app.deps import CurrentUser, SessionDep
 from app.models.query_history import QueryHistory, QueryStatus
-from app.schemas.execute import ExecuteRequest, ExecuteResponse, ResultColumn
+from app.schemas.execute import (
+    ExecuteRequest,
+    ExecuteResponse,
+    ExplainRequest,
+    ExplainResponse,
+    ResultColumn,
+)
 from app.services.connections import load_connector
 from app.services.sql_guard import SqlGuardError
 
@@ -87,6 +93,26 @@ async def execute(
         truncated=result.truncated,
         elapsed_ms=result.elapsed_ms,
     )
+
+
+@router.post("/explain", response_model=ExplainResponse)
+async def explain(
+    payload: ExplainRequest, user: CurrentUser, session: SessionDep
+) -> ExplainResponse:
+    """Return the planner's estimated cost/rows for a SELECT, without running it.
+
+    Uses ``EXPLAIN`` (not ``EXPLAIN ANALYZE``) under the read-only connection, so
+    no rows are read and nothing is executed.
+    """
+    _, connector = await load_connector(session, payload.connection_id, user)
+    safe_sql = _validate(connector, payload.sql)
+    try:
+        estimate = await run_in_threadpool(connector.explain, safe_sql)
+    except ConnectorQueryError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Could not explain query: {exc}"
+        ) from exc
+    return ExplainResponse(cost=estimate.cost, rows=estimate.rows)
 
 
 @router.post("/csv")

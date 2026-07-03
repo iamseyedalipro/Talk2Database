@@ -32,3 +32,6 @@ class SchemaSnapshot(Base, TimestampMixin):
     # Structured form used for relevance trimming and FK expansion.
     content_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     table_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Cached AI-generated example questions for this exact schema version.
+    # A schema change creates a new snapshot row, so the cache self-invalidates.
+    suggested_questions_json: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)

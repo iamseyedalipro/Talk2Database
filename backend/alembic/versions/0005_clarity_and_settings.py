@@ -7,8 +7,8 @@ Guarded with ``has_table`` because 0001 creates every registered model via
 ``Base.metadata.create_all`` — on a fresh database these tables already exist
 by the time this revision runs.
 
-Revision ID: 0002_clarity_and_settings
-Revises: 0001_initial
+Revision ID: 0005_clarity_and_settings
+Revises: 0004_ask_v2
 Create Date: 2026-07-02 00:00:00
 """
 
@@ -20,8 +20,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "0002_clarity_and_settings"
-down_revision: str | None = "0001_initial"
+revision: str = "0005_clarity_and_settings"
+down_revision: str | None = "0004_ask_v2"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

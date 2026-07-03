@@ -61,8 +61,15 @@ async def rerun_history(
         )
     _, connector = await load_connector(session, original.connection_id, user)
 
+    sql_to_run = payload.sql or original.generated_sql
+    if not sql_to_run:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This history item has no SQL to re-run (it was a clarification).",
+        )
+
     try:
-        safe_sql = connector.validate(payload.sql or original.generated_sql)
+        safe_sql = connector.validate(sql_to_run)
     except SqlGuardError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

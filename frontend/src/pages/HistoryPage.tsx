@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { getHistory, listHistory, rerunHistory } from '../api/endpoints';
 import type { ExecuteResponse, HistoryItem } from '../api/types';
 import ResultsView from '../components/ResultsView';
+import SaveQueryModal from '../components/SaveQueryModal';
 import { ErrorBanner, Spinner, StatusPill } from '../components/ui';
 import { errorMessage, formatDate, truncate } from '../utils/format';
 
@@ -21,6 +22,8 @@ export default function HistoryPage() {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<ExecuteResponse | null>(null);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,12 +45,13 @@ export default function HistoryPage() {
   const openDetail = async (item: HistoryItem) => {
     setDetailError(null);
     setResult(null);
+    setSaveNotice(null);
     // Fetch the full item to guarantee we have the latest SQL/explanation.
     try {
       const full = await getHistory(item.id);
-      setDetail({ item: full, editing: false, sql: full.generated_sql });
+      setDetail({ item: full, editing: false, sql: full.generated_sql ?? '' });
     } catch {
-      setDetail({ item, editing: false, sql: item.generated_sql });
+      setDetail({ item, editing: false, sql: item.generated_sql ?? '' });
     }
   };
 
@@ -107,7 +111,11 @@ export default function HistoryPage() {
                   <tr key={item.id}>
                     <td title={item.question}>{truncate(item.question, 60)}</td>
                     <td>
-                      <code className="inline-sql">{truncate(item.generated_sql, 50)}</code>
+                      {item.generated_sql ? (
+                        <code className="inline-sql">{truncate(item.generated_sql, 50)}</code>
+                      ) : (
+                        <span className="muted">clarification asked</span>
+                      )}
                     </td>
                     <td>
                       <StatusPill status={item.last_status} />
@@ -156,12 +164,19 @@ export default function HistoryPage() {
               aria-label="Editable SQL"
               onChange={(e) => setDetail({ ...detail, sql: e.target.value })}
             />
-          ) : (
+          ) : detail.item.generated_sql ? (
             <pre className="sql-box">
               <code>{detail.item.generated_sql}</code>
             </pre>
+          ) : (
+            <p className="muted">
+              No SQL was generated —{' '}
+              {detail.item.clarification_json?.clarification_question ??
+                'the assistant asked for clarification instead.'}
+            </p>
           )}
 
+          {(detail.item.generated_sql || detail.editing) && (
           <div className="detail-actions">
             {detail.editing ? (
               <>
@@ -178,7 +193,7 @@ export default function HistoryPage() {
                   className="btn btn--ghost"
                   disabled={running}
                   onClick={() =>
-                    setDetail({ ...detail, editing: false, sql: detail.item.generated_sql })
+                    setDetail({ ...detail, editing: false, sql: detail.item.generated_sql ?? '' })
                   }
                 >
                   Cancel edit
@@ -202,14 +217,39 @@ export default function HistoryPage() {
                 >
                   Edit &amp; run
                 </button>
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  disabled={running}
+                  onClick={() => setSaveOpen(true)}
+                >
+                  Save query
+                </button>
+                {saveNotice && <span className="muted">{saveNotice}</span>}
               </>
             )}
           </div>
+          )}
 
           <ErrorBanner message={detailError} />
 
-          {result && <ResultsView result={result} />}
+          {result && <ResultsView result={result} question={detail.item.question} />}
         </section>
+      )}
+
+      {saveOpen && detail && detail.item.generated_sql && (
+        <SaveQueryModal
+          draft={{
+            generated_sql: detail.item.generated_sql,
+            question: detail.item.question,
+            connection_id: detail.item.connection_id,
+          }}
+          onSaved={() => {
+            setSaveOpen(false);
+            setSaveNotice('Saved to your library.');
+          }}
+          onCancel={() => setSaveOpen(false)}
+        />
       )}
     </div>
   );

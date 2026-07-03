@@ -96,14 +96,34 @@ export interface AskPayload {
   question: string;
 }
 
+export type AskStatus = 'ok' | 'needs_clarification' | 'unanswerable' | 'verification_failed';
+
+export interface SuggestedInterpretation {
+  /** Short button text. */
+  label: string;
+  /** A complete, self-contained question sent back to /ask when clicked. */
+  description: string;
+}
+
 export interface AskResponse {
   history_id: number;
-  generated_sql: string;
+  status: AskStatus;
+  /** Null for clarification/unanswerable turns that produced no SQL. */
+  generated_sql: string | null;
   explanation: string | null;
+  clarification_question: string | null;
+  suggested_interpretations: SuggestedInterpretation[];
+  /** Hallucinated tables/columns, populated when status is 'verification_failed'. */
+  invalid_identifiers: string[];
+  retry_count: number;
   dialect: string;
   provider: string;
   model: string;
   warnings: string[];
+}
+
+export interface SuggestedQuestionsResponse {
+  questions: string[];
 }
 
 /* -------------------------------- Execute -------------------------------- */
@@ -166,7 +186,14 @@ export interface HistoryItem {
   id: number;
   connection_id: number | null;
   question: string;
-  generated_sql: string;
+  /** Null for clarification turns that produced no SQL. */
+  generated_sql: string | null;
+  response_status: AskStatus;
+  clarification_json: {
+    clarification_question: string | null;
+    suggested_interpretations: SuggestedInterpretation[];
+  } | null;
+  retry_count: number;
   provider: string | null;
   model: string | null;
   last_status: QueryStatus;
@@ -180,6 +207,132 @@ export interface HistoryItem {
 export interface RerunPayload {
   sql?: string;
   max_rows?: number;
+}
+
+/* ----------------------------- Saved queries ----------------------------- */
+
+export interface SavedQuery {
+  id: number;
+  owner_id: number;
+  owner_email: string | null;
+  connection_id: number | null;
+  name: string;
+  question: string | null;
+  generated_sql: string;
+  shared: boolean;
+  is_owner: boolean;
+  created_at: string;
+}
+
+export interface SavedQueryCreate {
+  name: string;
+  generated_sql: string;
+  connection_id?: number | null;
+  question?: string | null;
+  shared?: boolean;
+}
+
+export interface SavedQueryUpdate {
+  name?: string;
+  generated_sql?: string;
+  connection_id?: number | null;
+  question?: string | null;
+  shared?: boolean;
+}
+
+export interface SavedQueryRunPayload {
+  max_rows?: number;
+}
+
+/* ------------------------- Result summary (AI) --------------------------- */
+
+export type ChartType = 'bar' | 'line' | 'table' | 'none';
+
+export interface SummarizePayload {
+  question?: string | null;
+  columns: ResultColumn[];
+  rows: unknown[][];
+}
+
+export interface ResultSummary {
+  summary: string;
+  chart_type: ChartType;
+  x_column: string | null;
+  y_column: string | null;
+}
+
+/* ----------------------------- EXPLAIN preview --------------------------- */
+
+export interface ExplainPayload {
+  connection_id: number;
+  sql: string;
+}
+
+export interface ExplainResult {
+  cost: number | null;
+  rows: number | null;
+}
+
+/* --------------------------- Semantic glossary --------------------------- */
+
+export interface GlossaryDescription {
+  id: number;
+  table_name: string;
+  /** Empty string means the description applies to the table itself. */
+  column_name: string;
+  description: string;
+}
+
+export interface DescriptionUpsert {
+  table_name: string;
+  column_name?: string;
+  description: string;
+}
+
+export interface Metric {
+  id: number;
+  name: string;
+  definition: string;
+  expression: string | null;
+}
+
+export interface MetricCreate {
+  name: string;
+  definition: string;
+  expression?: string | null;
+}
+
+export type MetricUpdate = Partial<MetricCreate>;
+
+export interface GlossaryData {
+  descriptions: GlossaryDescription[];
+  metrics: Metric[];
+}
+
+/* ------------------------------- Audit feed ------------------------------ */
+
+export interface AuditItem {
+  id: number;
+  user_id: number;
+  user_email: string | null;
+  connection_id: number | null;
+  question: string;
+  generated_sql: string;
+  provider: string | null;
+  model: string | null;
+  last_status: QueryStatus;
+  error_message: string | null;
+  row_count: number | null;
+  executed_at: string | null;
+  created_at: string;
+}
+
+export interface AuditQuery {
+  user_id?: number;
+  status?: QueryStatus;
+  q?: string;
+  limit?: number;
+  offset?: number;
 }
 
 /* -------------------------------- System --------------------------------- */
