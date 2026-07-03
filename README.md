@@ -1,12 +1,12 @@
 # Talk2Database
 
-**Ask your database questions in plain language — preview the generated read-only SQL, then run it safely against a local copy of your data.**
+**Ask your own databases questions in plain language — preview the generated read-only SQL, then run it safely against your live data.**
 
-Talk2Database is a self-hostable panel that turns natural-language questions into a single, **read-only** PostgreSQL `SELECT`. You preview the AI-generated SQL, accept it, and it runs against a *local* Postgres copy of your data. Results come back as a sortable table plus basic charts, with per-user query history, CSV export, and one-click re-run/edit.
+Talk2Database is a self-hostable panel that turns natural-language questions into a single, **read-only** `SELECT`. Register a connection to your own PostgreSQL, MySQL, or MariaDB database, ask a question, preview the AI-generated SQL, and run it read-only against that database. Results come back as a sortable table plus basic charts, with per-user query history, CSV export, saved queries, a semantic glossary, and one-click re-run/edit.
 
-It ships as a single `docker compose` bundle: a FastAPI + React panel, two PostgreSQL databases (one for panel metadata, one for your queryable data), and an optional cron container for scheduled syncing.
+It ships as a single `docker compose` bundle: a FastAPI + React panel and one PostgreSQL database for the panel's own metadata. Your data stays in your databases — the panel connects to them read-only at query time and never copies them in.
 
-> Only your database **schema** is ever sent to the AI provider — never a single row of your data.
+> Only your database **schema** is ever sent to the AI provider — never a single row of your data (unless you explicitly opt in to a small bounded sample for result summaries).
 
 ---
 
@@ -17,7 +17,7 @@ It ships as a single `docker compose` bundle: a FastAPI + React panel, two Postg
 - [Architecture](#architecture)
 - [Quickstart](#quickstart)
 - [Environment reference](#environment-reference)
-- [Import modes](#import-modes)
+- [Connecting a database](#connecting-a-database)
 - [Security model](#security-model)
 - [Local development](#local-development)
 - [Project structure](#project-structure)
@@ -31,20 +31,24 @@ It ships as a single `docker compose` bundle: a FastAPI + React panel, two Postg
 ## Features
 
 - **Natural language → SQL.** Ask a question; get a single read-only `SELECT` with a plain-language explanation.
+- **Bring your own databases.** Register connections to your own **PostgreSQL, MySQL, or MariaDB** databases at runtime — no copying data into the panel. Each user manages their own connections.
 - **Preview before you run.** The generated SQL is shown and validated *before* execution — you stay in control.
-- **Two-layer read-only safety.** Every query runs as a dedicated SELECT-only Postgres role *and* is parsed and validated as a single read-only statement. See [Security model](#security-model).
-- **Schema-only AI grounding.** The provider sees table/column/key metadata only. Row data never leaves your machine.
-- **Low, predictable AI cost.** The schema is introspected once per import and reused as a cacheable prompt prefix; oversized schemas are trimmed to the tables most relevant to your question. See [docs/architecture.md](docs/architecture.md).
+- **Two-layer read-only safety.** Every query is parsed and validated as a single read-only statement *and* runs inside a read-only transaction with a statement timeout. Point a connection at a read-only database user for a third, hard boundary. See [Security model](#security-model).
+- **Schema-aware generation with self-correction.** Generated SQL is checked against the real schema; if the model references a table or column that doesn't exist (or trips the guard), it is re-prompted with a correction up to `ASK_MAX_RETRIES` times before giving up.
+- **Chat-style Ask flow.** Ask follows up with clarifying questions (and clickable interpretations) when a question is ambiguous, instead of guessing.
+- **Schema-only AI grounding.** The provider sees table/column/key metadata only. Row data never leaves your infrastructure.
+- **Low, predictable AI cost.** The schema is introspected once per connection and reused as a cacheable prompt prefix; oversized schemas are trimmed to the tables most relevant to your question. See [docs/architecture.md](docs/architecture.md).
 - **Configurable AI provider.** Anthropic (Claude) or OpenAI, selected with one environment variable.
+- **Browse & Query.** A DBeaver-style page to explore a connection's schema and run your own SQL in a CodeMirror editor (still read-only-guarded).
 - **Results, charts & export.** Tabular results, simple charts (Recharts), and one-click CSV download.
 - **AI-explained results.** One click summarizes a result set and suggests the best chart. By default only column names/types and locally-computed aggregates are sent to the model (the no-row-data promise stays the default); `AI_ALLOW_SAMPLE_ROWS` opts into a small bounded sample.
-- **Cost preview.** Before running, see the planner's estimated cost/rows via `EXPLAIN` (not `EXPLAIN ANALYZE`) under the read-only role — PostgreSQL and MySQL/MariaDB.
-- **Saved queries (Questions library).** Bookmark a vetted query and re-run it without re-asking the AI; share it with everyone (owner/admin managed).
+- **Cost preview.** Before running, see the planner's estimated cost/rows via `EXPLAIN` (not `EXPLAIN ANALYZE`) under the same read-only connection.
+- **Saved queries (Questions library).** Bookmark a vetted query and re-run it without re-asking the AI.
 - **Semantic layer.** Annotate tables/columns and define business metrics ("MRR = …") per connection; these ground the AI prompt for far better SQL on real schemas.
+- **Suggested questions.** AI-generated starter questions per connection, cached on the schema snapshot so they refresh automatically when the schema changes.
 - **Query history.** Per-user history of questions, generated SQL, and outcomes — with re-run and edit-then-run.
 - **Admin audit feed.** Admins can review who asked what (questions + SQL only; never row data). Toggle with `ADMIN_AUDIT_ENABLED`.
-- **Multi-user with roles.** First account bootstraps as admin; admins invite others via tokenized links. Passwords hashed with Argon2; JWT bearer auth.
-- **Two data-load modes.** Upload a `.sql`/`pg_dump` backup through the panel (**manual**), or let a cron container full-refresh from a remote source on a schedule (**scheduled**).
+- **Multi-user with roles.** First account bootstraps as admin; admins invite others via tokenized links. Passwords hashed with Argon2; JWT bearer auth. Connection secrets encrypted at rest with Fernet.
 - **Self-hosted, single command.** `docker compose up -d --build` and you are running.
 
 ---
@@ -57,37 +61,37 @@ It ships as a single `docker compose` bundle: a FastAPI + React panel, two Postg
     orders did  │     question + cached schema snapshot  ──►  AI provider   │
     we ship     │                                            (schema only)  │
     last week?" │  2. PREVIEW                                               │
-       ─────────►     generated SELECT  ──►  sql_guard (single read-only?)  │
+       ─────────►     generated SELECT  ──►  verify + sql_guard             │
                 │  3. ACCEPT                                                │
                 │     you review the SQL and click Run                      │
                 │  4. EXECUTE                                               │
-                │     run as t2db_readonly, read-only txn + timeout         │
+                │     run read-only against YOUR database + timeout         │
                 │  ◄── rows + charts, saved to history, exportable as CSV   │
                 └──────────────────────────────────────────────────────────┘
 ```
 
-1. **Ask.** You type a question. The panel loads the stored schema snapshot (no live introspection), trims it to fit the token budget if needed, and asks the configured provider for one `SELECT`.
-2. **Preview.** The returned SQL is validated by `sql_guard` (a single, read-only `SELECT`) and shown to you with an explanation. Nothing has touched your data yet.
+1. **Ask.** You pick one of your connections and type a question. The panel loads that connection's stored schema snapshot (introspected once, not per question), trims it to fit the token budget if needed, and asks the configured provider for one `SELECT`. When the question is ambiguous, the model can respond with a clarifying question instead.
+2. **Preview.** The returned SQL is verified against the real schema (every table/column must exist) and validated by `sql_guard` as a single, read-only `SELECT`, then shown to you with an explanation. Nothing has touched your data yet — you can optionally run `EXPLAIN` for a cost estimate.
 3. **Accept.** You review — and optionally edit — the SQL, then run it.
-4. **Execute.** The statement is re-validated and executed by the SELECT-only role inside a read-only transaction with a statement timeout. Results are paged into a table and charts, recorded in history, and available as CSV.
+4. **Execute.** The statement is re-validated and executed against your database over a read-only connection with a statement timeout. Results are paged into a table and charts, recorded in history, and available as CSV.
 
 ```mermaid
 sequenceDiagram
     actor U as User
     participant P as Panel (FastAPI)
-    participant S as Schema snapshot
+    participant S as Schema snapshot (panel DB)
     participant AI as AI provider
-    participant G as sql_guard
-    participant DB as userdata (t2db_readonly)
+    participant G as verify + sql_guard
+    participant DB as Your database (read-only)
 
-    U->>P: POST /api/ask {question}
-    P->>S: load latest snapshot (trim to budget)
+    U->>P: POST /api/ask {connection_id, question}
+    P->>S: load latest snapshot (introspect on first use)
     P->>AI: question + schema (schema only)
-    AI-->>P: {sql, explanation}
-    P->>G: validate single read-only SELECT
+    AI-->>P: {sql, explanation} or clarifying question
+    P->>G: verify identifiers + validate single read-only SELECT
     G-->>P: normalized SQL
     P-->>U: preview SQL + explanation
-    U->>P: POST /api/execute {sql}
+    U->>P: POST /api/execute {connection_id, sql}
     P->>G: re-validate
     P->>DB: run (read-only txn + timeout)
     DB-->>P: rows
@@ -98,33 +102,28 @@ sequenceDiagram
 
 ## Architecture
 
-Talk2Database runs as **four services** and **two databases**:
+Talk2Database runs as **two services** and **one database**:
 
 ```mermaid
 flowchart LR
     subgraph Bundle["docker compose bundle"]
         Panel["panel<br/>FastAPI API + built React SPA<br/>:8000"]
-        Cron["cron (optional, profile: scheduled)<br/>full-refresh sync"]
-        PanelDB[("postgres-panel<br/>users, history,<br/>import_runs, snapshots")]
-        UserDB[("postgres-userdata<br/>your queryable data")]
+        PanelDB[("postgres-panel<br/>users, connections,<br/>history, snapshots")]
     end
     Browser(["Browser"]) -->|HTTP :8000| Panel
     Panel -->|async SQLAlchemy| PanelDB
-    Panel -->|psycopg, read-only role| UserDB
-    Panel -->|admin role, restores only| UserDB
-    Cron -->|dump → temp DB → swap| UserDB
-    Remote[("Remote source DB")] -. scheduled only .-> Cron
+    Panel -->|"connector, read-only"| Sources[("Your databases<br/>PostgreSQL / MySQL / MariaDB")]
     Panel -->|schema only| AI["AI provider<br/>(Anthropic / OpenAI)"]
 ```
 
-| Service             | Role                                                                                                   |
-| ------------------- | ------------------------------------------------------------------------------------------------------ |
-| `panel`             | FastAPI JSON API under `/api` plus the built React SPA, on port `8000`. The only user-facing endpoint. |
-| `postgres-panel`    | Panel metadata: users, invites, query history, import runs, schema snapshots.                          |
-| `postgres-userdata` | The queryable copy of your data. Queried only via the read-only `t2db_readonly` role.                  |
-| `cron`              | Optional. Started with `--profile scheduled`. Full-refreshes `postgres-userdata` from a remote source. |
+| Service          | Role                                                                                                        |
+| ---------------- | ----------------------------------------------------------------------------------------------------------- |
+| `panel`          | FastAPI JSON API under `/api` plus the built React SPA, on port `8000`. The only user-facing endpoint.       |
+| `postgres-panel` | Panel metadata: users, invites, **connections** (with encrypted secrets), query history, saved queries, glossary, schema snapshots. |
 
-For the request path, the schema-caching subsystem, the two DB layers, and the panel DB schema, see **[docs/architecture.md](docs/architecture.md)**.
+Your data sources are **not** part of the bundle. Each user registers connections to their own databases through the UI; the panel opens a fresh **read-only** connection to a source only when it needs to introspect the schema or run a query, and never pools or persists row data.
+
+For the request path, the schema-caching subsystem, and the panel DB schema, see **[docs/architecture.md](docs/architecture.md)**.
 
 ---
 
@@ -134,6 +133,7 @@ For the request path, the schema-caching subsystem, the two DB layers, and the p
 
 - **Docker** with the Compose plugin (`docker compose`).
 - An **AI API key** for Anthropic or OpenAI.
+- A reachable **PostgreSQL, MySQL, or MariaDB** database to query (added later, from the UI).
 
 ### Steps
 
@@ -148,171 +148,146 @@ For the request path, the schema-caching subsystem, the two DB layers, and the p
 2. **Edit `.env`.** At minimum, set:
    - `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL` — your provider and credentials.
    - `JWT_SECRET` — a long random secret, e.g. `openssl rand -hex 32`.
-   - `PANEL_DB_PASSWORD`, `USERDATA_DB_ADMIN_PASSWORD`, `USERDATA_READONLY_PASSWORD` — strong passwords.
-   - `IMPORT_MODE` — `manual` or `scheduled` (see [Import modes](#import-modes)).
-   - For scheduled mode only: `REMOTE_DB_DSN` (and optionally `SYNC_INTERVAL_HOURS`).
+   - `CONNECTIONS_SECRET_KEY` — a Fernet key used to encrypt stored connection passwords. Generate one:
+     ```bash
+     python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+     ```
+   - `PANEL_DB_PASSWORD` — a strong password for the panel's metadata database.
 
    See the full [Environment reference](#environment-reference) below.
 
 3. **Bring up the stack.**
 
    ```bash
-   # Manual import mode (default)
    docker compose up -d --build
-
-   # Scheduled sync mode (also starts the cron container)
-   docker compose --profile scheduled up -d --build
    ```
 
-   Equivalent Makefile targets: `make up` and `make up-scheduled`.
+   Equivalent Makefile target: `make up`.
 
 4. **Open the panel** at <http://localhost:8000> and **create the first admin account.** The very first registration bootstraps as an admin; this is only available while no users exist. After that, admins invite additional users from the panel.
 
-5. **Load your data.**
-   - *Manual mode:* upload a `.sql` or `pg_dump` backup through the panel.
-   - *Scheduled mode:* the cron container syncs from `REMOTE_DB_DSN` on startup (if `SYNC_RUN_ON_STARTUP=true`) and every `SYNC_INTERVAL_HOURS`.
+5. **Register a connection.** From the **Connections** page, add your PostgreSQL / MySQL / MariaDB database (host, port, database, user, password). Use **Test** to confirm the panel can open a read-only connection. See [Connecting a database](#connecting-a-database).
 
-6. **Ask a question.** Once data is imported, head to the ask page and start querying in plain language.
+6. **Ask a question.** Head to the Ask page, pick your connection, and start querying in plain language.
+
+> **Reaching a database on the host.** When the panel runs in Docker and you point a connection at `localhost`/`127.0.0.1`, it is automatically remapped to `host.docker.internal` so it resolves to your host machine rather than the container.
 
 ---
 
 ## Environment reference
 
-Every variable lives in `.env` (copied from `.env.example`). All services read from this single file. **Never commit your real `.env`** — it is gitignored.
-
-### Data loading mode
-
-| Variable           | Default  | Description                                                                                      |
-| ------------------ | -------- | ------------------------------------------------------------------------------------------------ |
-| `IMPORT_MODE`      | `manual` | How the user-data DB is populated. `manual` = upload backups in the panel; `scheduled` = cron full-refresh from `REMOTE_DB_DSN`. The unused path is disabled at runtime. |
-| `POSTGRES_VERSION` | `16`     | Postgres major version for the user-data DB, the cron sync tooling, and the panel's restore client. Must be **≥** your source database's major version (see [Postgres version compatibility](#postgres-version-compatibility)). Changing it after first run requires recreating the userdata volume. |
+Every variable lives in `.env` (copied from `.env.example`). The panel and its metadata database read from this single file. Data-source credentials are **not** here — they are entered per connection in the UI and stored encrypted. **Never commit your real `.env`** — it is gitignored.
 
 ### AI provider
 
-| Variable           | Default          | Description                                                                                          |
-| ------------------ | ---------------- | ---------------------------------------------------------------------------------------------------- |
-| `AI_PROVIDER`      | `anthropic`      | Provider that converts natural language to SQL. One of `anthropic` or `openai`.                      |
-| `AI_API_KEY`       | `replace-me`     | API key for the selected provider. Startup fails fast if this is unset or still `replace-me`.        |
-| `AI_MODEL`         | `claude-opus-4-8`| Model id, e.g. `claude-opus-4-8` (Anthropic) or `gpt-4o` (OpenAI).                                   |
-| `SCHEMA_MAX_TOKENS`| `6000`           | Token budget for the schema sent to the provider. If the serialized schema exceeds this, only the tables most relevant to the question (plus their FK neighbours) are sent. |
-| `SCHEMA_TABLES`    | *(empty)*        | Optional comma-separated allowlist of tables to expose to the AI. Empty means all tables.            |
-| `SCHEMA_INCLUDE_SCHEMAS` | `public`   | Comma-separated list of Postgres schemas to introspect and grant the read-only role on.              |
+| Variable            | Default          | Description                                                                                          |
+| ------------------- | ---------------- | ---------------------------------------------------------------------------------------------------- |
+| `AI_PROVIDER`       | `anthropic`      | Provider that converts natural language to SQL. One of `anthropic` or `openai`.                      |
+| `AI_API_KEY`        | `replace-me`     | API key for the selected provider. `/api/ask` fails fast with a clear error if this is unset or still `replace-me`. |
+| `AI_MODEL`          | `claude-opus-4-8`| Model id, e.g. `claude-opus-4-8` (Anthropic) or `gpt-4o` (OpenAI).                                   |
+| `AI_ALLOW_SAMPLE_ROWS` | `false`       | For "Explain results" summaries only: also send a small bounded sample of result rows for richer summaries. Off by default (column metadata + local aggregates only). |
+| `AI_SAMPLE_ROWS`    | `5`              | Maximum rows included when `AI_ALLOW_SAMPLE_ROWS=true`.                                               |
+| `SCHEMA_MAX_TOKENS` | `6000`           | Token budget for the schema sent to the provider. If the serialized schema exceeds this, only the tables most relevant to the question (plus their FK neighbours) are sent. |
+| `SCHEMA_TABLES`     | *(empty)*        | Optional comma-separated default table allowlist. Empty means all tables. A connection can override this in its options (e.g. `{"tables": ["orders", "customers"]}`). |
+| `SCHEMA_INCLUDE_SCHEMAS` | *(empty)*   | Comma-separated default namespaces/schemas to introspect. Empty auto-discovers all user schemas. A connection can override this in its options. |
+
+### Ask flow
+
+| Variable                  | Default | Description                                                                                     |
+| ------------------------- | ------- | ----------------------------------------------------------------------------------------------- |
+| `ASK_MAX_RETRIES`         | `2`     | How many corrective re-prompts to attempt when the generated SQL references non-existent identifiers or fails the guard. |
+| `ASK_VERIFY_IDENTIFIERS`  | `true`  | Verify every table/column reference against the schema snapshot before previewing. Set `false` to disable the check. |
+| `SUGGESTED_QUESTIONS_COUNT` | `5`   | How many AI-generated example questions to cache per schema snapshot.                            |
+
+### Connection registry
+
+| Variable                 | Default | Description                                                                                          |
+| ------------------------ | ------- | ---------------------------------------------------------------------------------------------------- |
+| `CONNECTIONS_SECRET_KEY` | *(empty)* | Fernet key used to encrypt each data source's password at rest. Generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. **Changing it after connections exist makes their stored passwords undecryptable.** |
 
 ### Authentication
 
-| Variable             | Default                              | Description                                                            |
-| -------------------- | ------------------------------------ | ---------------------------------------------------------------------- |
-| `JWT_SECRET`         | `replace-me-with-a-long-random-secret` | HMAC secret used to sign JWTs. Generate with `openssl rand -hex 32`. |
-| `JWT_EXPIRE_MINUTES` | `60`                                 | Access-token lifetime, in minutes.                                     |
-| `APP_BASE_URL`       | `http://localhost:8000`              | Base URL of the panel, used to build invite acceptance links.          |
+| Variable             | Default                                | Description                                                            |
+| -------------------- | -------------------------------------- | ---------------------------------------------------------------------- |
+| `JWT_SECRET`         | `replace-me-with-a-long-random-secret` | HMAC secret used to sign JWTs. Generate with `openssl rand -hex 32`.   |
+| `JWT_EXPIRE_MINUTES` | `60`                                   | Access-token lifetime, in minutes.                                     |
+| `APP_BASE_URL`       | `http://localhost:8000`                | Base URL of the panel, used to build invite acceptance links.          |
+| `CORS_ORIGINS`       | *(empty)*                              | Comma-separated extra browser origins allowed to call the API. Leave empty for the default single-container setup where the panel serves the SPA. |
 
 ### Query execution guard rails
 
 | Variable                | Default | Description                                                                 |
 | ----------------------- | ------- | --------------------------------------------------------------------------- |
 | `QUERY_MAX_ROWS`        | `1000`  | Maximum rows returned per query (also the cap for CSV export and re-runs).   |
-| `QUERY_TIMEOUT_SECONDS` | `30`    | `statement_timeout` (and idle-in-transaction timeout) applied to every query. |
+| `QUERY_TIMEOUT_SECONDS` | `30`    | Read-only session + `statement_timeout` (and idle-in-transaction timeout) applied to every query connection. |
+
+### Admin audit feed
+
+| Variable              | Default | Description                                                                              |
+| --------------------- | ------- | ---------------------------------------------------------------------------------------- |
+| `ADMIN_AUDIT_ENABLED` | `true`  | When enabled, admins can review every user's questions + generated SQL (never row data). Set `false` to hide the feed entirely. |
 
 ### Panel database (`postgres-panel`)
 
-Stores users, invites, query history, import runs, and schema snapshots.
+Stores users, invites, connections (with encrypted secrets), query history, saved queries, glossary, and schema snapshots. This is the only database the panel owns.
 
-| Variable            | Default          | Description                          |
-| ------------------- | ---------------- | ------------------------------------ |
-| `PANEL_DB_HOST`     | `postgres-panel` | Hostname of the panel database.      |
-| `PANEL_DB_PORT`     | `5432`           | Port of the panel database.          |
-| `PANEL_DB_NAME`     | `panel`          | Panel database name.                 |
-| `PANEL_DB_USER`     | `panel`          | Panel database user.                 |
-| `PANEL_DB_PASSWORD` | `replace-me-panel` | Panel database password.           |
-
-### User-data database (`postgres-userdata`)
-
-The queryable copy of your data. The admin role is used **only** for restores/sync; the read-only role is used for **all** AI query execution and schema introspection.
-
-| Variable                    | Default              | Description                                                          |
-| --------------------------- | -------------------- | ------------------------------------------------------------------- |
-| `USERDATA_DB_HOST`          | `postgres-userdata`  | Hostname of the user-data database.                                 |
-| `USERDATA_DB_PORT`          | `5432`               | Port of the user-data database.                                     |
-| `USERDATA_DB_NAME`          | `userdata`           | User-data database name.                                            |
-| `USERDATA_DB_ADMIN_USER`    | `postgres`           | Full-privilege role, used only for restores/sync — never for queries. |
-| `USERDATA_DB_ADMIN_PASSWORD`| `replace-me-userdata-admin` | Password for the admin role.                                 |
-| `USERDATA_READONLY_USER`    | `t2db_readonly`      | SELECT-only role used for all query execution and introspection.    |
-| `USERDATA_READONLY_PASSWORD`| `replace-me-readonly`| Password for the read-only role.                                    |
-
-### Scheduled sync (only used when `IMPORT_MODE=scheduled`)
-
-| Variable              | Default                                            | Description                                                                             |
-| --------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `SYNC_INTERVAL_HOURS` | `6`                                                | How often the cron container full-refreshes from the remote source.                     |
-| `SYNC_RUN_ON_STARTUP` | `true`                                             | Run one sync immediately when the cron container starts.                                 |
-| `REMOTE_DB_DSN`       | `postgresql://user:password@remote-host:5432/source_db` | Source Postgres to copy *from*. Its major version must be `<=` the userdata Postgres major version. |
-
-> **Note:** `CORS_ORIGINS` is also recognised by the backend (comma-separated allowed origins for cross-origin API access). It is not needed for the default same-origin compose deployment and is therefore not listed in `.env.example`; set it only if you serve the SPA from a different origin during development.
+| Variable            | Default            | Description                     |
+| ------------------- | ------------------ | ------------------------------- |
+| `PANEL_DB_HOST`     | `postgres-panel`   | Hostname of the panel database. |
+| `PANEL_DB_PORT`     | `5432`             | Port of the panel database.     |
+| `PANEL_DB_NAME`     | `panel`            | Panel database name.            |
+| `PANEL_DB_USER`     | `panel`            | Panel database user.            |
+| `PANEL_DB_PASSWORD` | `replace-me-panel` | Panel database password.        |
 
 ---
 
-## Import modes
+## Connecting a database
 
-The two modes are **mutually exclusive**, selected by `IMPORT_MODE`. The unused path is disabled at runtime.
+A **connection** points the panel at one of your databases. Connections are owned per user; secrets are encrypted on the way in (Fernet) and never returned by the API.
 
-### `manual`
+Supported types: **`postgres`**, **`mysql`**, **`mariadb`**.
 
-An admin uploads a database backup through the panel:
+Each connection has:
 
-- **Plain SQL dumps** (`.sql`) are restored with `psql`.
-- **`pg_dump` custom or tar backups** are restored with `pg_restore` (`--no-owner --no-privileges`).
+- **name** — a label unique per user.
+- **type**, **host**, **port**, **database**, **username**, **password**.
+- **options** — source-specific extras, e.g. `{"schemas": ["public", "sales"]}` to scope introspection, or `{"tables": ["orders", "customers"]}` to allowlist tables. These override the `SCHEMA_INCLUDE_SCHEMAS` / `SCHEMA_TABLES` defaults for that connection.
 
-The format is auto-detected from the file's leading bytes. The restore runs as a background task using the admin role (DDL is required), so the upload returns immediately. On success the read-only role is re-granted and the schema snapshot is rebuilt. Progress and outcomes appear as **import runs**.
+From the UI you can **test** a connection (opens a read-only connection and runs a trivial query), **browse** its schema, and **refresh** the schema after a DDL change. The schema is introspected once and cached as a snapshot; a structural change creates a new snapshot version and refreshes cached suggestions automatically.
 
-Each import is a **clean replace** of the user-data dataset: the configured schema(s) are reset before loading (plain dumps reset the schema explicitly; custom/tar archives use `pg_restore --clean`), so re-importing — or retrying after a partial failure — always starts from a clean slate.
-
-> **Ownership/roles in plain dumps.** A plain `pg_dump` embeds `ALTER ... OWNER TO <role>` / `GRANT ... TO <role>` statements, so restoring into a fresh cluster would otherwise fail with `role "<x>" does not exist` (e.g. a source DB owned by `root`). Talk2Database scans the dump and **pre-creates any referenced roles as harmless `NOLOGIN` roles** before restoring, then re-grants the read-only role on top. Custom/tar archives sidestep this entirely via `--no-owner --no-privileges`.
-
-### `scheduled`
-
-Start the stack with `--profile scheduled` (or `make up-scheduled`). The cron container full-refreshes the user-data database from `REMOTE_DB_DSN`:
-
-1. **Dump** the remote source first — if that fails, the live data is never touched.
-2. **Restore** into a fresh temporary database (`<name>_new`), not the live one.
-3. **Swap** atomically by renaming databases, so a mid-sync failure leaves the live database intact.
-4. **Re-grant** the read-only role (grants do not survive a restore) and invalidate the panel's schema snapshot so it rebuilds.
-
-A sync runs on startup when `SYNC_RUN_ON_STARTUP=true`, then every `SYNC_INTERVAL_HOURS`. The cron image is built from `postgres:${POSTGRES_VERSION}` so `pg_dump`/`pg_restore` match the user-data server version.
-
-### Postgres version compatibility
-
-`pg_dump`/`pg_restore` only move data safely when the tooling and the target server are **at least as new as the source**. In Talk2Database the relevant majors are the **cron/client tooling** and the **user-data server** — both set by `POSTGRES_VERSION` (default `16`). So the rule is:
-
-> Your source database's major version must be **≤** `POSTGRES_VERSION`.
-
-- **Source older than `POSTGRES_VERSION`** (e.g. source 14, `POSTGRES_VERSION=16`): ✅ works.
-- **Source newer than `POSTGRES_VERSION`** (e.g. source 17, `POSTGRES_VERSION=16`): ❌ — set `POSTGRES_VERSION=17` (or higher) and rebuild. Bumping it requires recreating the userdata volume (it is a rebuildable copy; re-import or the next sync repopulates it). The panel metadata DB is independent and stays on its own pinned version.
-- **Minor** differences (16.2 vs 16.7) never matter.
-
-Rather than failing cryptically partway through a restore, Talk2Database performs a **preflight version check**: scheduled syncs and manual uploads compare the source/dump major version against the tooling and target and abort early with an actionable message (e.g. *"source is PostgreSQL 17 … set POSTGRES_VERSION=17"*). The atomic-swap design guarantees the live data is untouched on such a failure. Plain `.sql` dumps are the most portable option when versions are close.
+> **Recommended:** point each connection at a **read-only database user**. The panel enforces read-only best-effort at the session level, but the strongest boundary is a source-side role that simply cannot write. For example, in PostgreSQL:
+>
+> ```sql
+> CREATE USER readonly_user WITH PASSWORD 'a-strong-password';
+> GRANT CONNECT ON DATABASE your_db TO readonly_user;
+> GRANT USAGE ON SCHEMA public TO readonly_user;
+> GRANT SELECT ON ALL TABLES IN SCHEMA public TO readonly_user;
+> ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO readonly_user;
+> ```
 
 ---
 
 ## Security model
 
-Read-only access is enforced as **defence in depth** — two independent layers, neither of which is the boundary on its own:
+Read-only access is enforced as **defence in depth** — independent layers, none of which is the boundary on its own:
 
-1. **A dedicated SELECT-only Postgres role (`t2db_readonly`).** All query execution and schema introspection connect as this role. It is granted `CONNECT`, `USAGE`, and `SELECT` only; `CREATE` is explicitly revoked and write/DDL privileges are never granted. Even a total parser bypass cannot mutate data.
-2. **Server-side SQL validation (`sqlglot`).** Every statement is parsed and must be a *single, read-only `SELECT`*. The validator rejects multiple statements, any DML/DDL, data-modifying CTEs, `SELECT ... INTO`, `FOR UPDATE/SHARE`, and a denylist of dangerous functions (file/large-object access, `pg_sleep`, `dblink`, …). The text executed is re-serialized from the validated AST.
+1. **Server-side SQL validation (`sqlglot`).** Every statement is parsed and must be a *single, read-only `SELECT`*. The validator rejects multiple statements, any DML/DDL, data-modifying CTEs, `SELECT ... INTO`, `FOR UPDATE/SHARE`, and a denylist of dangerous functions (file/large-object access, `pg_sleep`, `dblink`, …). The text executed is re-serialized from the validated AST. The same validator runs at preview time *and* again at execute time.
+2. **Schema-aware identifier verification.** Before preview, every table/column reference in the generated SQL is resolved against the connection's schema snapshot (sqlglot scope analysis handles CTEs, aliases, subqueries, and set operations). Hallucinated identifiers trigger a corrective retry rather than a bad query.
+3. **Read-only connections with timeouts.** Each query opens a fresh connection that sets `default_transaction_read_only = on`, `statement_timeout`, and `idle_in_transaction_session_timeout` (from `QUERY_TIMEOUT_SECONDS`). This is best-effort — the panel does not own your database — so it is a defensive layer, not the sole boundary.
+4. **A read-only database user (recommended).** Because the source database is yours, the hardest guarantee is to give each connection a role that only has `SELECT`. See [Connecting a database](#connecting-a-database).
 
 Additional guarantees:
 
-- **Read-only transactions with timeouts.** Each query connection sets `default_transaction_read_only = on`, `statement_timeout`, and `idle_in_transaction_session_timeout` (from `QUERY_TIMEOUT_SECONDS`).
-- **Schema-only AI grounding.** Only structural metadata (tables, columns, types, keys, comments) is sent to the provider — never row data.
-- **Secrets stay in `.env`.** Nothing secret is persisted to a database. Invite tokens are stored **hashed**; the raw token only ever lives in the invite link.
+- **Schema-only AI grounding.** Only structural metadata (tables, columns, types, keys, comments) is sent to the provider — never row data. The one opt-in exception is a small bounded row sample for "Explain results" summaries (`AI_ALLOW_SAMPLE_ROWS`).
+- **Secrets encrypted at rest.** Connection passwords are stored **Fernet-encrypted** in the panel DB (`CONNECTIONS_SECRET_KEY`) and are never returned by the API. Invite tokens are stored **hashed**; the raw token only ever lives in the invite link. Passwords are hashed with Argon2.
 
-Full details — including the exact grants, the validator's reject list, and operational notes — are in **[docs/security.md](docs/security.md)**.
+Full details — including the validator's reject list and operational notes — are in **[docs/security.md](docs/security.md)**.
 
 ---
 
 ## Local development
 
-You can run the panel without Docker for fast iteration. You will need Python 3.12, Node 20, and a reachable Postgres for both databases. Most workflows are wrapped in the [`Makefile`](Makefile) — run `make help` for the full list.
+You can run the panel without Docker for fast iteration. You will need Python 3.12, Node 20, and a reachable Postgres for the panel database. Most workflows are wrapped in the [`Makefile`](Makefile) — run `make help` for the full list. There is also a hot-reload Docker overlay: `make dev-build` once, then `make dev`.
 
 ### Backend
 
@@ -354,26 +329,29 @@ Talk2Database/
 │   ├── app/
 │   │   ├── config.py         # env-driven settings
 │   │   ├── main.py           # FastAPI app: /api + SPA
-│   │   ├── cli.py            # ensure-readonly-role / rebuild-schema
+│   │   ├── cli.py            # maintenance commands
 │   │   ├── deps.py           # auth dependencies
-│   │   ├── db/               # panel (async SQLAlchemy) + userdata (psycopg)
-│   │   ├── models/           # users, invites, query_history, import_runs, schema_snapshots
-│   │   ├── routers/          # auth, users, ask, execute, history, imports, system
+│   │   ├── db/               # panel DB (async SQLAlchemy)
+│   │   ├── models/           # users, invites, connections, query_history, saved_query, glossary, schema_snapshots
+│   │   ├── routers/          # auth, users, admin_audit, connections, glossary, ask, execute, history, saved_queries, results, system
 │   │   ├── schemas/          # Pydantic request/response models
-│   │   ├── importers/        # manual backup restore
+│   │   ├── connectors/       # per-source drivers: postgres, mysql/mariadb (+ factory)
 │   │   └── services/
-│   │       ├── ai/           # provider abstraction (anthropic, openai), prompts
-│   │       ├── schema/       # introspect, serialize, cache, relevance selection
+│   │       ├── ai/           # provider abstraction (anthropic, openai), prompts, generate loop
+│   │       ├── schema/       # introspect, serialize, cache, relevance selection, glossary
 │   │       ├── sql_guard.py  # single read-only SELECT validation
-│   │       ├── query_runner.py
-│   │       ├── readonly_role.py
+│   │       ├── sql_verify.py # identifier verification against the schema
+│   │       ├── connections.py# build/load a connector from a stored connection
+│   │       ├── crypto.py     # Fernet encrypt/decrypt of connection secrets
+│   │       ├── explain.py    # EXPLAIN cost/row parsing
+│   │       ├── results_summary.py
 │   │       └── auth_service.py
 │   ├── alembic/              # panel DB migrations
 │   └── pyproject.toml
-├── frontend/                 # React + TypeScript (Vite)
-├── cron/                     # scheduled full-refresh sync container
+├── frontend/                 # React + TypeScript (Vite): Ask, Browse, Connections, History, Saved, Admin
 ├── docs/                     # architecture & security docs
 ├── docker-compose.yml
+├── docker-compose.dev.yml
 ├── Makefile
 └── .env.example
 ```
@@ -382,10 +360,10 @@ Talk2Database/
 
 ## Tech stack
 
-- **Backend:** Python 3.12, FastAPI, SQLAlchemy 2 (async, asyncpg) for the panel DB, psycopg 3 for read-only user-data access, Pydantic / pydantic-settings, Alembic, `sqlglot` (SQL validation), PyJWT, `pwdlib[argon2]` (password hashing).
+- **Backend:** Python 3.12, FastAPI, SQLAlchemy 2 (async, asyncpg) for the panel DB, psycopg 3 (PostgreSQL) and PyMySQL (MySQL/MariaDB) for read-only data-source access, Pydantic / pydantic-settings, Alembic, `sqlglot` (SQL validation + identifier verification), `cryptography` (Fernet secret encryption), PyJWT, `pwdlib[argon2]` (password hashing).
 - **AI:** Anthropic and OpenAI SDKs, with provider-agnostic structured output and prompt caching.
-- **Frontend:** React 18 + TypeScript, Vite, React Router, Zustand, Recharts.
-- **Databases:** PostgreSQL 16 (panel metadata + user data).
+- **Frontend:** React 18 + TypeScript, Vite, React Router, Zustand, Recharts, CodeMirror (SQL editor).
+- **Databases:** PostgreSQL 16 for the panel metadata; your own PostgreSQL / MySQL / MariaDB as data sources.
 - **Packaging:** Docker / docker compose; multi-stage build (SPA → FastAPI runtime).
 
 ---
@@ -408,3 +386,5 @@ Contributions are welcome! Please read **[CONTRIBUTING.md](CONTRIBUTING.md)** fo
 ## License
 
 Talk2Database is released under the [MIT License](LICENSE).
+</content>
+</invoke>
