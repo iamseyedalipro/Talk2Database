@@ -83,9 +83,7 @@ def harness(monkeypatch: pytest.MonkeyPatch):
     app.include_router(ask_module.router, prefix="/api")
 
     session = FakeSession()
-    connection = SimpleNamespace(
-        id=7, name="demo", database="demo", host="localhost", port=5432
-    )
+    connection = SimpleNamespace(id=7, name="demo", database="demo", host="localhost", port=5432)
     snapshot = SimpleNamespace(table_count=1, content_json=SCHEMA_JSON)
     provider_holder: dict[str, FakeProvider] = {}
 

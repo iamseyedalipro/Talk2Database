@@ -47,9 +47,7 @@ class QueryHistory(Base, TimestampMixin):
     # {clarification_question, suggested_interpretations} for non-ok statuses.
     clarification_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     # Corrective re-prompts spent before this answer (observability).
-    retry_count: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, server_default="0"
-    )
+    retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     provider: Mapped[str | None] = mapped_column(String(32), nullable=True)
     model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     last_status: Mapped[QueryStatus] = mapped_column(

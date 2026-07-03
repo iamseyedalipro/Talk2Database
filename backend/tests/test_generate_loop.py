@@ -130,9 +130,7 @@ async def test_clarification_short_circuits_without_retry() -> None:
 
 
 async def test_guard_rejection_also_triggers_retry() -> None:
-    provider = FakeProvider(
-        [_ok("DELETE FROM payments"), _ok("SELECT amount FROM payments")]
-    )
+    provider = FakeProvider([_ok("DELETE FROM payments"), _ok("SELECT amount FROM payments")])
     outcome = await _run(provider)
     assert outcome.verified
     assert outcome.retry_count == 1

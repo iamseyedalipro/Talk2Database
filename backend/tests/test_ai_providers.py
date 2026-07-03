@@ -74,9 +74,7 @@ def test_anthropic_returns_structured_sql_and_caches_schema() -> None:
 
 def test_anthropic_passes_message_list_through() -> None:
     provider = AnthropicProvider(api_key="x", model="claude-test")
-    client = _AnthClient(
-        _AnthResponse([_Block("tool_use", "emit_sql", dict(_OK_PAYLOAD))])
-    )
+    client = _AnthClient(_AnthResponse([_Block("tool_use", "emit_sql", dict(_OK_PAYLOAD))]))
     provider._client = client  # type: ignore[assignment]
 
     convo: list[ChatMessage] = [

@@ -91,9 +91,7 @@ class OpenAIProvider:
     def suggest_questions(self, *, system_prompt: str, schema_block: str) -> list[str]:
         data = self._structured_call(
             system_content=f"{system_prompt}\n\n{schema_block}",
-            messages=[
-                {"role": "user", "content": "Propose example questions for this schema."}
-            ],
+            messages=[{"role": "user", "content": "Propose example questions for this schema."}],
             schema_name="example_questions",
             output_schema=QUESTIONS_OUTPUT_SCHEMA,
         )

@@ -99,9 +99,7 @@ class AnthropicProvider:
     def suggest_questions(self, *, system_prompt: str, schema_block: str) -> list[str]:
         data = self._structured_call(
             system=self._system_blocks(system_prompt, schema_block),
-            messages=[
-                {"role": "user", "content": "Propose example questions for this schema."}
-            ],
+            messages=[{"role": "user", "content": "Propose example questions for this schema."}],
             tool_name=_QUESTIONS_TOOL_NAME,
             tool_description="Return example natural-language questions for this schema.",
             output_schema=QUESTIONS_OUTPUT_SCHEMA,
