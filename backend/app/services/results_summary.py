@@ -19,12 +19,17 @@ column names and types, locally-computed aggregate statistics, and optionally a
 small sample of rows. Write a one or two sentence, plain-language summary of what
 the results show, then suggest the best chart:
 - "bar" for comparing a numeric value across categories,
+- "hbar" (horizontal bar) for comparing across categories with long labels or a ranking,
 - "line" for a trend over an ordered or time-based column,
+- "area" for a cumulative trend over an ordered or time-based column,
+- "pie" for parts of a whole across a small number of categories,
+- "scatter" for the relationship between two numeric columns,
 - "table" when a chart would not help,
 - "none" if you are unsure.
-When suggesting "bar" or "line", set x_column to a label/category/time column and
-y_column to a numeric column; otherwise leave them null. Only use column names
-that appear in the provided data."""
+For "bar", "hbar", "line", "area", or "pie", set x_column to a label/category/time
+column and y_column to a numeric column. For "scatter", set x_column and y_column to
+two numeric columns. Otherwise leave them null. Only use column names that appear in
+the provided data."""
 
 
 def summary_system_prompt() -> str:

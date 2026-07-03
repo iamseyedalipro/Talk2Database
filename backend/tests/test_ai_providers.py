@@ -147,6 +147,29 @@ def test_anthropic_summarize_returns_structured_summary() -> None:
     assert result.x_column == "day"
 
 
+@pytest.mark.parametrize("chart_type", ["pie", "area", "scatter", "hbar"])
+def test_anthropic_summarize_accepts_new_chart_types(chart_type: str) -> None:
+    provider = AnthropicProvider(api_key="x", model="claude-test")
+    provider._client = _AnthClient(  # type: ignore[assignment]
+        _AnthResponse(
+            [
+                _Block(
+                    "tool_use",
+                    "emit_summary",
+                    {
+                        "summary": "A summary.",
+                        "chart_type": chart_type,
+                        "x_column": "a",
+                        "y_column": "b",
+                    },
+                ),
+            ]
+        )
+    )
+    result = provider.summarize_results(system_prompt="SYS", context="stats...")
+    assert result.chart_type == chart_type
+
+
 def test_anthropic_without_tool_call_raises() -> None:
     provider = AnthropicProvider(api_key="x", model="claude-test")
     provider._client = _AnthClient(_AnthResponse([_Block("text")]))  # type: ignore[assignment]

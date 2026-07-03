@@ -3,10 +3,24 @@ import { summarizeResults } from '../api/endpoints';
 import type { ExecuteResponse, ResultSummary } from '../api/types';
 import { errorMessage } from '../utils/format';
 import ResultsChart from './ResultsChart';
+import type { ChartKind } from './ResultsChart';
 import ResultsTable from './ResultsTable';
 import { ErrorBanner, Spinner } from './ui';
 
-type View = 'table' | 'bar' | 'line';
+type View = 'table' | ChartKind;
+
+const VIEWS: View[] = ['table', 'bar', 'hbar', 'line', 'area', 'pie', 'scatter'];
+const VIEW_LABELS: Record<View, string> = {
+  table: 'Table',
+  bar: 'Bar',
+  hbar: 'H-Bar',
+  line: 'Line',
+  area: 'Area',
+  pie: 'Pie',
+  scatter: 'Scatter',
+};
+// Chart types the AI can suggest that map to a renderable chart view.
+const CHART_VIEWS: readonly View[] = ['bar', 'hbar', 'line', 'area', 'pie', 'scatter'];
 
 interface Props {
   result: ExecuteResponse;
@@ -34,7 +48,9 @@ export default function ResultsView({ result, onDownloadCsv, csvBusy, question }
         rows: result.rows,
       });
       setSummary(res);
-      if (res.chart_type === 'bar' || res.chart_type === 'line') setView(res.chart_type);
+      if ((CHART_VIEWS as readonly string[]).includes(res.chart_type)) {
+        setView(res.chart_type as View);
+      }
     } catch (err) {
       setSummaryError(errorMessage(err));
     } finally {
@@ -48,7 +64,7 @@ export default function ResultsView({ result, onDownloadCsv, csvBusy, question }
     <section className="card results-view">
       <div className="results-view__toolbar">
         <div className="chart-toggle" role="tablist" aria-label="Result view">
-          {(['table', 'bar', 'line'] as const).map((v) => (
+          {VIEWS.map((v) => (
             <button
               key={v}
               type="button"
@@ -57,7 +73,7 @@ export default function ResultsView({ result, onDownloadCsv, csvBusy, question }
               className={view === v ? 'chart-toggle__btn is-active' : 'chart-toggle__btn'}
               onClick={() => setView(v)}
             >
-              {v === 'table' ? 'Table' : v === 'bar' ? 'Bar' : 'Line'}
+              {VIEW_LABELS[v]}
             </button>
           ))}
         </div>

@@ -12,6 +12,7 @@ import type {
   BootstrapAvailable,
   BootstrapPayload,
   Connection,
+  ConnectionAccess,
   ConnectionCreate,
   ConnectionTestResult,
   ConnectionUpdate,
@@ -67,6 +68,14 @@ export const inviteUser = (body: InvitePayload) =>
   api.post<InviteResponse>('/users/invite', body);
 
 export const deleteUser = (id: number) => api.del<void>(`/users/${id}`);
+
+export const getUserConnectionAccess = (userId: number) =>
+  api.get<ConnectionAccess>(`/admin/users/${userId}/connection-access`);
+
+export const setUserConnectionAccess = (userId: number, connectionIds: number[]) =>
+  api.put<ConnectionAccess>(`/admin/users/${userId}/connection-access`, {
+    connection_ids: connectionIds,
+  });
 
 export const listAudit = (params: AuditQuery = {}) => {
   const qs = new URLSearchParams();

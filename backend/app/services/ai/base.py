@@ -6,7 +6,7 @@ from typing import Any, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, Field, model_validator
 
-ChartType = Literal["bar", "line", "table", "none"]
+ChartType = Literal["bar", "line", "area", "pie", "scatter", "hbar", "table", "none"]
 
 
 class ChatMessage(TypedDict):
@@ -147,7 +147,7 @@ RESULT_SUMMARY_SCHEMA: dict[str, Any] = {
         },
         "chart_type": {
             "type": "string",
-            "enum": ["bar", "line", "table", "none"],
+            "enum": ["bar", "line", "area", "pie", "scatter", "hbar", "table", "none"],
             "description": "The best chart type for these results.",
         },
         "x_column": {
