@@ -82,7 +82,7 @@ describe('AdminConnectionAccessSection', () => {
     // Save persists and returns to a clean state.
     await u.click(save);
     await waitFor(() => expect(setUserConnectionAccess).toHaveBeenCalled());
-    const [, savedIds] = vi.mocked(setUserConnectionAccess).mock.calls[0];
+    const savedIds = vi.mocked(setUserConnectionAccess).mock.calls[0]![1];
     expect(new Set(savedIds)).toEqual(new Set([11, 12]));
     await screen.findByText('All changes saved');
     expect(screen.getByRole('button', { name: 'Save access' })).toBeDisabled();
