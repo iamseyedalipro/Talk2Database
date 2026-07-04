@@ -349,6 +349,50 @@ export interface AuditQuery {
   offset?: number;
 }
 
+/* ---------------------------- Token usage report ------------------------- */
+
+export interface UsageTotals {
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  total_tokens: number;
+  call_count: number;
+}
+
+export interface UsageByKey {
+  key: string;
+  label: string;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  total_tokens: number;
+  call_count: number;
+}
+
+export interface UsageDailyPoint {
+  day: string;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  total_tokens: number;
+}
+
+export interface UsageReport {
+  totals: UsageTotals;
+  by_user: UsageByKey[];
+  by_model: UsageByKey[];
+  by_provider: UsageByKey[];
+  daily: UsageDailyPoint[];
+}
+
+export interface UsageQuery {
+  from?: string;
+  to?: string;
+}
+
 /* -------------------------------- System --------------------------------- */
 
 export interface SystemStatus {

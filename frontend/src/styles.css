@@ -1475,6 +1475,16 @@ textarea {
   font-weight: 600;
 }
 
+.usage-subhead {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 1.25rem 0 0.5rem;
+}
+
+.usage-chart {
+  margin-top: 0.25rem;
+}
+
 .invite-form,
 .upload-form {
   display: flex;
