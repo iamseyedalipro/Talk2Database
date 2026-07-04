@@ -331,7 +331,8 @@ export interface AuditItem {
   user_email: string | null;
   connection_id: number | null;
   question: string;
-  generated_sql: string;
+  /** Null for clarification turns that produced no SQL. */
+  generated_sql: string | null;
   provider: string | null;
   model: string | null;
   last_status: QueryStatus;

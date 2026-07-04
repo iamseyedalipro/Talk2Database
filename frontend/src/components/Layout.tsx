@@ -1,7 +1,8 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { useThemeStore } from '../store/theme';
 import AppFooter from './AppFooter';
+import ErrorBoundary from './ErrorBoundary';
 
 /** App shell: top navigation + routed page content. */
 export default function Layout() {
@@ -10,6 +11,7 @@ export default function Layout() {
   const theme = useThemeStore((s) => s.theme);
   const toggleTheme = useThemeStore((s) => s.toggle);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
     clear();
@@ -70,7 +72,10 @@ export default function Layout() {
         </div>
       </header>
       <main className="app-main">
-        <Outlet />
+        {/* Keyed on the path so navigating to a new page clears a prior crash. */}
+        <ErrorBoundary key={location.pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </main>
       <AppFooter />
     </div>
