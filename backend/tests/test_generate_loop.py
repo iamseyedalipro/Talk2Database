@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 from app.config import Settings
-from app.services.ai.base import ChatMessage, SqlGenerationResult
+from app.services.ai.base import ChatMessage, SqlGenerationResult, TokenUsage
 from app.services.ai.generate import generate_with_verification
 from app.services.ai.prompts import build_schema_block, build_system_prompt
 from app.services.schema.introspect import SchemaData
@@ -39,15 +39,16 @@ class FakeProvider:
     name = "fake"
     model = "fake-model"
 
-    def __init__(self, results: list[SqlGenerationResult]) -> None:
+    def __init__(self, results: list[SqlGenerationResult], usage: TokenUsage | None = None) -> None:
         self._results = list(results)
         self.seen_messages: list[list[ChatMessage]] = []
+        self._usage = usage or TokenUsage(input_tokens=10, output_tokens=5)
 
     def generate_sql(
         self, *, messages: list[ChatMessage], system_prompt: str, schema_block: str
-    ) -> SqlGenerationResult:
+    ) -> tuple[SqlGenerationResult, TokenUsage]:
         self.seen_messages.append(list(messages))
-        return self._results.pop(0)
+        return self._results.pop(0), self._usage
 
 
 class FakeConnector:
@@ -148,3 +149,18 @@ async def test_verification_can_be_disabled() -> None:
     outcome = await _run(provider, _settings(ask_verify_identifiers=False))
     assert outcome.verified
     assert outcome.retry_count == 0
+
+
+async def test_usage_accumulates_across_retries() -> None:
+    # First answer hallucinates -> one corrective retry -> two provider calls.
+    provider = FakeProvider(
+        [_ok("SELECT total FROM income"), _ok("SELECT SUM(amount) FROM payments")],
+        usage=TokenUsage(input_tokens=100, output_tokens=20, cache_read_tokens=5),
+    )
+    outcome = await _run(provider)
+    assert outcome.retry_count == 1
+    # Two calls, each 125 tokens total -> 250 summed.
+    assert outcome.usage.input_tokens == 200
+    assert outcome.usage.output_tokens == 40
+    assert outcome.usage.cache_read_tokens == 10
+    assert outcome.usage.total == 250

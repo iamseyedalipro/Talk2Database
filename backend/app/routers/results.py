@@ -8,21 +8,28 @@ browser; the backend strips them to statistics before calling the AI unless
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, HTTPException, status
 from starlette.concurrency import run_in_threadpool
 
 from app.config import get_settings
-from app.deps import CurrentUser
+from app.deps import CurrentUser, SessionDep
 from app.schemas.results import SummarizeRequest
 from app.services.ai.base import AIProviderError, ResultSummary
 from app.services.ai.factory import get_ai_provider
 from app.services.results_summary import build_summary_context, summary_system_prompt
+from app.services.token_usage import record_usage
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/results", tags=["results"])
 
 
 @router.post("/summarize", response_model=ResultSummary)
-async def summarize(payload: SummarizeRequest, user: CurrentUser) -> ResultSummary:
+async def summarize(
+    payload: SummarizeRequest, user: CurrentUser, session: SessionDep
+) -> ResultSummary:
     if not payload.columns or not payload.rows:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -39,10 +46,25 @@ async def summarize(payload: SummarizeRequest, user: CurrentUser) -> ResultSumma
 
     provider = get_ai_provider()
     try:
-        return await run_in_threadpool(
+        summary, usage = await run_in_threadpool(
             provider.summarize_results,
             system_prompt=summary_system_prompt(),
             context=context,
         )
     except AIProviderError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+    try:
+        await record_usage(
+            session,
+            user_id=user.id,
+            connection_id=None,
+            operation="summarize_results",
+            provider=provider.name,
+            model=provider.model,
+            usage=usage,
+        )
+    except Exception:  # usage tracking must never fail the request
+        logger.exception("Failed to record token usage for /results/summarize")
+
+    return summary

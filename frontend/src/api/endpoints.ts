@@ -42,6 +42,8 @@ import type {
   SummarizePayload,
   SystemStatus,
   TokenResponse,
+  UsageQuery,
+  UsageReport,
   User,
 } from './types';
 
@@ -85,6 +87,14 @@ export const listAudit = (params: AuditQuery = {}) => {
   qs.set('limit', String(params.limit ?? 100));
   qs.set('offset', String(params.offset ?? 0));
   return api.get<AuditItem[]>(`/admin/audit?${qs.toString()}`);
+};
+
+export const getUsageReport = (params: UsageQuery = {}) => {
+  const qs = new URLSearchParams();
+  if (params.from) qs.set('from', params.from);
+  if (params.to) qs.set('to', params.to);
+  const query = qs.toString();
+  return api.get<UsageReport>(`/admin/usage${query ? `?${query}` : ''}`);
 };
 
 /* ------------------------------ Ask / execute ---------------------------- */

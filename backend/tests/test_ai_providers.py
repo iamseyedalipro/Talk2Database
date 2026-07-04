@@ -29,9 +29,20 @@ class _Block:
         self.input = data
 
 
+class _AnthUsage:
+    def __init__(
+        self, input_tokens: int, output_tokens: int, cache_read: int, cache_write: int
+    ) -> None:
+        self.input_tokens = input_tokens
+        self.output_tokens = output_tokens
+        self.cache_read_input_tokens = cache_read
+        self.cache_creation_input_tokens = cache_write
+
+
 class _AnthResponse:
-    def __init__(self, content: list[_Block]) -> None:
+    def __init__(self, content: list[_Block], usage: _AnthUsage | None = None) -> None:
         self.content = content
+        self.usage = usage
 
 
 class _AnthMessages:
@@ -56,17 +67,25 @@ def test_anthropic_returns_structured_sql_and_caches_schema() -> None:
             [
                 _Block("text"),
                 _Block("tool_use", "emit_sql", dict(_OK_PAYLOAD)),
-            ]
+            ],
+            usage=_AnthUsage(input_tokens=100, output_tokens=20, cache_read=40, cache_write=10),
         )
     )
     provider._client = client  # type: ignore[assignment]
 
-    result = provider.generate_sql(
+    result, usage = provider.generate_sql(
         messages=_QUESTION, system_prompt="SYS", schema_block="SCHEMA: TABLE t"
     )
     assert result.status == "ok"
     assert result.sql == "SELECT 1"
     assert result.explanation == "one"
+
+    # Token usage is captured from response.usage (cache tokens tracked separately).
+    assert usage.input_tokens == 100
+    assert usage.output_tokens == 20
+    assert usage.cache_read_tokens == 40
+    assert usage.cache_write_tokens == 10
+    assert usage.total == 170
 
     system = client.messages.calls[0]["system"]
     assert any(block.get("cache_control") for block in system), "schema must be cache-marked"
@@ -103,7 +122,7 @@ def test_anthropic_clarification_result() -> None:
     provider._client = _AnthClient(  # type: ignore[assignment]
         _AnthResponse([_Block("tool_use", "emit_sql", payload)])
     )
-    result = provider.generate_sql(messages=_QUESTION, system_prompt="S", schema_block="B")
+    result, _usage = provider.generate_sql(messages=_QUESTION, system_prompt="S", schema_block="B")
     assert result.status == "needs_clarification"
     assert result.clarification_question == "Did you mean payments?"
     assert result.suggested_interpretations is not None
@@ -141,7 +160,7 @@ def test_anthropic_summarize_returns_structured_summary() -> None:
     )
     provider._client = client  # type: ignore[assignment]
 
-    result = provider.summarize_results(system_prompt="SYS", context="stats...")
+    result, _usage = provider.summarize_results(system_prompt="SYS", context="stats...")
     assert result.summary == "Orders rise over time."
     assert result.chart_type == "line"
     assert result.x_column == "day"
@@ -166,7 +185,7 @@ def test_anthropic_summarize_accepts_new_chart_types(chart_type: str) -> None:
             ]
         )
     )
-    result = provider.summarize_results(system_prompt="SYS", context="stats...")
+    result, _usage = provider.summarize_results(system_prompt="SYS", context="stats...")
     assert result.chart_type == chart_type
 
 
@@ -184,12 +203,8 @@ def test_anthropic_suggest_questions() -> None:
             [_Block("tool_use", "emit_questions", {"questions": ["q1", "q2", "q3", "q4"]})]
         )
     )
-    assert provider.suggest_questions(system_prompt="S", schema_block="B") == [
-        "q1",
-        "q2",
-        "q3",
-        "q4",
-    ]
+    questions, _usage = provider.suggest_questions(system_prompt="S", schema_block="B")
+    assert questions == ["q1", "q2", "q3", "q4"]
 
 
 # --- OpenAI fakes ---------------------------------------------------------- #
@@ -203,9 +218,22 @@ class _Choice:
         self.message = _Message(content)
 
 
+class _OAPromptDetails:
+    def __init__(self, cached_tokens: int) -> None:
+        self.cached_tokens = cached_tokens
+
+
+class _OAUsage:
+    def __init__(self, prompt_tokens: int, completion_tokens: int, cached_tokens: int) -> None:
+        self.prompt_tokens = prompt_tokens
+        self.completion_tokens = completion_tokens
+        self.prompt_tokens_details = _OAPromptDetails(cached_tokens)
+
+
 class _OAResponse:
-    def __init__(self, content: str | None) -> None:
+    def __init__(self, content: str | None, usage: _OAUsage | None = None) -> None:
         self.choices = [_Choice(content)]
+        self.usage = usage
 
 
 class _OACompletions:
@@ -231,14 +259,27 @@ class _OAClient:
 def test_openai_parses_json_response() -> None:
     provider = OpenAIProvider(api_key="x", model="gpt-test")
     payload = json.dumps({**_OK_PAYLOAD, "sql": "SELECT 2", "explanation": "two"})
-    client = _OAClient(_OAResponse(payload))
+    client = _OAClient(
+        _OAResponse(
+            payload,
+            usage=_OAUsage(prompt_tokens=90, completion_tokens=15, cached_tokens=40),
+        )
+    )
     provider._client = client  # type: ignore[assignment]
 
-    result = provider.generate_sql(
+    result, usage = provider.generate_sql(
         messages=_QUESTION, system_prompt="SYS", schema_block="SCHEMA: TABLE t"
     )
     assert result.status == "ok"
     assert result.sql == "SELECT 2"
+
+    # prompt_tokens includes cached; input_tokens holds the non-cached remainder so
+    # the four counts sum to the billed total without double-counting.
+    assert usage.input_tokens == 50
+    assert usage.cache_read_tokens == 40
+    assert usage.output_tokens == 15
+    assert usage.cache_write_tokens == 0
+    assert usage.total == 105
     # The schema is part of the leading system message (a stable, cacheable prefix).
     system_msg = client.chat.completions.calls[0]["messages"][0]
     assert system_msg["role"] == "system"
@@ -272,7 +313,7 @@ def test_openai_summarize_parses_json() -> None:
     )
     provider._client = _OAClient(_OAResponse(payload))  # type: ignore[assignment]
 
-    result = provider.summarize_results(system_prompt="SYS", context="stats...")
+    result, _usage = provider.summarize_results(system_prompt="SYS", context="stats...")
     assert result.chart_type == "bar"
     assert result.y_column == "total"
 
@@ -289,7 +330,8 @@ def test_openai_suggest_questions() -> None:
     provider._client = _OAClient(  # type: ignore[assignment]
         _OAResponse(json.dumps({"questions": ["a", "b", "c", "d"]}))
     )
-    assert provider.suggest_questions(system_prompt="S", schema_block="B") == ["a", "b", "c", "d"]
+    questions, _usage = provider.suggest_questions(system_prompt="S", schema_block="B")
+    assert questions == ["a", "b", "c", "d"]
 
 
 # --- output schema shape ---------------------------------------------------- #

@@ -7,6 +7,7 @@ database into the panel, a user points the panel at their own database.
 
 from __future__ import annotations
 
+import logging
 from typing import cast
 
 from fastapi import APIRouter, HTTPException, Response, status
@@ -38,6 +39,9 @@ from app.services.crypto import SecretCryptoError, encrypt_secret
 from app.services.schema.cache import ensure_snapshot, rebuild_snapshot
 from app.services.schema.introspect import SchemaData
 from app.services.schema.serialize import estimate_tokens, table_directory
+from app.services.token_usage import record_usage
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/connections", tags=["connections"])
 
@@ -193,13 +197,26 @@ async def suggested_questions(
 
     provider = get_ai_provider()
     try:
-        questions = await run_in_threadpool(
+        questions, usage = await run_in_threadpool(
             provider.suggest_questions,
             system_prompt=build_suggestions_prompt(connector.label),
             schema_block=connector.schema_block(schema_text),
         )
     except AIProviderError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+    try:
+        await record_usage(
+            session,
+            user_id=user.id,
+            connection_id=connection.id,
+            operation="suggest_questions",
+            provider=provider.name,
+            model=provider.model,
+            usage=usage,
+        )
+    except Exception:  # usage tracking must never fail the request
+        logger.exception("Failed to record token usage for suggested questions")
 
     questions = questions[: max(1, settings.suggested_questions_count)]
     snapshot.suggested_questions_json = questions

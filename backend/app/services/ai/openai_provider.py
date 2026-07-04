@@ -21,6 +21,7 @@ from app.services.ai.base import (
     ChatMessage,
     ResultSummary,
     SqlGenerationResult,
+    TokenUsage,
 )
 
 
@@ -40,8 +41,8 @@ class OpenAIProvider:
         messages: list[ChatMessage],
         schema_name: str,
         output_schema: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Run one strict-JSON-schema call and return the parsed object."""
+    ) -> tuple[dict[str, Any], TokenUsage]:
+        """Run one strict-JSON-schema call and return the parsed object + usage."""
         chat_messages: list[Any] = [
             {"role": "system", "content": system_content},
             *[dict(m) for m in messages],
@@ -63,6 +64,7 @@ class OpenAIProvider:
         except Exception as exc:
             raise AIProviderError(f"OpenAI request failed: {exc}") from exc
 
+        usage = _usage_from_response(response)
         content = response.choices[0].message.content
         if not content:
             raise AIProviderError("OpenAI returned an empty response.")
@@ -72,24 +74,26 @@ class OpenAIProvider:
             raise AIProviderError("OpenAI returned invalid JSON.") from exc
         if not isinstance(data, dict):
             raise AIProviderError("OpenAI returned a non-object JSON payload.")
-        return data
+        return data, usage
 
     def generate_sql(
         self, *, messages: list[ChatMessage], system_prompt: str, schema_block: str
-    ) -> SqlGenerationResult:
-        data = self._structured_call(
+    ) -> tuple[SqlGenerationResult, TokenUsage]:
+        data, usage = self._structured_call(
             system_content=f"{system_prompt}\n\n{schema_block}",
             messages=messages,
             schema_name="sql_result",
             output_schema=SQL_OUTPUT_SCHEMA,
         )
         try:
-            return SqlGenerationResult.model_validate(data)
+            return SqlGenerationResult.model_validate(data), usage
         except ValueError as exc:
             raise AIProviderError(f"OpenAI returned an invalid structured result: {exc}") from exc
 
-    def suggest_questions(self, *, system_prompt: str, schema_block: str) -> list[str]:
-        data = self._structured_call(
+    def suggest_questions(
+        self, *, system_prompt: str, schema_block: str
+    ) -> tuple[list[str], TokenUsage]:
+        data, usage = self._structured_call(
             system_content=f"{system_prompt}\n\n{schema_block}",
             messages=[{"role": "user", "content": "Propose example questions for this schema."}],
             schema_name="example_questions",
@@ -98,16 +102,41 @@ class OpenAIProvider:
         questions = data.get("questions")
         if not isinstance(questions, list) or not questions:
             raise AIProviderError("OpenAI returned no example questions.")
-        return [str(q) for q in questions]
+        return [str(q) for q in questions], usage
 
-    def summarize_results(self, *, system_prompt: str, context: str) -> ResultSummary:
-        data = self._structured_call(
+    def summarize_results(
+        self, *, system_prompt: str, context: str
+    ) -> tuple[ResultSummary, TokenUsage]:
+        data, usage = self._structured_call(
             system_content=system_prompt,
             messages=[{"role": "user", "content": context}],
             schema_name="result_summary",
             output_schema=RESULT_SUMMARY_SCHEMA,
         )
         try:
-            return ResultSummary.model_validate(data)
+            return ResultSummary.model_validate(data), usage
         except ValueError as exc:
             raise AIProviderError(f"OpenAI returned an invalid summary: {exc}") from exc
+
+
+def _usage_from_response(response: Any) -> TokenUsage:
+    """Map an OpenAI chat-completion response's ``usage`` to a :class:`TokenUsage`.
+
+    OpenAI's ``prompt_tokens`` already includes any cached tokens, which it also
+    reports separately under ``prompt_tokens_details.cached_tokens``. We surface
+    the cached count for visibility but keep it inside ``input_tokens`` here would
+    double count, so ``input_tokens`` holds the non-cached remainder. OpenAI has
+    no cache-write billing concept, so ``cache_write_tokens`` stays 0.
+    """
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return TokenUsage()
+    prompt_tokens = getattr(usage, "prompt_tokens", 0) or 0
+    details = getattr(usage, "prompt_tokens_details", None)
+    cached = getattr(details, "cached_tokens", 0) or 0 if details is not None else 0
+    return TokenUsage(
+        input_tokens=max(prompt_tokens - cached, 0),
+        output_tokens=getattr(usage, "completion_tokens", 0) or 0,
+        cache_read_tokens=cached,
+        cache_write_tokens=0,
+    )

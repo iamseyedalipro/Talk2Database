@@ -15,7 +15,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.config import Settings
 from app.connectors.base import Connector
-from app.services.ai.base import ChatMessage, LLMProvider, SqlGenerationResult
+from app.services.ai.base import ChatMessage, LLMProvider, SqlGenerationResult, TokenUsage
 from app.services.ai.prompts import build_guard_feedback, build_question_block
 from app.services.schema.introspect import SchemaData
 from app.services.sql_guard import SqlGuardError
@@ -37,6 +37,8 @@ class GenerationOutcome:
     retry_count: int
     # The failed verification when retries were exhausted; None on success.
     verification: VerificationResult | None
+    # Total token usage across every provider call this loop made (incl. retries).
+    usage: TokenUsage
 
     @property
     def verified(self) -> bool:
@@ -70,20 +72,28 @@ async def generate_with_verification(
     retry_count = 0
     last_verification: VerificationResult | None = None
     safe_sql: str | None = None
+    usage = TokenUsage()
 
     for attempt in range(attempts):
-        result: SqlGenerationResult = await run_in_threadpool(
+        result: SqlGenerationResult
+        call_usage: TokenUsage
+        result, call_usage = await run_in_threadpool(
             provider.generate_sql,
             messages=messages,
             system_prompt=system_prompt,
             schema_block=schema_block,
         )
+        usage += call_usage
 
         if result.status != "ok":
             # A clarification request or unanswerable verdict is a final answer,
             # not a failure — never retried.
             return GenerationOutcome(
-                result=result, safe_sql=None, retry_count=retry_count, verification=None
+                result=result,
+                safe_sql=None,
+                retry_count=retry_count,
+                verification=None,
+                usage=usage,
             )
 
         try:
@@ -98,13 +108,21 @@ async def generate_with_verification(
 
         if not settings.ask_verify_identifiers:
             return GenerationOutcome(
-                result=result, safe_sql=safe_sql, retry_count=retry_count, verification=None
+                result=result,
+                safe_sql=safe_sql,
+                retry_count=retry_count,
+                verification=None,
+                usage=usage,
             )
 
         verification = verify_identifiers(safe_sql, full_schema, connector.dialect)
         if verification.ok:
             return GenerationOutcome(
-                result=result, safe_sql=safe_sql, retry_count=retry_count, verification=None
+                result=result,
+                safe_sql=safe_sql,
+                retry_count=retry_count,
+                verification=None,
+                usage=usage,
             )
 
         last_verification = verification
@@ -116,5 +134,9 @@ async def generate_with_verification(
             retry_count += 1
 
     return GenerationOutcome(
-        result=result, safe_sql=safe_sql, retry_count=retry_count, verification=last_verification
+        result=result,
+        safe_sql=safe_sql,
+        retry_count=retry_count,
+        verification=last_verification,
+        usage=usage,
     )
