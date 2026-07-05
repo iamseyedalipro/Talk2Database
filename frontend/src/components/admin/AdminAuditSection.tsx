@@ -102,7 +102,11 @@ export default function AdminAuditSection() {
                   <td title={item.user_email ?? ''}>{item.user_email ?? `#${item.user_id}`}</td>
                   <td title={item.question}>{truncate(item.question, 50)}</td>
                   <td>
-                    <code className="inline-sql">{truncate(item.generated_sql, 40)}</code>
+                    {item.generated_sql ? (
+                      <code className="inline-sql">{truncate(item.generated_sql, 40)}</code>
+                    ) : (
+                      <span className="muted">clarification asked</span>
+                    )}
                   </td>
                   <td>
                     <StatusPill status={item.last_status} />

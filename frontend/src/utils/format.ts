@@ -16,7 +16,8 @@ export function formatDate(iso: string | null | undefined): string {
 }
 
 /** Truncate a string to `max` characters with an ellipsis. */
-export function truncate(text: string, max = 80): string {
+export function truncate(text: string | null | undefined, max = 80): string {
+  if (!text) return '';
   const collapsed = text.replace(/\s+/g, ' ').trim();
   return collapsed.length > max ? `${collapsed.slice(0, max)}…` : collapsed;
 }

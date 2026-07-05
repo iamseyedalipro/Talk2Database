@@ -212,6 +212,23 @@ code {
   padding: 1.5rem 1.25rem 3rem;
 }
 
+.app-footer {
+  border-top: 1px solid var(--border);
+  padding: 1rem 1.25rem;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.app-footer a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.app-footer a:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
 /* --------------------------------- Pages --------------------------------- */
 
 .page {
@@ -247,6 +264,147 @@ code {
 
 .subsection h3 {
   font-size: 1.05rem;
+}
+
+/* Connection-access manager (admin sharing) */
+.access-panel {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.access-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.access-search {
+  flex: 1;
+  min-width: 200px;
+}
+
+.access-toolbar__right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.access-count {
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.access-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.access-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.access-group__title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-bottom: 0.15rem;
+}
+
+.access-empty {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+}
+
+/* A single connection row: full-row clickable label with a checkbox. */
+.access-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+
+.access-row:hover {
+  border-color: var(--primary);
+  background: var(--surface-alt);
+}
+
+.access-row__check {
+  width: auto;
+  flex: none;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.access-row__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.access-row__name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.access-row__meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.access-row--locked {
+  cursor: default;
+  background: var(--surface-alt);
+  opacity: 0.8;
+}
+
+.access-row--locked:hover {
+  border-color: var(--border);
+  background: var(--surface-alt);
+}
+
+.access-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+.access-dirty {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--warn);
+}
+
+.access-dirty.muted {
+  font-weight: 500;
+  color: var(--muted);
 }
 
 /* --------------------------------- Forms --------------------------------- */
@@ -1252,8 +1410,11 @@ textarea {
 
 .auth-screen {
   min-height: 100vh;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
   padding: 1.5rem;
   background: linear-gradient(160deg, var(--nav-active-bg) 0%, var(--bg) 60%);
 }
@@ -1312,6 +1473,16 @@ textarea {
 .status-grid dd {
   margin: 0;
   font-weight: 600;
+}
+
+.usage-subhead {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 1.25rem 0 0.5rem;
+}
+
+.usage-chart {
+  margin-top: 0.25rem;
 }
 
 .invite-form,

@@ -10,8 +10,14 @@ from app.config import Settings
 from app.db.panel import get_session
 from app.deps import get_current_user
 from app.models.query_history import QueryHistory
+from app.models.token_usage import TokenUsageRecord
 from app.routers import ask as ask_module
-from app.services.ai.base import ChatMessage, SqlGenerationResult, SuggestedInterpretation
+from app.services.ai.base import (
+    ChatMessage,
+    SqlGenerationResult,
+    SuggestedInterpretation,
+    TokenUsage,
+)
 from app.services.ai.prompts import build_schema_block, build_system_prompt
 from app.services.sql_guard import validate_select
 from fastapi import FastAPI
@@ -38,13 +44,14 @@ class FakeProvider:
     name = "fake"
     model = "fake-model"
 
-    def __init__(self, results: list[SqlGenerationResult]) -> None:
+    def __init__(self, results: list[SqlGenerationResult], usage: TokenUsage | None = None) -> None:
         self._results = list(results)
+        self._usage = usage or TokenUsage()
 
     def generate_sql(
         self, *, messages: list[ChatMessage], system_prompt: str, schema_block: str
-    ) -> SqlGenerationResult:
-        return self._results.pop(0)
+    ) -> tuple[SqlGenerationResult, TokenUsage]:
+        return self._results.pop(0), self._usage
 
 
 class FakeConnector:
@@ -114,8 +121,8 @@ def harness(monkeypatch: pytest.MonkeyPatch):
 
     client = TestClient(app)
 
-    def run(results: list[SqlGenerationResult]):
-        provider_holder["provider"] = FakeProvider(results)
+    def run(results: list[SqlGenerationResult], usage: TokenUsage | None = None):
+        provider_holder["provider"] = FakeProvider(results, usage=usage)
         return client.post("/api/ask", json={"connection_id": 7, "question": "income last year?"})
 
     return SimpleNamespace(run=run, session=session)
@@ -189,3 +196,27 @@ def test_hallucination_recovers_via_retry(harness) -> None:
     assert body["status"] == "ok"
     assert body["retry_count"] == 1
     assert "payments" in body["generated_sql"]
+
+
+def test_token_usage_recorded_when_reported(harness) -> None:
+    usage = TokenUsage(input_tokens=120, output_tokens=30, cache_read_tokens=50)
+    response = harness.run([_ok("SELECT amount FROM payments")], usage=usage)
+    assert response.status_code == 200
+    records = [obj for obj in harness.session.added if isinstance(obj, TokenUsageRecord)]
+    assert len(records) == 1
+    row = records[0]
+    assert row.operation == "generate_sql"
+    assert row.provider == "fake"
+    assert row.model == "fake-model"
+    assert row.input_tokens == 120
+    assert row.output_tokens == 30
+    assert row.cache_read_tokens == 50
+    assert row.total_tokens == 200
+    assert row.connection_id == 7
+
+
+def test_no_usage_row_when_zero_tokens(harness) -> None:
+    # The default fake reports zero tokens (e.g. a fully cached/mocked call).
+    harness.run([_ok("SELECT amount FROM payments")])
+    records = [obj for obj in harness.session.added if isinstance(obj, TokenUsageRecord)]
+    assert records == []

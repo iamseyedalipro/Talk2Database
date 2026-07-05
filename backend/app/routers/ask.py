@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import cast
 
 from fastapi import APIRouter, HTTPException, status
@@ -20,6 +21,9 @@ from app.services.schema.glossary import build_glossary_block, load_glossary
 from app.services.schema.introspect import SchemaData
 from app.services.schema.select import select_schema
 from app.services.sql_guard import SqlGuardError
+from app.services.token_usage import record_usage
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/ask", tags=["ask"])
 
@@ -120,6 +124,19 @@ async def ask(payload: AskRequest, user: CurrentUser, session: SessionDep) -> As
     )
     session.add(history)
     await session.flush()
+
+    try:
+        await record_usage(
+            session,
+            user_id=user.id,
+            connection_id=connection.id,
+            operation="generate_sql",
+            provider=provider.name,
+            model=provider.model,
+            usage=outcome.usage,
+        )
+    except Exception:  # usage tracking must never fail the request
+        logger.exception("Failed to record token usage for /ask")
 
     warnings = list(selected.warnings)
     if response_status == ResponseStatus.VERIFICATION_FAILED.value and outcome.verification:

@@ -19,6 +19,7 @@ import type {
   ClaritySettingsUpdate,
   ClarityStatus,
   Connection,
+  ConnectionAccess,
   ConnectionCreate,
   ConnectionTestResult,
   ConnectionUpdate,
@@ -49,6 +50,8 @@ import type {
   SummarizePayload,
   SystemStatus,
   TokenResponse,
+  UsageQuery,
+  UsageReport,
   User,
 } from './types';
 
@@ -76,6 +79,14 @@ export const inviteUser = (body: InvitePayload) =>
 
 export const deleteUser = (id: number) => api.del<void>(`/users/${id}`);
 
+export const getUserConnectionAccess = (userId: number) =>
+  api.get<ConnectionAccess>(`/admin/users/${userId}/connection-access`);
+
+export const setUserConnectionAccess = (userId: number, connectionIds: number[]) =>
+  api.put<ConnectionAccess>(`/admin/users/${userId}/connection-access`, {
+    connection_ids: connectionIds,
+  });
+
 export const listAudit = (params: AuditQuery = {}) => {
   const qs = new URLSearchParams();
   if (params.user_id != null) qs.set('user_id', String(params.user_id));
@@ -84,6 +95,14 @@ export const listAudit = (params: AuditQuery = {}) => {
   qs.set('limit', String(params.limit ?? 100));
   qs.set('offset', String(params.offset ?? 0));
   return api.get<AuditItem[]>(`/admin/audit?${qs.toString()}`);
+};
+
+export const getUsageReport = (params: UsageQuery = {}) => {
+  const qs = new URLSearchParams();
+  if (params.from) qs.set('from', params.from);
+  if (params.to) qs.set('to', params.to);
+  const query = qs.toString();
+  return api.get<UsageReport>(`/admin/usage${query ? `?${query}` : ''}`);
 };
 
 /* ------------------------------ Ask / execute ---------------------------- */

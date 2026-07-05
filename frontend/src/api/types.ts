@@ -61,6 +61,7 @@ export type DataSourceType = 'postgres' | 'mysql' | 'mariadb';
 
 export interface Connection {
   id: number;
+  owner_id: number;
   name: string;
   type: DataSourceType;
   host: string;
@@ -83,6 +84,11 @@ export interface ConnectionCreate {
 }
 
 export type ConnectionUpdate = Partial<ConnectionCreate>;
+
+/** The set of connection ids an admin has granted a user access to. */
+export interface ConnectionAccess {
+  connection_ids: number[];
+}
 
 export interface ConnectionTestResult {
   ok: boolean;
@@ -246,7 +252,15 @@ export interface SavedQueryRunPayload {
 
 /* ------------------------- Result summary (AI) --------------------------- */
 
-export type ChartType = 'bar' | 'line' | 'table' | 'none';
+export type ChartType =
+  | 'bar'
+  | 'line'
+  | 'area'
+  | 'pie'
+  | 'scatter'
+  | 'hbar'
+  | 'table'
+  | 'none';
 
 export interface SummarizePayload {
   question?: string | null;
@@ -317,7 +331,8 @@ export interface AuditItem {
   user_email: string | null;
   connection_id: number | null;
   question: string;
-  generated_sql: string;
+  /** Null for clarification turns that produced no SQL. */
+  generated_sql: string | null;
   provider: string | null;
   model: string | null;
   last_status: QueryStatus;
@@ -333,6 +348,50 @@ export interface AuditQuery {
   q?: string;
   limit?: number;
   offset?: number;
+}
+
+/* ---------------------------- Token usage report ------------------------- */
+
+export interface UsageTotals {
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  total_tokens: number;
+  call_count: number;
+}
+
+export interface UsageByKey {
+  key: string;
+  label: string;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  total_tokens: number;
+  call_count: number;
+}
+
+export interface UsageDailyPoint {
+  day: string;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  total_tokens: number;
+}
+
+export interface UsageReport {
+  totals: UsageTotals;
+  by_user: UsageByKey[];
+  by_model: UsageByKey[];
+  by_provider: UsageByKey[];
+  daily: UsageDailyPoint[];
+}
+
+export interface UsageQuery {
+  from?: string;
+  to?: string;
 }
 
 /* -------------------------------- System --------------------------------- */

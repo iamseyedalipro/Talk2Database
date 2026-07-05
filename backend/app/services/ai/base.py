@@ -7,7 +7,39 @@ from typing import Any, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, Field, model_validator
 
-ChartType = Literal["bar", "line", "table", "none"]
+ChartType = Literal["bar", "line", "area", "pie", "scatter", "hbar", "table", "none"]
+
+
+@dataclass(frozen=True)
+class TokenUsage:
+    """Token counts for a single provider API call.
+
+    ``cache_read_tokens`` / ``cache_write_tokens`` are reported separately from
+    ``input_tokens`` by both SDKs (Anthropic prompt caching; OpenAI cached-prompt
+    reads — OpenAI has no cache-write billing concept, so it stays 0).
+    """
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
+
+    @property
+    def total(self) -> int:
+        return (
+            self.input_tokens
+            + self.output_tokens
+            + self.cache_read_tokens
+            + self.cache_write_tokens
+        )
+
+    def __add__(self, other: TokenUsage) -> TokenUsage:
+        return TokenUsage(
+            input_tokens=self.input_tokens + other.input_tokens,
+            output_tokens=self.output_tokens + other.output_tokens,
+            cache_read_tokens=self.cache_read_tokens + other.cache_read_tokens,
+            cache_write_tokens=self.cache_write_tokens + other.cache_write_tokens,
+        )
 
 
 class ChatMessage(TypedDict):
@@ -148,7 +180,7 @@ RESULT_SUMMARY_SCHEMA: dict[str, Any] = {
         },
         "chart_type": {
             "type": "string",
-            "enum": ["bar", "line", "table", "none"],
+            "enum": ["bar", "line", "area", "pie", "scatter", "hbar", "table", "none"],
             "description": "The best chart type for these results.",
         },
         "x_column": {
@@ -234,19 +266,23 @@ class LLMProvider(Protocol):
 
     def generate_sql(
         self, *, messages: list[ChatMessage], system_prompt: str, schema_block: str
-    ) -> SqlGenerationResult:
-        """Return the structured generation result for the conversation so far.
+    ) -> tuple[SqlGenerationResult, TokenUsage]:
+        """Return the structured generation result plus the call's token usage.
 
         Implementations MUST place ``schema_block`` as a stable leading prefix so
         provider prompt caching applies across repeated questions and retries.
         """
         ...
 
-    def suggest_questions(self, *, system_prompt: str, schema_block: str) -> list[str]:
+    def suggest_questions(
+        self, *, system_prompt: str, schema_block: str
+    ) -> tuple[list[str], TokenUsage]:
         """Return 4-6 example questions a user could ask about this schema."""
         ...
 
-    def summarize_results(self, *, system_prompt: str, context: str) -> ResultSummary:
+    def summarize_results(
+        self, *, system_prompt: str, context: str
+    ) -> tuple[ResultSummary, TokenUsage]:
         """Summarize a result set and suggest a chart from a prepared ``context``.
 
         The caller builds ``context`` from column names/types and locally-computed

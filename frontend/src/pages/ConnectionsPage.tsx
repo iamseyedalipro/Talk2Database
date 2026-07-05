@@ -8,6 +8,7 @@ import {
 } from '../api/endpoints';
 import type { Connection, ConnectionCreate, DataSourceType } from '../api/types';
 import { ErrorBanner } from '../components/ui';
+import { useAuthStore } from '../store/auth';
 import { errorMessage, formatDate } from '../utils/format';
 
 const TYPES: DataSourceType[] = ['postgres', 'mysql', 'mariadb'];
@@ -35,8 +36,14 @@ const emptyForm = (): FormState => ({
  * databases here; the Ask page then queries the selected one live and read-only.
  */
 export default function ConnectionsPage() {
+  const currentUser = useAuthStore((s) => s.user);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Only the owner (or an admin) may edit/delete a connection; others have
+  // read/use access to a connection shared with them.
+  const canManage = (c: Connection) =>
+    currentUser != null && (c.owner_id === currentUser.id || currentUser.role === 'admin');
 
   const [form, setForm] = useState<FormState>(emptyForm());
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -176,7 +183,14 @@ export default function ConnectionsPage() {
               <tbody>
                 {connections.map((c) => (
                   <tr key={c.id}>
-                    <td>{c.name}</td>
+                    <td>
+                      {c.name}
+                      {!canManage(c) && (
+                        <span className="pill pill--neutral" style={{ marginLeft: 8 }}>
+                          Shared
+                        </span>
+                      )}
+                    </td>
                     <td>{c.type}</td>
                     <td>
                       {c.host}:{c.port}
@@ -200,16 +214,26 @@ export default function ConnectionsPage() {
                       )}
                     </td>
                     <td>
-                      <button type="button" className="btn btn--ghost" onClick={() => startEdit(c)}>
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn--ghost"
-                        onClick={() => handleDelete(c.id)}
-                      >
-                        Delete
-                      </button>
+                      {canManage(c) ? (
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn--ghost"
+                            onClick={() => startEdit(c)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn--ghost"
+                            onClick={() => handleDelete(c.id)}
+                          >
+                            Delete
+                          </button>
+                        </>
+                      ) : (
+                        <span className="muted">Read-only</span>
+                      )}
                     </td>
                   </tr>
                 ))}

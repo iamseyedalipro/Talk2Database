@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { bootstrap, bootstrapAvailable, login } from '../api/endpoints';
+import AppFooter from '../components/AppFooter';
 import { ErrorBanner, InfoBanner, Spinner } from '../components/ui';
 import { useAuthStore } from '../store/auth';
 import { errorMessage } from '../utils/format';
@@ -69,6 +70,7 @@ export default function LoginPage() {
         <div className="auth-card">
           <Spinner label="Loading…" />
         </div>
+        <AppFooter />
       </div>
     );
   }
@@ -133,6 +135,7 @@ export default function LoginPage() {
           </p>
         )}
       </div>
+      <AppFooter />
     </div>
   );
 }

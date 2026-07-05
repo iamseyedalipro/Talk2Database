@@ -21,6 +21,7 @@ from app.services.ai.base import (
     ChatTurn,
     ResultSummary,
     SqlGenerationResult,
+    TokenUsage,
     ToolCall,
     ToolChatMessage,
     ToolSpec,
@@ -82,8 +83,8 @@ class AnthropicProvider:
         tool_name: str,
         tool_description: str,
         output_schema: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Run one forced-tool call and return the tool input as a dict."""
+    ) -> tuple[dict[str, Any], TokenUsage]:
+        """Run one forced-tool call and return the tool input plus token usage."""
         tool = {
             "name": tool_name,
             "description": tool_description,
@@ -101,15 +102,16 @@ class AnthropicProvider:
         except Exception as exc:
             raise AIProviderError(f"Anthropic request failed: {exc}") from exc
 
+        usage = _usage_from_response(response)
         for block in response.content:
             if getattr(block, "type", None) == "tool_use" and block.name == tool_name:
-                return dict(block.input)
+                return dict(block.input), usage
         raise AIProviderError("Anthropic did not return a structured result.")
 
     def generate_sql(
         self, *, messages: list[ChatMessage], system_prompt: str, schema_block: str
-    ) -> SqlGenerationResult:
-        data = self._structured_call(
+    ) -> tuple[SqlGenerationResult, TokenUsage]:
+        data, usage = self._structured_call(
             system=self._system_blocks(system_prompt, schema_block),
             messages=messages,
             tool_name=_TOOL_NAME,
@@ -120,12 +122,14 @@ class AnthropicProvider:
             output_schema=SQL_OUTPUT_SCHEMA,
         )
         try:
-            return SqlGenerationResult.model_validate(data)
+            return SqlGenerationResult.model_validate(data), usage
         except ValueError as exc:
             raise AIProviderError(f"Anthropic returned an invalid result: {exc}") from exc
 
-    def suggest_questions(self, *, system_prompt: str, schema_block: str) -> list[str]:
-        data = self._structured_call(
+    def suggest_questions(
+        self, *, system_prompt: str, schema_block: str
+    ) -> tuple[list[str], TokenUsage]:
+        data, usage = self._structured_call(
             system=self._system_blocks(system_prompt, schema_block),
             messages=[{"role": "user", "content": "Propose example questions for this schema."}],
             tool_name=_QUESTIONS_TOOL_NAME,
@@ -135,10 +139,12 @@ class AnthropicProvider:
         questions = data.get("questions")
         if not isinstance(questions, list) or not questions:
             raise AIProviderError("Anthropic returned no example questions.")
-        return [str(q) for q in questions]
+        return [str(q) for q in questions], usage
 
-    def summarize_results(self, *, system_prompt: str, context: str) -> ResultSummary:
-        data = self._structured_call(
+    def summarize_results(
+        self, *, system_prompt: str, context: str
+    ) -> tuple[ResultSummary, TokenUsage]:
+        data, usage = self._structured_call(
             system=[{"type": "text", "text": system_prompt}],
             messages=[{"role": "user", "content": context}],
             tool_name=_SUMMARY_TOOL_NAME,
@@ -146,7 +152,7 @@ class AnthropicProvider:
             output_schema=RESULT_SUMMARY_SCHEMA,
         )
         try:
-            return ResultSummary.model_validate(data)
+            return ResultSummary.model_validate(data), usage
         except ValueError as exc:
             raise AIProviderError(f"Anthropic returned an invalid summary: {exc}") from exc
 
@@ -190,3 +196,20 @@ class AnthropicProvider:
                 block_input = block.input if isinstance(block.input, dict) else {}
                 tool_calls.append(ToolCall(id=block.id, name=block.name, input=dict(block_input)))
         return ChatTurn(text="\n".join(text_parts).strip() or None, tool_calls=tool_calls)
+
+
+def _usage_from_response(response: Any) -> TokenUsage:
+    """Map an Anthropic Messages response's ``usage`` to a :class:`TokenUsage`.
+
+    Anthropic reports cache reads/writes separately from ``input_tokens``, so the
+    four counts do not overlap.
+    """
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return TokenUsage()
+    return TokenUsage(
+        input_tokens=getattr(usage, "input_tokens", 0) or 0,
+        output_tokens=getattr(usage, "output_tokens", 0) or 0,
+        cache_read_tokens=getattr(usage, "cache_read_input_tokens", 0) or 0,
+        cache_write_tokens=getattr(usage, "cache_creation_input_tokens", 0) or 0,
+    )
