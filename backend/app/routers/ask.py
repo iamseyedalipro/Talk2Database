@@ -15,6 +15,7 @@ from app.services.ai.base import AIProviderError
 from app.services.ai.factory import get_ai_provider
 from app.services.ai.generate import generate_with_verification
 from app.services.connections import load_connector
+from app.services.prompt_store import ASK_PROMPT_KEY, get_prompt, render_ask_system
 from app.services.schema.cache import ensure_snapshot
 from app.services.schema.glossary import build_glossary_block, load_glossary
 from app.services.schema.introspect import SchemaData
@@ -59,6 +60,9 @@ async def ask(payload: AskRequest, user: CurrentUser, session: SessionDep) -> As
     glossary_text = build_glossary_block(descriptions, metrics)
     schema_text = f"{selected.text}\n\n{glossary_text}" if glossary_text else selected.text
 
+    # The system prompt template is admin-editable (stored in the panel DB).
+    template, _ = await get_prompt(session, ASK_PROMPT_KEY)
+
     provider = get_ai_provider()
     try:
         outcome = await generate_with_verification(
@@ -68,6 +72,7 @@ async def ask(payload: AskRequest, user: CurrentUser, session: SessionDep) -> As
             full_schema=schema_data,
             selected_text=schema_text,
             settings=settings,
+            system_prompt=render_ask_system(template, connector.label),
         )
     except AIProviderError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc

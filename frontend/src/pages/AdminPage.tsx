@@ -1,11 +1,13 @@
 import AdminAuditSection from '../components/admin/AdminAuditSection';
+import AdminClaritySection from '../components/admin/AdminClaritySection';
 import AdminConnectionAccessSection from '../components/admin/AdminConnectionAccessSection';
+import AdminPromptsSection from '../components/admin/AdminPromptsSection';
 import AdminTokenUsageSection from '../components/admin/AdminTokenUsageSection';
 import AdminUsersSection from '../components/admin/AdminUsersSection';
 
 /**
- * Admin area: user management + connection access + token usage + audit log.
- * Admin-guarded by the router.
+ * Admin area: user management, connection access, token usage, Clarity
+ * integration, AI prompts, and the audit log. Admin-guarded by the router.
  */
 export default function AdminPage() {
   return (
@@ -15,6 +17,8 @@ export default function AdminPage() {
       <AdminConnectionAccessSection />
       <AdminTokenUsageSection />
       <AdminAuditSection />
+      <AdminClaritySection />
+      <AdminPromptsSection />
     </div>
   );
 }

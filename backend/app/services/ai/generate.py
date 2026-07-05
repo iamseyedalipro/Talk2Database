@@ -53,6 +53,7 @@ async def generate_with_verification(
     full_schema: SchemaData,
     selected_text: str,
     settings: Settings,
+    system_prompt: str | None = None,
 ) -> GenerationOutcome:
     """Generate SQL for ``question``, verifying identifiers against ``full_schema``.
 
@@ -60,11 +61,15 @@ async def generate_with_verification(
     ``selected_text``), so a table the trimming dropped is not flagged as
     hallucinated.
 
+    ``system_prompt`` overrides the connector's built-in prompt (the admin panel
+    stores an editable template); ``None`` keeps the default.
+
     Raises:
         AIProviderError: when the provider fails.
         SqlGuardError: when even the final attempt is not a read-only SELECT.
     """
-    system_prompt = connector.system_prompt()
+    if system_prompt is None:
+        system_prompt = connector.system_prompt()
     schema_block = connector.schema_block(selected_text)
     messages: list[ChatMessage] = [{"role": "user", "content": build_question_block(question)}]
 

@@ -5,12 +5,19 @@
 
 import { api } from './client';
 import type {
+  AnalysisPayload,
+  AnalysisResponse,
   AskPayload,
   AskResponse,
   AuditItem,
   AuditQuery,
   BootstrapAvailable,
   BootstrapPayload,
+  ClarityAvailability,
+  ClarityRun,
+  ClaritySettings,
+  ClaritySettingsUpdate,
+  ClarityStatus,
   Connection,
   ConnectionAccess,
   ConnectionCreate,
@@ -31,6 +38,7 @@ import type {
   InvitePayload,
   InviteResponse,
   LoginPayload,
+  PromptTemplate,
   RegisterPayload,
   RerunPayload,
   ResultSummary,
@@ -185,6 +193,37 @@ export const updateMetric = (connectionId: number, metricId: number, body: Metri
 
 export const deleteMetric = (connectionId: number, metricId: number) =>
   api.del<void>(`/connections/${connectionId}/glossary/metrics/${metricId}`);
+
+/* ------------------------------- Analysis -------------------------------- */
+
+export const runAnalysis = (body: AnalysisPayload) =>
+  api.post<AnalysisResponse>('/analysis', body);
+
+/* -------------------------------- Clarity -------------------------------- */
+
+export const clarityAvailability = () =>
+  api.get<ClarityAvailability>('/clarity/availability');
+
+export const getClaritySettings = () => api.get<ClaritySettings>('/clarity/settings');
+
+export const updateClaritySettings = (body: ClaritySettingsUpdate) =>
+  api.put<ClaritySettings>('/clarity/settings', body);
+
+export const clarityFetchNow = () => api.post<ClarityRun>('/clarity/fetch-now');
+
+export const listClarityRuns = (limit = 20) =>
+  api.get<ClarityRun[]>(`/clarity/runs?limit=${limit}`);
+
+export const clarityStatus = () => api.get<ClarityStatus>('/clarity/status');
+
+/* -------------------------------- Prompts -------------------------------- */
+
+export const listPrompts = () => api.get<PromptTemplate[]>('/prompts');
+
+export const updatePrompt = (key: string, content: string) =>
+  api.put<PromptTemplate>(`/prompts/${key}`, { content });
+
+export const resetPrompt = (key: string) => api.post<PromptTemplate>(`/prompts/${key}/reset`);
 
 /* -------------------------------- System --------------------------------- */
 

@@ -57,6 +57,7 @@ class FakeProvider:
 class FakeConnector:
     type = "postgres"
     dialect = "postgres"
+    label = "PostgreSQL"
 
     def system_prompt(self) -> str:
         return build_system_prompt("PostgreSQL")
@@ -76,6 +77,10 @@ class FakeSession:
 
     def add(self, obj: Any) -> None:
         self.added.append(obj)
+
+    async def get(self, model: Any, key: Any) -> None:
+        # No stored settings rows: the prompt store falls back to defaults.
+        return None
 
     async def flush(self) -> None:
         for i, obj in enumerate(self.added, start=1):

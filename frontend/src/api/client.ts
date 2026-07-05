@@ -101,17 +101,17 @@ export const api = {
     });
   },
 
-  patch<T>(path: string, body?: unknown): Promise<T> {
+  put<T>(path: string, body?: unknown): Promise<T> {
     return request<T>(path, {
-      method: 'PATCH',
+      method: 'PUT',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   },
 
-  put<T>(path: string, body?: unknown): Promise<T> {
+  patch<T>(path: string, body?: unknown): Promise<T> {
     return request<T>(path, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: body === undefined ? undefined : JSON.stringify(body),
     });

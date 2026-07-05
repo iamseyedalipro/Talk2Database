@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI, HTTPException
@@ -14,18 +17,22 @@ from app.config import get_settings
 from app.routers import (
     admin_audit,
     admin_usage,
+    analysis,
     ask,
     auth,
+    clarity,
     connection_access,
     connections,
     execute,
     glossary,
     history,
+    prompts,
     results,
     saved_queries,
     system,
     users,
 )
+from app.services.scheduler import start_scheduler, stop_scheduler
 
 _FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend_dist"
 
@@ -45,12 +52,28 @@ def _build_api_router() -> APIRouter:
     api.include_router(connections.router)
     api.include_router(glossary.router)
     api.include_router(ask.router)
+    api.include_router(analysis.router)
     api.include_router(execute.router)
     api.include_router(history.router)
     api.include_router(saved_queries.router)
     api.include_router(results.router)
+    api.include_router(clarity.router)
+    api.include_router(prompts.router)
     api.include_router(system.router)
     return api
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Run the in-process scheduler (daily Clarity fetch) with the app."""
+    disabled = bool(os.environ.get("T2D_DISABLE_SCHEDULER"))
+    if not disabled:
+        await start_scheduler()
+    try:
+        yield
+    finally:
+        if not disabled:
+            stop_scheduler()
 
 
 def _mount_spa(app: FastAPI) -> None:
@@ -80,6 +103,7 @@ def create_app() -> FastAPI:
         title="Talk2Database",
         version=__version__,
         description="Ask questions in plain language; get previewable, read-only SQL.",
+        lifespan=_lifespan,
     )
 
     if settings.cors_origin_list:

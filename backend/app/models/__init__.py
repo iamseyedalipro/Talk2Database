@@ -5,6 +5,8 @@ autogeneration and ``create_all`` can see them.
 """
 
 from app.db.base import Base
+from app.models.app_setting import AppSetting
+from app.models.clarity import ClarityFetchRun, ClaritySnapshot
 from app.models.connection import Connection, DataSourceType
 from app.models.connection_access import ConnectionAccess
 from app.models.glossary import GlossaryDescription, Metric
@@ -16,7 +18,10 @@ from app.models.token_usage import TokenUsageRecord
 from app.models.user import User, UserRole
 
 __all__ = [
+    "AppSetting",
     "Base",
+    "ClarityFetchRun",
+    "ClaritySnapshot",
     "Connection",
     "ConnectionAccess",
     "DataSourceType",

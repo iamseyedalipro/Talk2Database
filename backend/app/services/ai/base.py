@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, Field, model_validator
@@ -197,6 +197,61 @@ RESULT_SUMMARY_SCHEMA: dict[str, Any] = {
 }
 
 
+# --------------------------------------------------------------------------- #
+# Tool-using chat (the Analysis agent)
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class ToolSpec:
+    """A tool the model may call, described provider-neutrally."""
+
+    name: str
+    description: str
+    input_schema: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class ToolCall:
+    """A tool invocation requested by the model."""
+
+    id: str
+    name: str
+    input: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class ToolResult:
+    """The outcome of executing a :class:`ToolCall`, fed back to the model."""
+
+    tool_call_id: str
+    content: str
+    is_error: bool = False
+
+
+@dataclass
+class ToolChatMessage:
+    """One turn of a tool-using conversation (distinct from :class:`ChatMessage`,
+    the plain-text ask thread).
+
+    ``assistant`` turns may carry ``tool_calls``; the following ``user`` turn
+    carries the matching ``tool_results``.
+    """
+
+    role: Literal["user", "assistant"]
+    text: str | None = None
+    tool_calls: list[ToolCall] = field(default_factory=list)
+    tool_results: list[ToolResult] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ChatTurn:
+    """What the model produced for one tool-chat turn."""
+
+    text: str | None
+    tool_calls: list[ToolCall]
+
+
 class LLMProvider(Protocol):
     """Generates SQL from a conversation and a (cacheable) schema block.
 
@@ -233,5 +288,20 @@ class LLMProvider(Protocol):
         The caller builds ``context`` from column names/types and locally-computed
         aggregates (plus an optional opted-in row sample), so the provider never
         sees raw row data unless the deployment enabled it.
+        """
+        ...
+
+    def chat(
+        self,
+        *,
+        system: str,
+        messages: list[ToolChatMessage],
+        tools: list[ToolSpec],
+        force_text: bool = False,
+    ) -> ChatTurn:
+        """One turn of a tool-using conversation (the Analysis agent).
+
+        With ``force_text=True`` the model must answer in plain text (tools are
+        withheld) - used to close out the analysis loop.
         """
         ...
