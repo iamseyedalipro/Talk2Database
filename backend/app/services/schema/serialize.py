@@ -35,8 +35,14 @@ def serialize_table(table: TableInfo) -> str:
 
     for column in table["columns"]:
         flags = "" if column["nullable"] else " NOT NULL"
-        comment = f"  -- {column['comment']}" if column["comment"] else ""
-        lines.append(f"  {column['name']} {column['type']}{flags}{comment}")
+        annotations: list[str] = []
+        if column["comment"]:
+            annotations.append(column["comment"])
+        allowed = column.get("allowed_values")
+        if allowed:
+            annotations.append("allowed values: " + ", ".join(allowed))
+        note = f"  -- {'; '.join(annotations)}" if annotations else ""
+        lines.append(f"  {column['name']} {column['type']}{flags}{note}")
 
     for fk in table["foreign_keys"]:
         ref = (

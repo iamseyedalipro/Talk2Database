@@ -109,7 +109,7 @@ flowchart TD
 
 ### 1. Introspect once → snapshot
 
-After every import/sync (and lazily on the first question if none exists), `rebuild_snapshot` calls `introspect_userdata`, which reads **only structural metadata** — table/column/type/nullability/comments, primary keys, and foreign keys — through the read-only connection. Nothing about row data is read.
+After every import/sync (and lazily on the first question if none exists), `rebuild_snapshot` calls the connector's `introspect`, which reads structural metadata — table/column/type/nullability/comments, primary keys, foreign keys, and each column's allowed values (enum labels and `CHECK`-constraint values, read from the catalog with no row reads) — through the read-only connection. When `SCHEMA_SAMPLE_VALUES` is on (default), plain text columns are additionally probed for a bounded set of distinct values (`app/services/schema/sample.py`) so the model filters on real values; this is the only introspection step that reads row data, and it is capped and can be disabled. See `docs/security.md` for the exact bounds.
 
 The structure is serialized deterministically (`serialize_schema`) into a compact text block and hashed (`fingerprint`, SHA-256). If the new fingerprint matches the current snapshot, the existing row is kept (no churn). Otherwise a new `schema_snapshots` row is written with `version + 1`, the text, the structured JSON, and the table count.
 

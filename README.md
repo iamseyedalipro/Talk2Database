@@ -6,7 +6,7 @@ Talk2Database is a self-hostable panel that turns natural-language questions int
 
 It ships as a single `docker compose` bundle: a FastAPI + React panel and one PostgreSQL database for the panel's own metadata. Your data stays in your databases — the panel connects to them read-only at query time and never copies them in.
 
-> Only your database **schema** is ever sent to the AI provider — never a single row of your data (unless you explicitly opt in to a small bounded sample for result summaries).
+> Only your database **schema** is ever sent to the AI provider — no table rows, aside from two narrow, configurable exceptions: a small set of a column's distinct values for query grounding (`SCHEMA_SAMPLE_VALUES`, on by default; enum/CHECK values come from the catalog with no row reads) and an opt-in bounded row sample for result summaries (`AI_ALLOW_SAMPLE_ROWS`, off by default).
 
 ---
 
@@ -190,6 +190,9 @@ Every variable lives in `.env` (copied from `.env.example`). The panel and its m
 | `SCHEMA_MAX_TOKENS` | `6000`           | Token budget for the schema sent to the provider. If the serialized schema exceeds this, only the tables most relevant to the question (plus their FK neighbours) are sent. |
 | `SCHEMA_TABLES`     | *(empty)*        | Optional comma-separated default table allowlist. Empty means all tables. A connection can override this in its options (e.g. `{"tables": ["orders", "customers"]}`). |
 | `SCHEMA_INCLUDE_SCHEMAS` | *(empty)*   | Comma-separated default namespaces/schemas to introspect. Empty auto-discovers all user schemas. A connection can override this in its options. |
+| `SCHEMA_SAMPLE_VALUES` | `true`        | Discover a column's allowed values so the AI filters on real values (e.g. `status = 'successful'`, not `'paid'`). Enum/CHECK values are always read from the catalog; when on, plain text columns are also probed with a bounded `SELECT DISTINCT`. Set `false` to stay strictly structure-only. |
+| `SCHEMA_SAMPLE_MAX_VALUES` | `25`      | Keep at most this many distinct values per sampled column; columns with more are treated as free-text and left unannotated. |
+| `SCHEMA_SAMPLE_SCAN_LIMIT` | `10000`   | Maximum rows scanned per column when sampling distinct values, to bound cost. |
 
 ### Ask flow
 
@@ -278,7 +281,7 @@ Read-only access is enforced as **defence in depth** — independent layers, non
 
 Additional guarantees:
 
-- **Schema-only AI grounding.** Only structural metadata (tables, columns, types, keys, comments) is sent to the provider — never row data. The one opt-in exception is a small bounded row sample for "Explain results" summaries (`AI_ALLOW_SAMPLE_ROWS`).
+- **Schema-only AI grounding.** Structural metadata (tables, columns, types, keys, comments) is sent to the provider. Two narrow exceptions surface small amounts of data-derived values: a bounded set of a column's **distinct values** for query grounding (`SCHEMA_SAMPLE_VALUES`, on by default — enum/CHECK values are read from the catalog with no row reads; only plain text columns are probed with a bounded `SELECT DISTINCT`, and set the flag to `false` to disable), and an opt-in bounded **row sample** for "Explain results" summaries (`AI_ALLOW_SAMPLE_ROWS`, off by default).
 - **Secrets encrypted at rest.** Connection passwords are stored **Fernet-encrypted** in the panel DB (`CONNECTIONS_SECRET_KEY`) and are never returned by the API. Invite tokens are stored **hashed**; the raw token only ever lives in the invite link. Passwords are hashed with Argon2.
 
 Full details — including the validator's reject list and operational notes — are in **[docs/security.md](docs/security.md)**.

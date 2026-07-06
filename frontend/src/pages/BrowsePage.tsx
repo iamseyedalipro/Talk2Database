@@ -24,6 +24,7 @@ import type {
 } from '../api/types';
 import MetricsPanel from '../components/MetricsPanel';
 import ResultsView from '../components/ResultsView';
+import SaveQueryModal from '../components/SaveQueryModal';
 import SchemaTree from '../components/SchemaTree';
 import { ErrorBanner } from '../components/ui';
 import { errorMessage } from '../utils/format';
@@ -61,6 +62,8 @@ export default function BrowsePage() {
   const [activeSql, setActiveSql] = useState<string | null>(null);
   const [result, setResult] = useState<ExecuteResponse | null>(null);
   const [csvBusy, setCsvBusy] = useState(false);
+  const [showSave, setShowSave] = useState(false);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
 
   const viewRef = useRef<EditorView | null>(null);
   // Live refs so the editor keymap always sees the latest handler and text
@@ -299,15 +302,30 @@ export default function BrowsePage() {
         <div className="card">
           <div className="browse__editor-head">
             <h1 className="page__title">SQL editor</h1>
-            <button
-              type="button"
-              className="btn btn--primary"
-              onClick={() => runQuery(sqlText)}
-              disabled={running || !sqlText.trim() || connectionId === null}
-            >
-              {running ? 'Running…' : 'Run ▸'}
-            </button>
+            <div className="browse__editor-actions">
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={() => {
+                  setSaveNotice(null);
+                  setShowSave(true);
+                }}
+                disabled={!sqlText.trim() || connectionId === null}
+                title="Save this query to your library"
+              >
+                Save query
+              </button>
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={() => runQuery(sqlText)}
+                disabled={running || !sqlText.trim() || connectionId === null}
+              >
+                {running ? 'Running…' : 'Run ▸'}
+              </button>
+            </div>
           </div>
+          {saveNotice && <p className="browse__save-notice muted">{saveNotice}</p>}
           <p className="muted">
             Write your own read-only <code>SELECT</code>. Only single read-only queries run.
           </p>
@@ -333,6 +351,17 @@ export default function BrowsePage() {
           <ResultsView result={result} onDownloadCsv={handleDownloadCsv} csvBusy={csvBusy} />
         )}
       </section>
+
+      {showSave && connectionId !== null && (
+        <SaveQueryModal
+          draft={{ generated_sql: sqlText.trim(), question: null, connection_id: connectionId }}
+          onSaved={() => {
+            setShowSave(false);
+            setSaveNotice('Saved to your query library.');
+          }}
+          onCancel={() => setShowSave(false)}
+        />
+      )}
     </div>
   );
 }

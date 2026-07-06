@@ -62,6 +62,13 @@ class Settings(BaseSettings):
     schema_tables: str = ""  # comma-separated allowlist; empty => all tables
     schema_include_schemas: str = ""  # comma-separated; empty => auto-discover all user schemas
 
+    # -- Column value discovery (sampling) -------------------------------- #
+    # For text columns without an enum/CHECK, sample DISTINCT values so the AI
+    # filters on real values. Bounded to stay cheap; disable with the flag.
+    schema_sample_values: bool = True
+    schema_sample_max_values: int = 25  # keep at most this many; else treat as free-text
+    schema_sample_scan_limit: int = 10000  # rows scanned per column, to cap cost
+
     # -- Auth -------------------------------------------------------------- #
     jwt_secret: str = "change-me"
     jwt_expire_minutes: int = 60

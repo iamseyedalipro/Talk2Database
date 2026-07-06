@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import time
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 
 import psycopg
 from psycopg import sql
 from psycopg.postgres import types as pg_types
 
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.connectors.base import (
     ConnectionConfig,
     ConnectorQueryError,
@@ -21,6 +21,7 @@ from app.connectors.base import (
 from app.services.ai.prompts import build_schema_block, build_system_prompt
 from app.services.explain import parse_postgres_explain
 from app.services.schema.introspect import SchemaData, introspect_postgres
+from app.services.schema.sample import apply_sampled_values
 from app.services.sql_guard import validate_select
 
 _LABEL = "PostgreSQL"
@@ -86,8 +87,48 @@ class PostgresConnector:
             conn.close()
 
     def introspect(self) -> SchemaData:
+        settings = get_settings()
         with self._connect() as conn, conn.cursor() as cur:
-            return introspect_postgres(cur, self._schemas, self._allowlist)
+            schema = introspect_postgres(cur, self._schemas, self._allowlist)
+            apply_sampled_values(
+                schema,
+                sample=lambda s, t, c: self._sample_values(cur, s, t, c, settings),
+                enabled=settings.schema_sample_values,
+            )
+            return schema
+
+    def _sample_values(
+        self, cur: psycopg.Cursor, schema: str, table: str, column: str, settings: Settings
+    ) -> list[str] | None:
+        """Return up to ``max_values`` distinct non-null values, or ``None``.
+
+        Runs inside a SAVEPOINT so a failing probe (odd type, permissions) does
+        not abort the surrounding read-only transaction and poison later probes.
+        """
+        max_values = settings.schema_sample_max_values
+        scan_limit = settings.schema_sample_scan_limit
+        query = sql.SQL(
+            "SELECT DISTINCT v FROM ("
+            "SELECT {col} AS v FROM {tbl} WHERE {col} IS NOT NULL LIMIT {scan}"
+            ") s LIMIT {lim}"
+        ).format(
+            col=sql.Identifier(column),
+            tbl=sql.Identifier(schema, table),
+            scan=sql.Literal(scan_limit),
+            lim=sql.Literal(max_values + 1),
+        )
+        try:
+            cur.execute("SAVEPOINT t2db_sample")
+            cur.execute(query)
+            rows = cur.fetchall()
+            cur.execute("RELEASE SAVEPOINT t2db_sample")
+        except psycopg.Error:
+            with suppress(psycopg.Error):
+                cur.execute("ROLLBACK TO SAVEPOINT t2db_sample")
+            return None
+        if len(rows) > max_values:
+            return None
+        return [str(row[0]) for row in rows if row[0] is not None]
 
     def validate(self, query: str) -> str:
         return validate_select(query, dialect=self.dialect)
