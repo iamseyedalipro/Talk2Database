@@ -23,6 +23,9 @@ separating commands.
 - Use ONLY the tables and columns that appear in the provided schema. Never \
 invent tables or columns.
 - Prefer explicit column lists over SELECT * when only a few columns are needed.
+- When a column lists "allowed values", filter and compare using EXACTLY those \
+values (they are the only ones that exist in the data). Never invent a synonym \
+(e.g. use 'successful', not 'paid').
 - When the question implies a potentially large result and gives no limit, add a \
 sensible LIMIT.
 - Quote identifiers only when necessary. Target {label} syntax.

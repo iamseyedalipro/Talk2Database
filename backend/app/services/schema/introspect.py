@@ -9,6 +9,7 @@ source-agnostic.
 
 from __future__ import annotations
 
+import re
 from typing import Any, Protocol, TypedDict
 
 
@@ -17,6 +18,9 @@ class ColumnInfo(TypedDict):
     type: str
     nullable: bool
     comment: str | None
+    # Known allowed values for the column (enum labels, CHECK IN-list, or a
+    # bounded distinct sample). ``None`` means "unknown / unconstrained".
+    allowed_values: list[str] | None
 
 
 class ForeignKeyInfo(TypedDict):
@@ -44,6 +48,66 @@ class Cursor(Protocol):
 
     def execute(self, query: str, params: Any = ...) -> Any: ...
     def fetchall(self) -> list[Any]: ...
+
+
+# Matches the "column IN (…)" / "column = ANY (…)" head of a CHECK clause across
+# dialects: the column may be bare, quoted ("col" / `col`), or wrapped/cast such
+# as ``(status)::text``. Case-insensitive so MySQL's lowercase ``in`` also hits.
+_CHECK_COLUMN_RE = re.compile(
+    r"""[(\s]*                     # optional leading paren/space
+        [`"]?(?P<col>[A-Za-z_][A-Za-z0-9_]*)[`"]?   # the column name
+        \)?                       # optional closing paren from ``(col)``
+        (?:::[\w ]+)?             # optional ::cast
+        \s*                        # spaces
+        (?:=\s*ANY|IN)\b          # the membership operator
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+# String literals inside a CHECK/enum definition. Handles doubled '' escapes and
+# ignores any charset prefix (MySQL renders values as ``_utf8mb4'value'``).
+_STRING_LITERAL_RE = re.compile(r"'((?:[^']|'')*)'")
+
+# The membership operator, used to reject multi-column checks (where collecting
+# every literal would mis-attribute values to a single column).
+_MEMBERSHIP_RE = re.compile(r"(?:=\s*ANY|\bIN)\b", re.IGNORECASE)
+
+
+def _string_literals(text: str) -> list[str]:
+    """All single-quoted string literals in ``text``, de-duplicated, in order."""
+    seen: dict[str, None] = {}
+    for raw in _STRING_LITERAL_RE.findall(text):
+        seen.setdefault(raw.replace("''", "'"), None)
+    return list(seen)
+
+
+def _parse_check_values(definition: str) -> tuple[str, list[str]] | None:
+    """Extract ``(column, [values])`` from a simple membership CHECK clause.
+
+    Handles the common shapes across PostgreSQL and MySQL:
+    ``col IN ('a','b')``, ``col = ANY (ARRAY['a','b'])`` and their quoted/cast
+    variants. Returns ``None`` for anything not confidently a single-column
+    string membership check (biased to false-negatives).
+    """
+    # Only a single-column membership check is safe to attribute values to.
+    if len(_MEMBERSHIP_RE.findall(definition)) != 1:
+        return None
+    match = _CHECK_COLUMN_RE.search(definition)
+    if match is None:
+        return None
+    values = _string_literals(definition)
+    if not values:
+        return None
+    return match.group("col"), values
+
+
+def _parse_enum_type(column_type: str) -> list[str] | None:
+    """Extract labels from a MySQL ``enum('a','b',…)`` column type, else ``None``."""
+    lowered = column_type.strip().lower()
+    if not lowered.startswith("enum("):
+        return None
+    values = _string_literals(column_type)
+    return values or None
 
 
 # Use pg_catalog throughout instead of information_schema so that any database
@@ -74,6 +138,35 @@ WHERE n.nspname::text = ANY(%(schemas)s)
   AND a.attnum > 0
   AND NOT a.attisdropped
 ORDER BY n.nspname, c.relname, a.attnum;
+"""
+
+_ENUM_SQL = """
+SELECT
+    n.nspname   AS table_schema,
+    c.relname   AS table_name,
+    a.attname   AS column_name,
+    e.enumlabel AS label
+FROM pg_catalog.pg_attribute a
+JOIN pg_catalog.pg_class c      ON c.oid = a.attrelid
+JOIN pg_catalog.pg_namespace n  ON n.oid = c.relnamespace
+JOIN pg_catalog.pg_type t       ON t.oid = a.atttypid
+JOIN pg_catalog.pg_enum e       ON e.enumtypid = t.oid
+WHERE n.nspname::text = ANY(%(schemas)s)
+  AND a.attnum > 0
+  AND NOT a.attisdropped
+ORDER BY n.nspname, c.relname, a.attname, e.enumsortorder;
+"""
+
+_CHECK_SQL = """
+SELECT
+    n.nspname                                   AS table_schema,
+    c.relname                                   AS table_name,
+    pg_catalog.pg_get_constraintdef(con.oid)    AS definition
+FROM pg_catalog.pg_constraint con
+JOIN pg_catalog.pg_class c      ON c.oid = con.conrelid
+JOIN pg_catalog.pg_namespace n  ON n.oid = c.relnamespace
+WHERE n.nspname::text = ANY(%(schemas)s)
+  AND con.contype = 'c';
 """
 
 _PRIMARY_KEY_SQL = """
@@ -139,6 +232,22 @@ def introspect_postgres(cur: Cursor, schemas: list[str] | None, allowlist: set[s
     pk_rows = cur.fetchall()
     cur.execute(_FOREIGN_KEY_SQL, params)
     fk_rows = cur.fetchall()
+    cur.execute(_ENUM_SQL, params)
+    enum_rows = cur.fetchall()
+    cur.execute(_CHECK_SQL, params)
+    check_rows = cur.fetchall()
+
+    # (schema, table, column) -> allowed values, from native enums and then
+    # CHECK constraints (enums win; a column is rarely both).
+    values: dict[tuple[str, str, str], list[str]] = {}
+    for schema, table, column, label in enum_rows:
+        values.setdefault((schema, table, column), []).append(label)
+    for schema, table, definition in check_rows:
+        parsed = _parse_check_values(definition)
+        if parsed is None:
+            continue
+        column, allowed = parsed
+        values.setdefault((schema, table, column), allowed)
 
     tables: dict[tuple[str, str], TableInfo] = {}
 
@@ -158,7 +267,13 @@ def introspect_postgres(cur: Cursor, schemas: list[str] | None, allowlist: set[s
             )
             tables[key] = info
         info["columns"].append(
-            ColumnInfo(name=column, type=data_type, nullable=nullable, comment=col_comment)
+            ColumnInfo(
+                name=column,
+                type=data_type,
+                nullable=nullable,
+                comment=col_comment,
+                allowed_values=values.get((schema, table, column)),
+            )
         )
 
     for schema, table, column, _pos in pk_rows:
@@ -228,6 +343,35 @@ WHERE TABLE_SCHEMA = %(db)s AND REFERENCED_TABLE_NAME IS NOT NULL
 ORDER BY TABLE_NAME, CONSTRAINT_NAME, ORDINAL_POSITION;
 """
 
+# CHECK constraints (MySQL 8.0.16+ / MariaDB 10.2+). information_schema.
+# CHECK_CONSTRAINTS lacks the table name on MySQL, so join TABLE_CONSTRAINTS.
+_MYSQL_CHECK_SQL = """
+SELECT tc.TABLE_NAME, cc.CHECK_CLAUSE
+FROM information_schema.CHECK_CONSTRAINTS cc
+JOIN information_schema.TABLE_CONSTRAINTS tc
+  ON tc.CONSTRAINT_SCHEMA = cc.CONSTRAINT_SCHEMA
+ AND tc.CONSTRAINT_NAME = cc.CONSTRAINT_NAME
+WHERE cc.CONSTRAINT_SCHEMA = %(db)s;
+"""
+
+
+def _mysql_check_values(cur: Cursor, database: str) -> dict[tuple[str, str], list[str]]:
+    """Best-effort ``(table, column) -> values`` from MySQL CHECK constraints.
+
+    Returns an empty map on any error (older servers without CHECK_CONSTRAINTS).
+    """
+    result: dict[tuple[str, str], list[str]] = {}
+    try:
+        cur.execute(_MYSQL_CHECK_SQL, {"db": database})
+        rows = cur.fetchall()
+    except Exception:
+        return result
+    for table, clause in rows:
+        parsed = _parse_check_values(clause or "")
+        if parsed is not None:
+            result.setdefault((table, parsed[0]), parsed[1])
+    return result
+
 
 def introspect_mysql(cur: Cursor, database: str, allowlist: set[str]) -> SchemaData:
     """Read the structural schema of a MySQL/MariaDB database via ``cur``.
@@ -245,6 +389,7 @@ def introspect_mysql(cur: Cursor, database: str, allowlist: set[str]) -> SchemaD
     pk_rows = cur.fetchall()
     cur.execute(_MYSQL_FK_SQL, params)
     fk_rows = cur.fetchall()
+    check_values = _mysql_check_values(cur, database)
 
     comments = dict(table_rows)
     tables: dict[tuple[str, str], TableInfo] = {}
@@ -264,8 +409,17 @@ def introspect_mysql(cur: Cursor, database: str, allowlist: set[str]) -> SchemaD
                 foreign_keys=[],
             )
             tables[key] = info
+        # Native ENUM values are embedded in COLUMN_TYPE; otherwise fall back to
+        # a CHECK constraint on this column.
+        allowed = _parse_enum_type(data_type) or check_values.get((table, column))
         info["columns"].append(
-            ColumnInfo(name=column, type=data_type, nullable=bool(nullable), comment=col_comment)
+            ColumnInfo(
+                name=column,
+                type=data_type,
+                nullable=bool(nullable),
+                comment=col_comment,
+                allowed_values=allowed,
+            )
         )
 
     for table, column, _pos in pk_rows:

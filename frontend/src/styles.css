@@ -1232,6 +1232,16 @@ textarea {
   gap: 1rem;
 }
 
+.browse__editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.browse__save-notice {
+  margin: 0.25rem 0 0;
+}
+
 .browse__editor {
   margin: 0.75rem 0;
   border: 1px solid var(--border);

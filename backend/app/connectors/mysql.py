@@ -14,7 +14,7 @@ from typing import Any
 import pymysql
 from pymysql.constants import FIELD_TYPE
 
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.connectors.base import (
     ConnectionConfig,
     ConnectorError,
@@ -26,6 +26,7 @@ from app.connectors.base import (
 from app.services.ai.prompts import build_schema_block, build_system_prompt
 from app.services.explain import parse_mysql_explain
 from app.services.schema.introspect import SchemaData, introspect_mysql
+from app.services.schema.sample import apply_sampled_values
 from app.services.sql_guard import validate_select
 
 _CSV_BATCH = 1000
@@ -40,6 +41,11 @@ _TYPE_NAMES: dict[int, str] = {
 
 def _type_name(type_code: int) -> str:
     return _TYPE_NAMES.get(type_code, str(type_code))
+
+
+def _quote_ident(name: str) -> str:
+    """Backtick-quote a MySQL identifier, escaping embedded backticks."""
+    return "`" + name.replace("`", "``") + "`"
 
 
 class MySQLConnector:
@@ -91,8 +97,40 @@ class MySQLConnector:
             conn.close()
 
     def introspect(self) -> SchemaData:
+        settings = get_settings()
         with self._connect() as conn, conn.cursor() as cur:
-            return introspect_mysql(cur, self._config.database, self._allowlist)
+            schema = introspect_mysql(cur, self._config.database, self._allowlist)
+            apply_sampled_values(
+                schema,
+                sample=lambda s, t, c: self._sample_values(cur, s, t, c, settings),
+                enabled=settings.schema_sample_values,
+            )
+            return schema
+
+    def _sample_values(
+        self, cur: Any, schema: str, table: str, column: str, settings: Settings
+    ) -> list[str] | None:
+        """Return up to ``max_values`` distinct non-null values, or ``None``.
+
+        The connection is autocommit, so a failed probe does not affect others.
+        """
+        max_values = settings.schema_sample_max_values
+        scan_limit = settings.schema_sample_scan_limit
+        col = _quote_ident(column)
+        tbl = f"{_quote_ident(schema)}.{_quote_ident(table)}"
+        query = (
+            f"SELECT DISTINCT v FROM "
+            f"(SELECT {col} AS v FROM {tbl} WHERE {col} IS NOT NULL LIMIT {int(scan_limit)}) s "
+            f"LIMIT {int(max_values) + 1}"
+        )
+        try:
+            cur.execute(query)
+            rows = cur.fetchall()
+        except pymysql.Error:
+            return None
+        if len(rows) > max_values:
+            return None
+        return [str(row[0]) for row in rows if row[0] is not None]
 
     def validate(self, query: str) -> str:
         return validate_select(query, dialect=self.dialect)
