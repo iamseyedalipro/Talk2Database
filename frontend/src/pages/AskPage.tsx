@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ask,
@@ -7,8 +7,10 @@ import {
   getSuggestedQuestions,
   listConnections,
 } from '../api/endpoints';
+import { askViaSocket, type AskSocketHandle } from '../api/askSocket';
 import { triggerBlobDownload } from '../api/client';
-import type { Connection } from '../api/types';
+import type { AskActivityStep, AskProgressEvent, Connection } from '../api/types';
+import { useAuthStore } from '../store/auth';
 import ChatThread, { type ChatTurn } from '../components/chat/ChatThread';
 import SuggestedQuestions from '../components/chat/SuggestedQuestions';
 import SaveQueryModal from '../components/SaveQueryModal';
@@ -74,20 +76,145 @@ export default function AskPage() {
     };
   }, [connectionId]);
 
+  const socketRef = useRef<AskSocketHandle | null>(null);
+  // Mirrors socketRef for rendering: refs don't trigger re-renders, state does.
+  const [stoppable, setStoppable] = useState(false);
+
+  /** Patch the streaming assistant turn (always the last turn while asking). */
+  const patchLastAssistant = (
+    patch:
+      | Partial<Extract<ChatTurn, { kind: 'assistant' }>>
+      | ((turn: Extract<ChatTurn, { kind: 'assistant' }>) => Partial<Extract<ChatTurn, { kind: 'assistant' }>>),
+  ) => {
+    setTurns((prev) => {
+      const last = prev[prev.length - 1];
+      if (!last || last.kind !== 'assistant') return prev;
+      const applied = typeof patch === 'function' ? patch(last) : patch;
+      return [...prev.slice(0, -1), { ...last, ...applied }];
+    });
+  };
+
+  const appendStep = (step: AskActivityStep) => {
+    patchLastAssistant((turn) => ({ steps: [...(turn.steps ?? []), step] }));
+  };
+
+  const finishRun = () => {
+    socketRef.current = null;
+    setStoppable(false);
+    setAsking(false);
+  };
+
+  const handleProgressEvent = (event: AskProgressEvent) => {
+    switch (event.type) {
+      case 'run_started':
+        break; // the pending turn is already on screen
+      case 'status':
+        appendStep({ kind: 'status', text: event.message });
+        break;
+      case 'tables_directory':
+        appendStep({ kind: 'tables_directory', count: event.count });
+        break;
+      case 'tables_requested':
+        appendStep({ kind: 'tables_requested', tables: event.table_names });
+        break;
+      case 'table_details_sent':
+        appendStep({ kind: 'table_details_sent', tables: event.table_names, unknown: event.unknown });
+        break;
+      case 'assistant_note':
+        appendStep({ kind: 'note', text: event.text });
+        break;
+      case 'exploratory_query':
+        appendStep({ kind: 'query', sql: event.sql, purpose: event.purpose });
+        break;
+      case 'query_result':
+        // Attach the result to the newest query step still waiting for one.
+        patchLastAssistant((turn) => {
+          const steps = [...(turn.steps ?? [])];
+          for (let i = steps.length - 1; i >= 0; i -= 1) {
+            const step = steps[i];
+            if (!step || step.kind !== 'query') continue;
+            if (step.result !== undefined || (step.error !== undefined && step.error !== null)) {
+              continue;
+            }
+            steps[i] = {
+              ...step,
+              error: event.error ?? null,
+              result:
+                event.columns !== undefined
+                  ? {
+                      columns: event.columns,
+                      rows: event.rows ?? [],
+                      row_count: event.row_count ?? 0,
+                      truncated: event.truncated ?? false,
+                    }
+                  : undefined,
+            };
+            break;
+          }
+          return { steps };
+        });
+        break;
+      case 'generating_sql':
+        appendStep({ kind: 'generating', attempt: event.attempt, attempts: event.attempts });
+        break;
+      case 'retry':
+        appendStep({ kind: 'retry', reason: event.reason, detail: event.detail });
+        break;
+      case 'final_result': {
+        const { type: _type, seq: _seq, ...askResponse } = event;
+        patchLastAssistant({ ask: askResponse, pending: false });
+        finishRun();
+        break;
+      }
+      case 'error':
+        patchLastAssistant({ pending: false });
+        setAskError(event.detail);
+        finishRun();
+        break;
+      case 'cancelled':
+        patchLastAssistant({ pending: false, cancelled: true });
+        finishRun();
+        break;
+    }
+  };
+
   const submitQuestion = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || connectionId === null || asking) return;
     setAskError(null);
     setAsking(true);
-    setTurns((prev) => [...prev, { kind: 'user', text: trimmed }]);
+    setTurns((prev) => [
+      ...prev,
+      { kind: 'user', text: trimmed },
+      { kind: 'assistant', question: trimmed, steps: [], pending: true },
+    ]);
+
+    const payload = { connection_id: connectionId, question: trimmed };
+    const token = useAuthStore.getState().token ?? '';
+
     try {
-      const res = await ask({ connection_id: connectionId, question: trimmed });
-      setTurns((prev) => [...prev, { kind: 'assistant', ask: res, question: trimmed }]);
+      // Preferred transport: WebSocket with live progress. Once the run has
+      // started, terminal events arrive via handleProgressEvent.
+      socketRef.current = await askViaSocket(payload, token, { onEvent: handleProgressEvent });
+      setStoppable(true);
+      return;
+    } catch {
+      // The socket never started a run — safe to fall back to plain HTTP.
+    }
+
+    try {
+      const res = await ask(payload);
+      patchLastAssistant({ ask: res, pending: false });
     } catch (err) {
+      patchLastAssistant({ pending: false });
       setAskError(errorMessage(err));
     } finally {
-      setAsking(false);
+      finishRun();
     }
+  };
+
+  const handleStop = () => {
+    socketRef.current?.cancel();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -105,7 +232,7 @@ export default function AskPage() {
 
   const handleRun = async (index: number, sql: string) => {
     const turn = turns[index];
-    if (!turn || turn.kind !== 'assistant' || connectionId === null) return;
+    if (!turn || turn.kind !== 'assistant' || !turn.ask || connectionId === null) return;
     patchTurn(index, { executing: true, runError: null });
     try {
       const result = await execute({
@@ -121,7 +248,7 @@ export default function AskPage() {
 
   const handleDownloadCsv = async (index: number, sql: string) => {
     const turn = turns[index];
-    if (!turn || turn.kind !== 'assistant' || connectionId === null) return;
+    if (!turn || turn.kind !== 'assistant' || !turn.ask || connectionId === null) return;
     setCsvBusy(true);
     try {
       const { blob, filename } = await executeCsv({
@@ -217,7 +344,6 @@ export default function AskPage() {
           />
 
           {saveNotice && <p className="muted">{saveNotice}</p>}
-          {asking && <p className="muted chat-pending">Thinking…</p>}
           <ErrorBanner message={askError} />
 
           <form className="chat-composer" onSubmit={handleSubmit}>
@@ -241,13 +367,19 @@ export default function AskPage() {
               rows={2}
               aria-label="Your question"
             />
-            <button
-              type="submit"
-              className="btn btn--primary"
-              disabled={asking || !question.trim() || connectionId === null}
-            >
-              {asking ? 'Generating…' : 'Send'}
-            </button>
+            {asking && stoppable ? (
+              <button type="button" className="btn btn--secondary" onClick={handleStop}>
+                Stop
+              </button>
+            ) : (
+              <button
+                type="submit"
+                className="btn btn--primary"
+                disabled={asking || !question.trim() || connectionId === null}
+              >
+                {asking ? 'Generating…' : 'Send'}
+              </button>
+            )}
           </form>
 
           {saveDraft && (

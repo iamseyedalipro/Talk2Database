@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from typing import Any
 
 from app.services.schema.introspect import SchemaData, TableInfo
 
@@ -70,6 +71,57 @@ def table_directory(schema: SchemaData) -> str:
     """A one-line-per-table listing of names only (cheap orientation for the AI)."""
     names = [_qualified(table) for table in schema["tables"]]
     return "TABLES: " + ", ".join(names)
+
+
+def table_to_json(table: TableInfo) -> dict[str, Any]:
+    """Render a single table as a JSON-serializable dict with a fixed key order.
+
+    Empty/absent annotations are omitted so the payload stays compact; key order
+    is fixed so the output is deterministic and works as a cacheable prefix.
+    """
+    columns: list[dict[str, Any]] = []
+    for column in table["columns"]:
+        col: dict[str, Any] = {"name": column["name"], "type": column["type"]}
+        if column["nullable"]:
+            col["nullable"] = True
+        if column["comment"]:
+            col["comment"] = column["comment"]
+        allowed = column.get("allowed_values")
+        if allowed:
+            col["allowed_values"] = list(allowed)
+        columns.append(col)
+
+    out: dict[str, Any] = {"table": _qualified(table)}
+    if table["comment"]:
+        out["comment"] = table["comment"]
+    if table["primary_key"]:
+        out["primary_key"] = list(table["primary_key"])
+    out["columns"] = columns
+    if table["foreign_keys"]:
+        out["foreign_keys"] = [
+            {
+                "columns": list(fk["columns"]),
+                "references": (
+                    fk["ref_table"]
+                    if fk["ref_schema"] == "public"
+                    else f"{fk['ref_schema']}.{fk['ref_table']}"
+                ),
+                "ref_columns": list(fk["ref_columns"]),
+            }
+            for fk in table["foreign_keys"]
+        ]
+    return out
+
+
+def serialize_tables_json(tables: list[TableInfo]) -> str:
+    """Render multiple tables as one compact, deterministic JSON array."""
+    return json.dumps([table_to_json(t) for t in tables], separators=(",", ":"), default=str)
+
+
+def table_directory_json(schema: SchemaData) -> str:
+    """The table-name directory as compact JSON (names only, snapshot order)."""
+    names = [_qualified(table) for table in schema["tables"]]
+    return json.dumps({"tables": names}, separators=(",", ":"))
 
 
 def fingerprint(schema: SchemaData) -> str:

@@ -12,6 +12,7 @@ from app.deps import get_current_user
 from app.models.query_history import QueryHistory
 from app.models.token_usage import TokenUsageRecord
 from app.routers import ask as ask_module
+from app.services import ask_flow as ask_flow_module
 from app.services.ai.base import (
     ChatMessage,
     ChatTurn,
@@ -145,11 +146,11 @@ def harness(monkeypatch: pytest.MonkeyPatch):
     async def fake_load_glossary(*_args: Any, **_kwargs: Any):
         return [], []
 
-    monkeypatch.setattr(ask_module, "load_connector", fake_load_connector)
-    monkeypatch.setattr(ask_module, "ensure_snapshot", fake_ensure_snapshot)
-    monkeypatch.setattr(ask_module, "load_glossary", fake_load_glossary)
-    monkeypatch.setattr(ask_module, "get_ai_provider", lambda: provider_holder["provider"])
-    monkeypatch.setattr(ask_module, "get_settings", lambda: settings_holder["settings"])
+    monkeypatch.setattr(ask_flow_module, "load_connector", fake_load_connector)
+    monkeypatch.setattr(ask_flow_module, "ensure_snapshot", fake_ensure_snapshot)
+    monkeypatch.setattr(ask_flow_module, "load_glossary", fake_load_glossary)
+    monkeypatch.setattr(ask_flow_module, "get_ai_provider", lambda: provider_holder["provider"])
+    monkeypatch.setattr(ask_flow_module, "get_settings", lambda: settings_holder["settings"])
 
     app.dependency_overrides[get_session] = lambda: session
     app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(id=1)
@@ -296,9 +297,7 @@ def test_discovery_includes_semantically_matched_table(harness) -> None:
 
 
 def test_discovery_disabled_uses_select_schema(harness) -> None:
-    response = harness.run(
-        [_ok("SELECT amount FROM payments")], ask_schema_discovery=False
-    )
+    response = harness.run([_ok("SELECT amount FROM payments")], ask_schema_discovery=False)
     assert response.status_code == 200
     # Discovery off -> provider.chat is never invoked.
     assert harness.provider().chat_systems == []

@@ -9,6 +9,8 @@ import type {
   AnalysisResponse,
   AskPayload,
   AskResponse,
+  AskSettings,
+  AskSettingsUpdate,
   AuditItem,
   AuditQuery,
   BootstrapAvailable,
@@ -108,6 +110,11 @@ export const getUsageReport = (params: UsageQuery = {}) => {
 /* ------------------------------ Ask / execute ---------------------------- */
 
 export const ask = (body: AskPayload) => api.post<AskResponse>('/ask', body);
+
+export const getAskSettings = () => api.get<AskSettings>('/admin/ask-settings');
+
+export const updateAskSettings = (body: AskSettingsUpdate) =>
+  api.put<AskSettings>('/admin/ask-settings', body);
 
 export const execute = (body: ExecutePayload) =>
   api.post<ExecuteResponse>('/execute', body);

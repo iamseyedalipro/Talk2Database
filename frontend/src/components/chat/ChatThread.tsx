@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
-import type { AskResponse, ExecuteResponse } from '../../api/types';
+import type { AskActivityStep, AskResponse, ExecuteResponse } from '../../api/types';
 import { ErrorBanner } from '../ui';
 import ResultsView from '../ResultsView';
+import AgentActivityFeed from './AgentActivityFeed';
 import ClarificationCard from './ClarificationCard';
 import SqlBlock from './SqlBlock';
 
@@ -9,9 +10,16 @@ export type ChatTurn =
   | { kind: 'user'; text: string }
   | {
       kind: 'assistant';
-      ask: AskResponse;
+      /** Absent while the answer is still streaming (or after a cancel). */
+      ask?: AskResponse;
       /** The question this turn answered (for summaries and saved queries). */
       question: string;
+      /** Live activity streamed over the WebSocket while the AI works. */
+      steps?: AskActivityStep[];
+      /** True while the WebSocket run is still in flight. */
+      pending?: boolean;
+      /** True when the user stopped the run before it finished. */
+      cancelled?: boolean;
       result?: ExecuteResponse;
       /** The exact (possibly user-edited) SQL that produced `result`. */
       executedSql?: string;
@@ -62,9 +70,31 @@ export default function ChatThread({
         }
 
         const { ask } = turn;
+        const hasActivity = (turn.steps?.length ?? 0) > 0 || turn.pending || turn.cancelled;
+        if (!ask) {
+          // Still streaming (or stopped): only the activity feed to show.
+          return (
+            <div key={index} className="chat-bubble chat-bubble--assistant">
+              {hasActivity && (
+                <AgentActivityFeed
+                  steps={turn.steps ?? []}
+                  pending={turn.pending}
+                  cancelled={turn.cancelled}
+                />
+              )}
+            </div>
+          );
+        }
         const needsInput = ask.status === 'needs_clarification' || ask.status === 'unanswerable';
         return (
           <div key={index} className="chat-bubble chat-bubble--assistant">
+            {hasActivity && (
+              <AgentActivityFeed
+                steps={turn.steps ?? []}
+                pending={turn.pending}
+                cancelled={turn.cancelled}
+              />
+            )}
             {needsInput ? (
               <ClarificationCard ask={ask} onPick={onPickInterpretation} disabled={busy} />
             ) : (

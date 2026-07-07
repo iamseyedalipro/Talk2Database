@@ -1,3 +1,4 @@
+import AdminAskSettingsSection from '../components/admin/AdminAskSettingsSection';
 import AdminAuditSection from '../components/admin/AdminAuditSection';
 import AdminClaritySection from '../components/admin/AdminClaritySection';
 import AdminConnectionAccessSection from '../components/admin/AdminConnectionAccessSection';
@@ -17,6 +18,7 @@ export default function AdminPage() {
       <AdminConnectionAccessSection />
       <AdminTokenUsageSection />
       <AdminAuditSection />
+      <AdminAskSettingsSection />
       <AdminClaritySection />
       <AdminPromptsSection />
     </div>
