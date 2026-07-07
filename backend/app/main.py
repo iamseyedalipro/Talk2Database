@@ -21,6 +21,7 @@ from app.routers import (
     analysis,
     ask,
     auth,
+    chats,
     clarity,
     connection_access,
     connections,
@@ -53,6 +54,7 @@ def _build_api_router() -> APIRouter:
     api.include_router(connections.router)
     api.include_router(glossary.router)
     api.include_router(ask.router)
+    api.include_router(chats.router)
     api.include_router(analysis.router)
     api.include_router(execute.router)
     api.include_router(history.router)

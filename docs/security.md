@@ -92,6 +92,8 @@ Primarily **structural metadata** is sent to the AI provider: table and column n
 
 **Result summaries keep the same promise by default.** `POST /api/results/summarize` ("Explain results" in the panel) sends only column names/types and *locally-computed* aggregates to the provider — no raw rows. A deployment may opt into also sending a small sample of result rows for richer summaries via `AI_ALLOW_SAMPLE_ROWS=true` (capped at `AI_SAMPLE_ROWS`, default 5). Leave it off if your data must never reach the provider.
 
+**Chat sessions include result samples by default.** Follow-up questions in a chat session (`POST /api/chats/{id}/ask`) send the conversation history to the provider: previous questions, the SQL that answered them, and — when the user ran a statement — a small sample of its result (`CHAT_RESULT_SAMPLE_ROWS`, default 5 rows, cells truncated to `CHAT_RESULT_SAMPLE_CELL_CHARS`). This is what lets the model answer "why is this value zero?" about data on screen. Samples are wrapped in an explicit *data, not instructions* delimiter and only ever appear in user-role messages (never in cached system blocks). Set `CHAT_CONTEXT_SAMPLE_ROWS_ENABLED=false` to keep chat context to questions + SQL only, restoring the strict no-row-data promise for conversations too.
+
 You can further restrict what the model sees:
 
 - `SCHEMA_TABLES` — an allowlist of tables to expose (empty = all).

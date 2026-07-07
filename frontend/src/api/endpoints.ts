@@ -13,6 +13,12 @@ import type {
   AuditQuery,
   BootstrapAvailable,
   BootstrapPayload,
+  ChatAskPayload,
+  ChatAskResponse,
+  ChatMessageItem,
+  ChatSessionCreate,
+  ChatSessionItem,
+  ChatSessionUpdate,
   ClarityAvailability,
   ClarityRun,
   ClaritySettings,
@@ -120,6 +126,25 @@ export const summarizeResults = (body: SummarizePayload) =>
 
 export const explainPlan = (body: ExplainPayload) =>
   api.post<ExplainResult>('/execute/explain', body);
+
+/* ----------------------------- Chat sessions ----------------------------- */
+
+export const listChats = (includeArchived = false) =>
+  api.get<ChatSessionItem[]>(`/chats?include_archived=${includeArchived}`);
+
+export const createChat = (body: ChatSessionCreate) =>
+  api.post<ChatSessionItem>('/chats', body);
+
+export const updateChat = (id: number, body: ChatSessionUpdate) =>
+  api.patch<ChatSessionItem>(`/chats/${id}`, body);
+
+export const deleteChat = (id: number) => api.del<void>(`/chats/${id}`);
+
+export const listChatMessages = (id: number) =>
+  api.get<ChatMessageItem[]>(`/chats/${id}/messages`);
+
+export const askInChat = (id: number, body: ChatAskPayload) =>
+  api.post<ChatAskResponse>(`/chats/${id}/ask`, body);
 
 /* -------------------------------- History -------------------------------- */
 

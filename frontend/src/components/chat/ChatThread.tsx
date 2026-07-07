@@ -17,6 +17,10 @@ export type ChatTurn =
       executedSql?: string;
       executing?: boolean;
       runError?: string | null;
+      /** Persisted chat message id (chat sessions); runs attach results to it. */
+      messageId?: number;
+      /** True when `result` is a stored sample restored from a past session. */
+      restoredSample?: boolean;
     };
 
 interface Props {
@@ -105,6 +109,11 @@ export default function ChatThread({
                       >
                         Save query
                       </button>
+                      {turn.restoredSample && (
+                        <span className="muted chat-restored-note">
+                          Saved sample — run the query again for full results.
+                        </span>
+                      )}
                     </div>
                     <ResultsView
                       result={turn.result}

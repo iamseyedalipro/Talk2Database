@@ -132,6 +132,57 @@ export interface SuggestedQuestionsResponse {
   questions: string[];
 }
 
+/* ----------------------------- Chat sessions ----------------------------- */
+
+export interface ChatSessionItem {
+  id: number;
+  title: string;
+  connection_id: number | null;
+  archived: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChatSessionCreate {
+  connection_id: number;
+  title?: string;
+}
+
+export interface ChatSessionUpdate {
+  title?: string;
+  archived?: boolean;
+}
+
+export interface ChatResultSample {
+  columns: ResultColumn[];
+  rows: unknown[][];
+  row_count: number;
+  truncated: boolean;
+}
+
+export interface ChatMessageItem {
+  id: number;
+  role: 'user' | 'assistant';
+  /** The question text (user turns). */
+  content: string | null;
+  /** The stored AskResponse (assistant turns). */
+  ask: AskResponse | null;
+  history_id: number | null;
+  executed_sql: string | null;
+  result_sample: ChatResultSample | null;
+  created_at: string;
+}
+
+export interface ChatAskPayload {
+  question: string;
+}
+
+export interface ChatAskResponse extends AskResponse {
+  user_message_id: number;
+  assistant_message_id: number;
+  session_title: string;
+}
+
 /* -------------------------------- Execute -------------------------------- */
 
 export interface ResultColumn {
@@ -143,6 +194,8 @@ export interface ExecutePayload {
   connection_id: number;
   sql: string;
   history_id?: number;
+  /** Chat turn to attach the executed SQL + a result sample to. */
+  chat_message_id?: number;
   max_rows?: number;
 }
 
