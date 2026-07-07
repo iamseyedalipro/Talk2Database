@@ -18,8 +18,8 @@ interface Props {
 }
 
 /** Measure the rendered height of the widget body so charts fill the card. */
-function useMeasuredHeight(): [React.RefObject<HTMLDivElement | null>, number] {
-  const ref = useRef<HTMLDivElement | null>(null);
+function useMeasuredHeight(): [React.RefObject<HTMLDivElement>, number] {
+  const ref = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(240);
   useEffect(() => {
     const el = ref.current;

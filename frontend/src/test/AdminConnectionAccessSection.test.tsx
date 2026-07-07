@@ -37,6 +37,7 @@ const user = (id: number, email: string, role: 'admin' | 'user'): User => ({
   email,
   role,
   is_active: true,
+  language: 'en',
   created_at: '2026-01-01T00:00:00Z',
   last_login_at: null,
 });

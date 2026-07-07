@@ -235,7 +235,7 @@ export default function DashboardPage() {
           ))}
         </div>
       ) : (
-        <div className="dashboard-grid" ref={containerRef}>
+        <div className="dashboard-grid" ref={containerRef as React.RefObject<HTMLDivElement>}>
           {mounted && (
             <ReactGridLayout
               layout={layout}
