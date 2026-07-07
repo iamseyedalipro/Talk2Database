@@ -14,28 +14,37 @@ from app.models.token_usage import TokenUsageRecord
 from app.routers import ask as ask_module
 from app.services.ai.base import (
     ChatMessage,
+    ChatTurn,
     SqlGenerationResult,
     SuggestedInterpretation,
     TokenUsage,
+    ToolCall,
+    ToolChatMessage,
+    ToolSpec,
 )
 from app.services.ai.prompts import build_schema_block, build_system_prompt
 from app.services.sql_guard import validate_select
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+
+def _table(name: str, columns: list[str]) -> dict[str, Any]:
+    return {
+        "schema": "public",
+        "name": name,
+        "comment": None,
+        "columns": [
+            {"name": c, "type": "integer", "nullable": False, "comment": None} for c in columns
+        ],
+        "primary_key": ["id"],
+        "foreign_keys": [],
+    }
+
+
 SCHEMA_JSON: dict[str, Any] = {
     "tables": [
-        {
-            "schema": "public",
-            "name": "payments",
-            "comment": None,
-            "columns": [
-                {"name": "id", "type": "integer", "nullable": False, "comment": None},
-                {"name": "amount", "type": "numeric", "nullable": True, "comment": None},
-            ],
-            "primary_key": ["id"],
-            "foreign_keys": [],
-        }
+        _table("payments", ["id", "amount"]),
+        _table("users_payment", ["id", "amount", "status", "created_at"]),
     ]
 }
 
@@ -44,14 +53,39 @@ class FakeProvider:
     name = "fake"
     model = "fake-model"
 
-    def __init__(self, results: list[SqlGenerationResult], usage: TokenUsage | None = None) -> None:
+    def __init__(
+        self,
+        results: list[SqlGenerationResult],
+        usage: TokenUsage | None = None,
+        chat_turns: list[ChatTurn] | None = None,
+    ) -> None:
         self._results = list(results)
         self._usage = usage or TokenUsage()
+        # Discovery turns; default is a single no-tool text turn, which makes the
+        # discovery loop gather nothing and fall back to ``select_schema`` — so
+        # tests that only care about the generate/verify path stay unaffected.
+        self._chat_turns = list(chat_turns) if chat_turns is not None else []
+        self.chat_systems: list[str] = []
+        self.seen_schema_blocks: list[str] = []
 
     def generate_sql(
         self, *, messages: list[ChatMessage], system_prompt: str, schema_block: str
     ) -> tuple[SqlGenerationResult, TokenUsage]:
+        self.seen_schema_blocks.append(schema_block)
         return self._results.pop(0), self._usage
+
+    def chat(
+        self,
+        *,
+        system: str,
+        messages: list[ToolChatMessage],
+        tools: list[ToolSpec],
+        force_text: bool = False,
+    ) -> ChatTurn:
+        self.chat_systems.append(system)
+        if self._chat_turns:
+            return self._chat_turns.pop(0)
+        return ChatTurn(text="ready", tool_calls=[])
 
 
 class FakeConnector:
@@ -96,8 +130,11 @@ def harness(monkeypatch: pytest.MonkeyPatch):
 
     session = FakeSession()
     connection = SimpleNamespace(id=7, name="demo", database="demo", host="localhost", port=5432)
-    snapshot = SimpleNamespace(table_count=1, content_json=SCHEMA_JSON)
+    snapshot = SimpleNamespace(table_count=2, content_json=SCHEMA_JSON)
     provider_holder: dict[str, FakeProvider] = {}
+    settings_holder: dict[str, Settings] = {
+        "settings": Settings(ai_api_key="test", ask_max_retries=1)
+    }
 
     async def fake_load_connector(*_args: Any, **_kwargs: Any):
         return connection, FakeConnector()
@@ -112,20 +149,31 @@ def harness(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(ask_module, "ensure_snapshot", fake_ensure_snapshot)
     monkeypatch.setattr(ask_module, "load_glossary", fake_load_glossary)
     monkeypatch.setattr(ask_module, "get_ai_provider", lambda: provider_holder["provider"])
-    monkeypatch.setattr(
-        ask_module, "get_settings", lambda: Settings(ai_api_key="test", ask_max_retries=1)
-    )
+    monkeypatch.setattr(ask_module, "get_settings", lambda: settings_holder["settings"])
 
     app.dependency_overrides[get_session] = lambda: session
     app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(id=1)
 
     client = TestClient(app)
 
-    def run(results: list[SqlGenerationResult], usage: TokenUsage | None = None):
-        provider_holder["provider"] = FakeProvider(results, usage=usage)
-        return client.post("/api/ask", json={"connection_id": 7, "question": "income last year?"})
+    def run(
+        results: list[SqlGenerationResult],
+        usage: TokenUsage | None = None,
+        chat_turns: list[ChatTurn] | None = None,
+        **settings_overrides: Any,
+    ):
+        if settings_overrides:
+            settings_holder["settings"] = Settings(
+                ai_api_key="test", ask_max_retries=1, **settings_overrides
+            )
+        provider = FakeProvider(results, usage=usage, chat_turns=chat_turns)
+        provider_holder["provider"] = provider
+        response = client.post(
+            "/api/ask", json={"connection_id": 7, "question": "income last year?"}
+        )
+        return response
 
-    return SimpleNamespace(run=run, session=session)
+    return SimpleNamespace(run=run, session=session, provider=lambda: provider_holder["provider"])
 
 
 def _ok(sql: str) -> SqlGenerationResult:
@@ -220,3 +268,52 @@ def test_no_usage_row_when_zero_tokens(harness) -> None:
     harness.run([_ok("SELECT amount FROM payments")])
     records = [obj for obj in harness.session.added if isinstance(obj, TokenUsageRecord)]
     assert records == []
+
+
+def _details_call() -> ChatTurn:
+    return ChatTurn(
+        text=None,
+        tool_calls=[
+            ToolCall(id="c1", name="get_table_details", input={"table_names": ["users_payment"]})
+        ],
+    )
+
+
+def test_discovery_includes_semantically_matched_table(harness) -> None:
+    # The model asks for users_payment's columns during discovery, then generates.
+    response = harness.run(
+        [_ok("SELECT SUM(amount) FROM users_payment")],
+        chat_turns=[_details_call(), ChatTurn(text="ready", tool_calls=[])],
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+    # The block handed to generate_sql must carry users_payment's full column detail.
+    schema_block = harness.provider().seen_schema_blocks[0]
+    assert "TABLE users_payment" in schema_block
+    assert "status" in schema_block  # a column only present in the detailed block
+    # payments was never requested -> only its name appears (in the directory).
+    assert "TABLE payments" not in schema_block
+
+
+def test_discovery_disabled_uses_select_schema(harness) -> None:
+    response = harness.run(
+        [_ok("SELECT amount FROM payments")], ask_schema_discovery=False
+    )
+    assert response.status_code == 200
+    # Discovery off -> provider.chat is never invoked.
+    assert harness.provider().chat_systems == []
+
+
+def test_discovery_usage_added_to_generate_usage(harness) -> None:
+    discovery_turn = ChatTurn(
+        text="ready", tool_calls=[], usage=TokenUsage(input_tokens=40, output_tokens=10)
+    )
+    harness.run(
+        [_ok("SELECT amount FROM users_payment")],
+        usage=TokenUsage(input_tokens=100, output_tokens=20),
+        chat_turns=[_details_call(), discovery_turn],
+    )
+    records = [obj for obj in harness.session.added if isinstance(obj, TokenUsageRecord)]
+    assert len(records) == 1
+    # 40+10 (discovery) + 100+20 (generate) = 170.
+    assert records[0].total_tokens == 170

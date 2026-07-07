@@ -196,7 +196,11 @@ class OpenAIProvider:
                 arguments = {}
             tool_calls.append(ToolCall(id=call.id, name=call.function.name, input=arguments))
         text = (message.content or "").strip()
-        return ChatTurn(text=text or None, tool_calls=tool_calls)
+        return ChatTurn(
+            text=text or None,
+            tool_calls=tool_calls,
+            usage=_usage_from_response(response),
+        )
 
 
 def _usage_from_response(response: Any) -> TokenUsage:

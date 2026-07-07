@@ -5,9 +5,15 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import anthropic
 import pytest
 from app.services.ai.anthropic_provider import AnthropicProvider
-from app.services.ai.base import SQL_OUTPUT_SCHEMA, AIProviderError, ChatMessage
+from app.services.ai.base import (
+    SQL_OUTPUT_SCHEMA,
+    AIProviderError,
+    ChatMessage,
+    ToolChatMessage,
+)
 from app.services.ai.openai_provider import OpenAIProvider
 
 _QUESTION: list[ChatMessage] = [{"role": "user", "content": "Question: q?"}]
@@ -209,8 +215,9 @@ def test_anthropic_suggest_questions() -> None:
 
 # --- OpenAI fakes ---------------------------------------------------------- #
 class _Message:
-    def __init__(self, content: str | None) -> None:
+    def __init__(self, content: str | None, tool_calls: list[Any] | None = None) -> None:
         self.content = content
+        self.tool_calls = tool_calls
 
 
 class _Choice:
@@ -343,3 +350,48 @@ def test_output_schema_is_strict_mode_compatible() -> None:
         if name == "status":
             continue
         assert "null" in prop["type"], f"{name} must be nullable for strict mode"
+
+
+# --- tool-chat usage threading (the discovery loop relies on this) --------- #
+def test_anthropic_chat_populates_usage() -> None:
+    provider = AnthropicProvider(api_key="x", model="claude-test")
+    blocks = [
+        anthropic.types.TextBlock.model_construct(type="text", text="thinking"),
+        anthropic.types.ToolUseBlock.model_construct(
+            type="tool_use",
+            id="t1",
+            name="get_table_details",
+            input={"table_names": ["payments"]},
+        ),
+    ]
+    client = _AnthClient(
+        _AnthResponse(
+            blocks,
+            usage=_AnthUsage(input_tokens=100, output_tokens=20, cache_read=40, cache_write=10),
+        )
+    )
+    provider._client = client  # type: ignore[assignment]
+
+    turn = provider.chat(
+        system="SYS", messages=[ToolChatMessage(role="user", text="q")], tools=[]
+    )
+    assert turn.text == "thinking"
+    assert [c.name for c in turn.tool_calls] == ["get_table_details"]
+    assert turn.usage.total == 170
+
+
+def test_openai_chat_populates_usage() -> None:
+    provider = OpenAIProvider(api_key="x", model="gpt-test")
+    client = _OAClient(
+        _OAResponse(
+            "done", usage=_OAUsage(prompt_tokens=90, completion_tokens=15, cached_tokens=40)
+        )
+    )
+    provider._client = client  # type: ignore[assignment]
+
+    turn = provider.chat(
+        system="SYS", messages=[ToolChatMessage(role="user", text="q")], tools=[]
+    )
+    assert turn.text == "done"
+    assert turn.tool_calls == []
+    assert turn.usage.total == 105  # input 50 + cache 40 + output 15

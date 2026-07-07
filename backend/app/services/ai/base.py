@@ -250,6 +250,9 @@ class ChatTurn:
 
     text: str | None
     tool_calls: list[ToolCall]
+    # Token usage for this single turn. Defaulted so existing callers that build
+    # a ``ChatTurn`` positionally (and ignore usage) keep working unchanged.
+    usage: TokenUsage = field(default_factory=TokenUsage)
 
 
 class LLMProvider(Protocol):
