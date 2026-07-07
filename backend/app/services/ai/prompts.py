@@ -169,6 +169,17 @@ over time, top-N, breakdowns). Keep each question under 15 words. Return the \
 structured object {{questions}}."""
 
 
-def build_suggestions_prompt(label: str) -> str:
-    """System prompt for generating schema-derived example questions."""
-    return _SUGGESTIONS_TEMPLATE.format(label=label)
+_SUGGESTIONS_LANGUAGE_NAMES = {"fa": "Persian (Farsi)"}
+
+
+def build_suggestions_prompt(label: str, language: str = "en") -> str:
+    """System prompt for generating schema-derived example questions.
+
+    ``language`` is the requesting user's UI language; non-English users get
+    the example chips in their own language.
+    """
+    prompt = _SUGGESTIONS_TEMPLATE.format(label=label)
+    language_name = _SUGGESTIONS_LANGUAGE_NAMES.get(language)
+    if language_name:
+        prompt += f" Write every question in {language_name}."
+    return prompt

@@ -29,7 +29,9 @@ the results show, then suggest the best chart:
 For "bar", "hbar", "line", "area", or "pie", set x_column to a label/category/time
 column and y_column to a numeric column. For "scatter", set x_column and y_column to
 two numeric columns. Otherwise leave them null. Only use column names that appear in
-the provided data."""
+the provided data.
+Write the summary in the same language as the original question when one is
+provided (e.g. a Persian question gets a Persian summary); otherwise in English."""
 
 
 def summary_system_prompt() -> str:

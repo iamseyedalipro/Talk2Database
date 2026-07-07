@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { updateMe } from '../api/endpoints';
+import { SUPPORTED_LANGUAGES, type Language } from '../i18n';
 import { useAuthStore } from '../store/auth';
 import { useThemeStore } from '../store/theme';
 import AppFooter from './AppFooter';
 import ErrorBoundary from './ErrorBoundary';
 
+const LANGUAGE_LABELS: Record<Language, string> = { en: 'EN', fa: 'فا' };
+
 /** App shell: top navigation + routed page content. */
 export default function Layout() {
+  const { t, i18n } = useTranslation('nav');
   const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
   const clear = useAuthStore((s) => s.clear);
   const theme = useThemeStore((s) => s.theme);
   const toggleTheme = useThemeStore((s) => s.toggle);
@@ -25,6 +32,15 @@ export default function Layout() {
     navigate('/login', { replace: true });
   };
 
+  const handleLanguageChange = (language: Language) => {
+    if (language === i18n.language) return;
+    void i18n.changeLanguage(language);
+    // Persist to the profile so the preference follows the account.
+    updateMe({ language })
+      .then(setUser)
+      .catch(() => undefined);
+  };
+
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     isActive ? 'nav-link nav-link--active' : 'nav-link';
 
@@ -38,29 +54,29 @@ export default function Layout() {
           </div>
           <nav className={navOpen ? 'nav nav--open' : 'nav'} aria-label="Main">
             <NavLink to="/" end className={linkClass}>
-              Ask
+              {t('ask')}
             </NavLink>
             <NavLink to="/analysis" className={linkClass}>
-              Analysis
+              {t('analysis')}
             </NavLink>
             <NavLink to="/browse" className={linkClass}>
-              Browse
+              {t('browse')}
             </NavLink>
             <NavLink to="/dashboards" className={linkClass}>
-              Dashboards
+              {t('dashboards')}
             </NavLink>
             <NavLink to="/connections" className={linkClass}>
-              Connections
+              {t('connections')}
             </NavLink>
             <NavLink to="/history" className={linkClass}>
-              History
+              {t('history')}
             </NavLink>
             <NavLink to="/saved" className={linkClass}>
-              Saved
+              {t('saved')}
             </NavLink>
             {user?.role === 'admin' && (
               <NavLink to="/admin" className={linkClass}>
-                Admin
+                {t('admin')}
               </NavLink>
             )}
             <div className="nav__account">
@@ -68,18 +84,35 @@ export default function Layout() {
                 {user?.email}
               </span>
               <button type="button" className="btn btn--ghost" onClick={handleLogout}>
-                Logout
+                {t('logout')}
               </button>
             </div>
           </nav>
           <div className="nav-user">
+            <div className="lang-switch" role="group" aria-label={t('language')}>
+              {SUPPORTED_LANGUAGES.map((language) => (
+                <button
+                  key={language}
+                  type="button"
+                  className={
+                    i18n.language === language
+                      ? 'lang-switch__btn is-active'
+                      : 'lang-switch__btn'
+                  }
+                  onClick={() => handleLanguageChange(language)}
+                  aria-pressed={i18n.language === language}
+                >
+                  {LANGUAGE_LABELS[language]}
+                </button>
+              ))}
+            </div>
             <button
               type="button"
               className="btn btn--ghost theme-toggle"
               onClick={toggleTheme}
-              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              aria-label={theme === 'dark' ? t('switchToLight') : t('switchToDark')}
               aria-pressed={theme === 'dark'}
-              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={theme === 'dark' ? t('switchToLight') : t('switchToDark')}
             >
               {theme === 'dark' ? '☀️' : '🌙'}
             </button>
@@ -87,14 +120,14 @@ export default function Layout() {
               {user?.email}
             </span>
             <button type="button" className="btn btn--ghost nav-user__logout" onClick={handleLogout}>
-              Logout
+              {t('logout')}
             </button>
             <button
               type="button"
               className="btn btn--ghost nav-toggle"
               onClick={() => setNavOpen((open) => !open)}
               aria-expanded={navOpen}
-              aria-label={navOpen ? 'Close menu' : 'Open menu'}
+              aria-label={navOpen ? t('closeMenu') : t('openMenu')}
             >
               {navOpen ? '✕' : '☰'}
             </button>

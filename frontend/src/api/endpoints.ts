@@ -93,6 +93,9 @@ export const inviteUser = (body: InvitePayload) =>
 
 export const deleteUser = (id: number) => api.del<void>(`/users/${id}`);
 
+/** Self-service account preferences (currently: UI language). */
+export const updateMe = (body: { language: string }) => api.patch<User>('/users/me', body);
+
 export const getUserConnectionAccess = (userId: number) =>
   api.get<ConnectionAccess>(`/admin/users/${userId}/connection-access`);
 

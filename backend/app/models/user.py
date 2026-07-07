@@ -26,6 +26,10 @@ class User(Base, TimestampMixin):
         Enum(UserRole, name="user_role"), nullable=False, default=UserRole.USER
     )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # UI language preference ("en" | "fa"); drives translations and RTL layout.
+    language: Mapped[str] = mapped_column(
+        String(8), nullable=False, default="en", server_default="en"
+    )
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     @property

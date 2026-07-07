@@ -184,8 +184,15 @@ async def suggested_questions(
 
     if snapshot.table_count == 0:
         return SuggestedQuestionsResponse(questions=[])
-    if snapshot.suggested_questions_json:
-        return SuggestedQuestionsResponse(questions=list(snapshot.suggested_questions_json))
+
+    # Cached per UI language: {"en": [...], "fa": [...]}. Older snapshots stored
+    # a bare list (English-only); read it as the "en" entry.
+    language = user.language or "en"
+    cached = snapshot.suggested_questions_json
+    if isinstance(cached, list):
+        cached = {"en": cached}
+    if isinstance(cached, dict) and cached.get(language):
+        return SuggestedQuestionsResponse(questions=list(cached[language]))
 
     settings = get_settings()
     # Full schema when it fits the token budget; otherwise just the directory —
@@ -199,7 +206,7 @@ async def suggested_questions(
     try:
         questions, usage = await run_in_threadpool(
             provider.suggest_questions,
-            system_prompt=build_suggestions_prompt(connector.label),
+            system_prompt=build_suggestions_prompt(connector.label, language),
             schema_block=connector.schema_block(schema_text),
         )
     except AIProviderError as exc:
@@ -219,7 +226,10 @@ async def suggested_questions(
         logger.exception("Failed to record token usage for suggested questions")
 
     questions = questions[: max(1, settings.suggested_questions_count)]
-    snapshot.suggested_questions_json = questions
+    snapshot.suggested_questions_json = {
+        **(cached if isinstance(cached, dict) else {}),
+        language: questions,
+    }
     await session.flush()
     return SuggestedQuestionsResponse(questions=questions)
 

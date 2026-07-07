@@ -48,6 +48,17 @@ async def reset_prompt(session: AsyncSession, key: str) -> None:
     await delete_setting(session, _setting_key(key))
 
 
+# Appended after the (admin-editable) template so prompt overrides can never
+# drop it: the model must answer Persian questions in Persian, etc. The suffix
+# is byte-stable per dialect, so provider prompt caching is unaffected.
+_ANSWER_LANGUAGE_SUFFIX = (
+    "\n\nAnswer language: write `explanation`, `clarification_question`, and the "
+    "interpretation labels/descriptions in the same language as the user's "
+    "question (e.g. a Persian question gets Persian text). SQL keywords and "
+    "identifiers always remain SQL."
+)
+
+
 def render_ask_system(template: str, label: str) -> str:
     """Render the ask system template, surviving bad admin edits.
 
@@ -56,6 +67,7 @@ def render_ask_system(template: str, label: str) -> str:
     than failing the request.
     """
     try:
-        return template.format(label=label)
+        rendered = template.format(label=label)
     except (KeyError, IndexError, ValueError):
-        return DEFAULT_PROMPTS[ASK_PROMPT_KEY].format(label=label)
+        rendered = DEFAULT_PROMPTS[ASK_PROMPT_KEY].format(label=label)
+    return rendered + _ANSWER_LANGUAGE_SUFFIX

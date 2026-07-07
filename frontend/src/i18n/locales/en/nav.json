@@ -1,0 +1,16 @@
+{
+  "ask": "Ask",
+  "analysis": "Analysis",
+  "browse": "Browse",
+  "dashboards": "Dashboards",
+  "connections": "Connections",
+  "history": "History",
+  "saved": "Saved",
+  "admin": "Admin",
+  "logout": "Logout",
+  "openMenu": "Open menu",
+  "closeMenu": "Close menu",
+  "switchToLight": "Switch to light mode",
+  "switchToDark": "Switch to dark mode",
+  "language": "Language"
+}

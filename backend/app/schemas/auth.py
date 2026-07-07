@@ -36,6 +36,7 @@ class UserOut(BaseModel):
     email: EmailStr
     role: UserRole
     is_active: bool
+    language: str = "en"
     created_at: datetime
     last_login_at: datetime | None = None
 

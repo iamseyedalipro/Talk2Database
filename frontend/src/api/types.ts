@@ -10,6 +10,8 @@ export interface User {
   email: string;
   role: Role;
   is_active: boolean;
+  /** UI language preference ("en" | "fa"); "fa" flips the layout to RTL. */
+  language: string;
   created_at: string;
   last_login_at: string | null;
 }

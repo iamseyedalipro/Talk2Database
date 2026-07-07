@@ -4,10 +4,18 @@
  */
 
 import { create } from 'zustand';
+import i18n from '../i18n';
 import type { User } from '../api/types';
 
 const TOKEN_KEY = 't2db.token';
 const USER_KEY = 't2db.user';
+
+/** Adopt the account's saved UI language (login / profile update). */
+function applyUserLanguage(user: User): void {
+  if (user.language && user.language !== i18n.language) {
+    void i18n.changeLanguage(user.language);
+  }
+}
 
 function readUser(): User | null {
   const raw = localStorage.getItem(USER_KEY);
@@ -37,11 +45,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setAuth: (token, user) => {
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
+    applyUserLanguage(user);
     set({ token, user });
   },
 
   setUser: (user) => {
     localStorage.setItem(USER_KEY, JSON.stringify(user));
+    applyUserLanguage(user);
     set({ user });
   },
 

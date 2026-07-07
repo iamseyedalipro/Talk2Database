@@ -1,0 +1,22 @@
+{
+  "openChatList": "Open chat list",
+  "closeChatList": "Close chat list",
+  "title": "Ask your database",
+  "continueSubtitle": "Continue the conversation — follow-ups refine the SQL above.",
+  "newSubtitle": "Describe what you want in plain language. We generate a read-only SQL SELECT for you to review before it runs.",
+  "dataSource": "Data source",
+  "deletedConnection": "deleted connection",
+  "noConnections": "You have no connections yet.",
+  "addConnectionLink": "Add a connection",
+  "noConnectionsSuffix": "to start asking questions.",
+  "archivedNote": "This chat is archived. Unarchive it from the sidebar to continue the conversation.",
+  "tryOne": "Not sure where to start? Try one of these:",
+  "loadingConversation": "Loading conversation…",
+  "thinking": "Thinking…",
+  "placeholderNew": "e.g. How many orders were placed in the last 30 days, by day?",
+  "placeholderFollowUp": "Ask a follow-up question…",
+  "yourQuestion": "Your question",
+  "generating": "Generating…",
+  "send": "Send",
+  "savedNotice": "Saved to your query library."
+}
