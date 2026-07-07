@@ -261,6 +261,76 @@ export interface LayoutItemUpdate {
   h: number;
 }
 
+/* --------------------------- Ask over WebSocket --------------------------- */
+
+/** A small sample of an exploratory query's rows, shown in the activity feed. */
+export interface QueryResultPreview {
+  columns: string[];
+  rows: unknown[][];
+  row_count: number;
+  truncated: boolean;
+}
+
+/**
+ * Server events streamed by `/api/ask/ws` while a question is being answered.
+ * Every event carries a monotonically increasing `seq`.
+ */
+export type AskProgressEvent =
+  | { type: 'run_started'; seq: number; mode: 'standard' | 'analysis'; provider: string; model: string }
+  | { type: 'status'; seq: number; stage: string; message: string }
+  | { type: 'tables_directory'; seq: number; count: number; tables: string[] }
+  | { type: 'tables_requested'; seq: number; round: number; table_names: string[] }
+  | { type: 'table_details_sent'; seq: number; round: number; table_names: string[]; unknown: string[] }
+  | { type: 'assistant_note'; seq: number; text: string }
+  | { type: 'exploratory_query'; seq: number; round: number; sql: string; purpose: string | null }
+  | ({ type: 'query_result'; seq: number; sql: string; error?: string | null } & Partial<QueryResultPreview>)
+  | { type: 'generating_sql'; seq: number; attempt: number; attempts: number }
+  | { type: 'retry'; seq: number; attempt: number; reason: string; detail: string }
+  /**
+   * The chat bookkeeping fields (`user_message_id`, `assistant_message_id`,
+   * `session_title`) are present when the run was started with a `chat_id`.
+   */
+  | ({ type: 'final_result'; seq: number } & AskResponse &
+      Partial<Pick<ChatAskResponse, 'user_message_id' | 'assistant_message_id' | 'session_title'>>)
+  | { type: 'error'; seq: number; code: string; detail: string }
+  | { type: 'cancelled'; seq: number };
+
+/** The WebSocket `start` payload; `chat_id` binds the run to a chat session. */
+export interface AskSocketPayload extends AskPayload {
+  chat_id?: number;
+}
+
+/** One rendered step in the chat's agent activity feed. */
+export type AskActivityStep =
+  | { kind: 'status'; text: string }
+  | { kind: 'tables_directory'; count: number }
+  | { kind: 'tables_requested'; tables: string[] }
+  | { kind: 'table_details_sent'; tables: string[]; unknown: string[] }
+  | { kind: 'note'; text: string }
+  | {
+      kind: 'query';
+      sql: string;
+      purpose: string | null;
+      result?: QueryResultPreview;
+      error?: string | null;
+    }
+  | { kind: 'generating'; attempt: number; attempts: number }
+  | { kind: 'retry'; reason: string; detail: string };
+
+/* --------------------------- Ask admin settings --------------------------- */
+
+export interface AskSettings {
+  analysis_mode: boolean;
+  row_cap: number;
+  row_cap_min: number;
+  row_cap_max: number;
+}
+
+export interface AskSettingsUpdate {
+  analysis_mode: boolean;
+  row_cap: number;
+}
+
 /* -------------------------------- Execute -------------------------------- */
 
 export interface ResultColumn {

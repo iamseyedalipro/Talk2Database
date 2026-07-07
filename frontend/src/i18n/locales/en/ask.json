@@ -18,5 +18,6 @@
   "yourQuestion": "Your question",
   "generating": "Generating…",
   "send": "Send",
-  "savedNotice": "Saved to your query library."
+  "savedNotice": "Saved to your query library.",
+  "stop": "Stop"
 }

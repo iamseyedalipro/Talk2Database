@@ -19,6 +19,8 @@ export default defineConfig({
       '/api': {
         target: process.env.VITE_API_HOST ?? 'http://localhost:8000',
         changeOrigin: true,
+        // The Ask page streams progress over /api/ask/ws.
+        ws: true,
       },
     },
   },

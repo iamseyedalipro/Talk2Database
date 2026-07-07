@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from app.services.schema.select import select_schema
-from app.services.schema.serialize import fingerprint, serialize_schema, serialize_table
+from app.services.schema.serialize import (
+    fingerprint,
+    serialize_schema,
+    serialize_table,
+    serialize_tables_json,
+    table_directory_json,
+    table_to_json,
+)
 
 
 def _col(name: str, type_: str = "integer", nullable: bool = True) -> dict[str, Any]:
@@ -52,6 +60,36 @@ def test_serialize_table_includes_pk_notnull_and_fk() -> None:
 
 def test_serialize_empty_schema() -> None:
     assert "empty" in serialize_schema({"tables": []}).lower()
+
+
+def test_table_to_json_shape_and_omitted_empties() -> None:
+    table = _table(
+        "orders",
+        [_col("id", nullable=False), _col("customer_id", nullable=False)],
+        pk=["id"],
+        fks=[_fk(["customer_id"], "customers", ["id"])],
+    )
+    data = table_to_json(table)
+    assert data["table"] == "orders"
+    assert data["primary_key"] == ["id"]
+    assert data["columns"][0] == {"name": "id", "type": "integer"}  # nullable=False omitted
+    assert data["foreign_keys"] == [
+        {"columns": ["customer_id"], "references": "customers", "ref_columns": ["id"]}
+    ]
+    assert "comment" not in data  # empty annotations are dropped
+
+
+def test_serialize_tables_json_is_deterministic_and_parseable() -> None:
+    tables = [_table("a", [_col("id")]), _table("b", [_col("id")])]
+    first = serialize_tables_json(tables)
+    second = serialize_tables_json(tables)
+    assert first == second
+    assert [t["table"] for t in json.loads(first)] == ["a", "b"]
+
+
+def test_table_directory_json() -> None:
+    schema = {"tables": [_table("orders", [_col("id")]), _table("users", [_col("id")])]}
+    assert json.loads(table_directory_json(schema)) == {"tables": ["orders", "users"]}
 
 
 def test_fingerprint_is_stable_and_sensitive() -> None:

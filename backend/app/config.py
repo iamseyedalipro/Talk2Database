@@ -66,6 +66,10 @@ class Settings(BaseSettings):
     ask_schema_discovery: bool = True
     ask_discovery_max_rounds: int = 4  # max provider round-trips in the discovery loop
     ask_discovery_max_tables: int = 20  # max tables the model may expand before generating
+    # Ask analysis mode (admin-toggled at runtime via app_settings): the agentic
+    # investigation loop may also run bounded read-only exploratory queries.
+    ask_analysis_max_rounds: int = 8  # max provider round-trips in the analysis loop
+    ask_analysis_max_queries: int = 5  # max exploratory queries per question
 
     # -- Chat sessions ------------------------------------------------------ #
     # How much conversation history a follow-up question carries to the model.

@@ -1,17 +1,18 @@
-"""The shared question -> SQL pipeline behind ``POST /ask`` and chat sessions.
+"""The shared Ask flow: one implementation behind both HTTP and WebSocket.
 
-Loads the connector, prepares the schema + glossary context, calls the AI
-provider with verification/retries, records the audit-log row and token usage,
-and shapes the API response. Kept in a service so the stateless ``/ask``
-endpoint and the session-aware ``/chats/{id}/ask`` endpoint stay in lockstep.
+``run_ask_flow`` performs the full question -> SQL pipeline (connector, schema
+snapshot, glossary, schema selection or the analysis loop, generation with
+verification, history + token accounting) and reports progress through an
+optional emitter. The HTTP router calls it with the no-op emitter; the
+WebSocket endpoint forwards every event to the browser.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import cast
+from dataclasses import dataclass
+from typing import Any, cast
 
-from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -21,7 +22,10 @@ from app.schemas.ask import AskResponse, SuggestedInterpretationOut
 from app.services.ai.base import AIProviderError, ChatMessage, TokenUsage
 from app.services.ai.factory import get_ai_provider
 from app.services.ai.generate import generate_with_verification
+from app.services.app_settings import get_ask_runtime_settings
+from app.services.ask_analysis import AnalysisExploration, run_ask_analysis_loop
 from app.services.connections import load_connector
+from app.services.progress import ProgressEmitter, noop_emit
 from app.services.prompt_store import ASK_PROMPT_KEY, get_prompt, render_ask_system
 from app.services.schema.cache import ensure_snapshot
 from app.services.schema.discover import DiscoveredSchema, discover_schema
@@ -34,41 +38,76 @@ from app.services.token_usage import record_usage
 logger = logging.getLogger(__name__)
 
 
+class AskFlowError(Exception):
+    """A flow failure with an HTTP-compatible status code.
+
+    The HTTP router maps it onto ``HTTPException``; the WebSocket handler onto
+    an ``error`` event.
+    """
+
+    def __init__(self, status_code: int, detail: str) -> None:
+        super().__init__(detail)
+        self.status_code = status_code
+        self.detail = detail
+
+
+@dataclass
+class AskFlowResult:
+    response: AskResponse
+    history_id: int
+
+
 async def run_ask_flow(
     session: AsyncSession,
     user: User,
+    *,
     connection_id: int,
     question: str,
-    *,
     history: list[ChatMessage] | None = None,
     question_context: str | None = None,
-) -> AskResponse:
-    """Generate previewable, read-only SQL for ``question``.
+    emit: ProgressEmitter = noop_emit,
+) -> AskFlowResult:
+    """Generate previewable SQL for ``question`` and persist history/usage.
 
-    ``history`` carries prior conversation turns (chat sessions); ``None`` keeps
-    the stateless single-question behavior of ``POST /ask``. ``question_context``
-    is an optional data block shown to the model just before the question (the
-    stored question/audit text stays clean).
+    ``history`` carries prior chat-session turns; ``question_context`` is an
+    optional data block (e.g. the sample of the last executed result) shown to
+    the model just before the question, keeping the stored question text clean.
+
+    Raises :class:`AskFlowError` for every expected failure. ``load_connector``
+    raises ``HTTPException`` directly (404/403), which both callers translate.
     """
     settings = get_settings()
     connection, connector = await load_connector(session, connection_id, user)
 
+    provider = get_ai_provider()
+    analysis_mode, row_cap = await get_ask_runtime_settings(session)
+
+    # First event on the wire: once the client sees it, the run is committed
+    # and the frontend must not fall back to HTTP (it would double-run).
+    await emit(
+        {
+            "type": "run_started",
+            "mode": "analysis" if analysis_mode else "standard",
+            "provider": provider.name,
+            "model": provider.model,
+        }
+    )
+
+    await emit({"type": "status", "stage": "schema", "message": "Reading the database schema…"})
     try:
         snapshot = await ensure_snapshot(session, connection.id, connector)
     except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Could not read the schema of '{connection.name}': {exc}",
-        ) from exc
+        raise AskFlowError(502, f"Could not read the schema of '{connection.name}': {exc}") from exc
 
     if snapshot.table_count == 0:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
+        raise AskFlowError(
+            409,
+            (
                 f"No tables found in database '{connection.database}' "
                 f"on {connection.host}:{connection.port}. "
                 "Check that the database name is correct and that it contains tables. "
-                "If your tables are in a specific schema, set it in the connection's Schemas field."
+                "If your tables are in a specific schema, set it in the connection's "
+                "Schemas field."
             ),
         )
 
@@ -82,13 +121,26 @@ async def run_ask_flow(
     template, _ = await get_prompt(session, ASK_PROMPT_KEY)
     system_prompt = render_ask_system(template, connector.label)
 
-    provider = get_ai_provider()
-
-    # Choose which tables to send. Discovery (default) shows the model only the
-    # table-name directory and lets it request details on demand; otherwise fall
-    # back to the lexical relevance trimmer.
-    selected: DiscoveredSchema | SelectedSchema
-    if settings.ask_schema_discovery:
+    # Choose which tables (and, in analysis mode, which data samples) to send.
+    # Analysis mode runs the agentic investigation loop; discovery (default)
+    # shows the model only the table-name directory and lets it request details
+    # on demand; otherwise fall back to the lexical relevance trimmer.
+    selected: AnalysisExploration | DiscoveredSchema | SelectedSchema
+    if analysis_mode:
+        selected = await run_ask_analysis_loop(
+            session=session,
+            provider=provider,
+            connector=connector,
+            schema=schema_data,
+            question=question,
+            ask_system_prompt=system_prompt,
+            glossary_text=glossary_text,
+            settings=settings,
+            row_cap=row_cap,
+            emit=emit,
+        )
+        discovery_usage = selected.usage
+    elif settings.ask_schema_discovery:
         selected = await discover_schema(
             provider=provider,
             schema=schema_data,
@@ -96,6 +148,7 @@ async def run_ask_flow(
             ask_system_prompt=system_prompt,
             glossary_text=glossary_text,
             settings=settings,
+            emit=emit,
         )
         discovery_usage = selected.usage
     else:
@@ -115,13 +168,13 @@ async def run_ask_flow(
             system_prompt=system_prompt,
             history=history,
             question_context=question_context,
+            emit=emit,
         )
     except AIProviderError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+        raise AskFlowError(502, str(exc)) from exc
     except SqlGuardError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"The generated statement is not a single read-only SELECT: {exc}",
+        raise AskFlowError(
+            422, f"The generated statement is not a single read-only SELECT: {exc}"
         ) from exc
 
     result = outcome.result
@@ -132,7 +185,7 @@ async def run_ask_flow(
 
     if result.status != "ok":
         response_status = ResponseStatus(result.status).value
-        clarification_json = {
+        clarification_json: dict[str, Any] | None = {
             "clarification_question": result.clarification_question,
             "suggested_interpretations": [i.model_dump() for i in interpretations],
         }
@@ -187,7 +240,7 @@ async def run_ask_flow(
             + outcome.verification.describe()
         )
 
-    return AskResponse(
+    response = AskResponse(
         history_id=history_row.id,
         status=response_status,
         generated_sql=generated_sql,
@@ -201,3 +254,4 @@ async def run_ask_flow(
         model=provider.model,
         warnings=warnings,
     )
+    return AskFlowResult(response=response, history_id=history_row.id)

@@ -28,6 +28,12 @@ _META: dict[str, tuple[str, str]] = {
         "System prompt for the Analysis page. Sets how the AI investigates and answers "
         "using Clarity metrics and read-only SQL queries.",
     ),
+    "ask_analysis_loop": (
+        "Ask analysis mode (investigation loop)",
+        "Extra instructions used by the Ask page when analysis mode is on: how the AI "
+        "requests table details and runs small read-only exploratory queries before "
+        "writing the final SQL.",
+    ),
 }
 
 

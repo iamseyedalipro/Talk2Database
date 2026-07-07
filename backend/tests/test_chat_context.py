@@ -4,13 +4,13 @@ history-aware generation path."""
 from __future__ import annotations
 
 from app.models.chat import ChatMessage
-from app.routers.chats import build_history_messages, latest_result_sample
 from app.services.ai.prompts import (
     build_history_turn_assistant,
     build_history_turn_user,
     build_question_block,
     build_result_context,
 )
+from app.services.chat_context import build_history_messages, latest_result_sample
 from tests.test_generate_loop import FakeProvider, _ok, _run  # reuse the loop harness
 
 

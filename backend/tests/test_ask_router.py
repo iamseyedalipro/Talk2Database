@@ -146,7 +146,8 @@ def harness(monkeypatch: pytest.MonkeyPatch):
     async def fake_load_glossary(*_args: Any, **_kwargs: Any):
         return [], []
 
-    # The pipeline lives in services/ask_flow (shared by /ask and /chats/{id}/ask).
+    # The pipeline lives in services/ask_flow (shared by /ask, /ask/ws, and
+    # /chats/{id}/ask).
     monkeypatch.setattr(ask_flow_module, "load_connector", fake_load_connector)
     monkeypatch.setattr(ask_flow_module, "ensure_snapshot", fake_ensure_snapshot)
     monkeypatch.setattr(ask_flow_module, "load_glossary", fake_load_glossary)
@@ -298,9 +299,7 @@ def test_discovery_includes_semantically_matched_table(harness) -> None:
 
 
 def test_discovery_disabled_uses_select_schema(harness) -> None:
-    response = harness.run(
-        [_ok("SELECT amount FROM payments")], ask_schema_discovery=False
-    )
+    response = harness.run([_ok("SELECT amount FROM payments")], ask_schema_discovery=False)
     assert response.status_code == 200
     # Discovery off -> provider.chat is never invoked.
     assert harness.provider().chat_systems == []

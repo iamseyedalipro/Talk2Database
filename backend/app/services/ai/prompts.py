@@ -67,11 +67,31 @@ use only tables and columns from the provided schema.
 - Finish with a clear, plain-language answer that cites the specific numbers \
 supporting each claim, and note any important caveats or gaps in the data."""
 
+_ASK_ANALYSIS_LOOP = """\
+Before writing the final SQL, investigate the database so the query is grounded \
+in how the data actually looks. The database's tables are listed as a JSON \
+directory below (names only). You have two tools:
+- `get_table_details`: pass exact table names from the directory to receive \
+their columns, keys, and relationships as JSON.
+- `run_exploratory_query`: run ONE small read-only SELECT (always include a \
+LIMIT) to peek at the data — check value formats, date ranges, status values, \
+or join keys before committing to an approach. Results come back as JSON with \
+a capped number of rows.
+
+Work step by step: request the tables you think you need, look at their \
+details, run a small exploratory query when the data's shape matters, and ask \
+for more tables if the details reveal a join you are missing. Explain in one \
+short sentence what you are checking each time you call a tool. When you \
+understand the data well enough to write the query, reply with a brief \
+plain-text summary of what you learned and stop calling tools. Do NOT write \
+the final SQL yet."""
+
 # Defaults for the panel-editable prompts, keyed by prompt name. The ask
-# template keeps its ``{label}`` placeholder; the analysis prompt has none.
+# template keeps its ``{label}`` placeholder; the other prompts have none.
 DEFAULT_PROMPTS: dict[str, str] = {
     "ask_system_template": _SYSTEM_TEMPLATE,
     "analysis_system": _ANALYSIS_SYSTEM,
+    "ask_analysis_loop": _ASK_ANALYSIS_LOOP,
 }
 
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import {
@@ -9,14 +9,21 @@ import {
   listChatMessages,
   listConnections,
 } from '../api/endpoints';
+import { askViaSocket, type AskSocketHandle } from '../api/askSocket';
 import { triggerBlobDownload } from '../api/client';
-import type { ChatMessageItem, Connection } from '../api/types';
+import type {
+  AskActivityStep,
+  AskProgressEvent,
+  ChatMessageItem,
+  Connection,
+} from '../api/types';
 import ChatSidebar from '../components/chat/ChatSidebar';
 import ChatThread, { type ChatTurn } from '../components/chat/ChatThread';
 import SuggestedQuestions from '../components/chat/SuggestedQuestions';
 import SaveQueryModal from '../components/SaveQueryModal';
 import { ErrorBanner } from '../components/ui';
 import { errorMessage } from '../utils/format';
+import { useAuthStore } from '../store/auth';
 import { useChatStore } from '../store/chat';
 
 /** Rebuild the visible conversation from persisted chat messages. */
@@ -47,7 +54,8 @@ function turnsFromMessages(messages: ChatMessageItem[]): ChatTurn[] {
 /**
  * Default authed route: persistent, ChatGPT-style conversations with a
  * database. Every question and answer is stored server-side; follow-ups reuse
- * the session history so the AI can refine earlier SQL.
+ * the session history so the AI can refine earlier SQL. Questions stream live
+ * progress over the WebSocket (with a plain-HTTP fallback).
  */
 export default function AskPage() {
   const { t } = useTranslation('ask');
@@ -81,6 +89,14 @@ export default function AskPage() {
   const [saveIndex, setSaveIndex] = useState<number | null>(null);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
 
+  const socketRef = useRef<AskSocketHandle | null>(null);
+  // Mirrors socketRef for rendering: refs don't trigger re-renders, state does.
+  const [stoppable, setStoppable] = useState(false);
+  // True while a question is in flight — the thread must not be reloaded from
+  // the server then (submitting the first question selects the just-created
+  // session, which would otherwise wipe the optimistic turns).
+  const askingRef = useRef(false);
+
   const activeSession = useMemo(
     () => sessions.find((s) => s.id === activeId) ?? null,
     [sessions, activeId],
@@ -105,6 +121,7 @@ export default function AskPage() {
 
   // Load (or clear) the thread when the selected session changes.
   useEffect(() => {
+    if (askingRef.current) return; // keep the optimistic in-flight turns
     setAskError(null);
     setSaveIndex(null);
     setSaveNotice(null);
@@ -151,36 +168,180 @@ export default function AskPage() {
     };
   }, [connectionId, activeId]);
 
+  /** Patch the streaming assistant turn (always the last turn while asking). */
+  const patchLastAssistant = (
+    patch:
+      | Partial<Extract<ChatTurn, { kind: 'assistant' }>>
+      | ((turn: Extract<ChatTurn, { kind: 'assistant' }>) => Partial<Extract<ChatTurn, { kind: 'assistant' }>>),
+  ) => {
+    setTurns((prev) => {
+      const last = prev[prev.length - 1];
+      if (!last || last.kind !== 'assistant') return prev;
+      const applied = typeof patch === 'function' ? patch(last) : patch;
+      return [...prev.slice(0, -1), { ...last, ...applied }];
+    });
+  };
+
+  const appendStep = (step: AskActivityStep) => {
+    patchLastAssistant((turn) => ({ steps: [...(turn.steps ?? []), step] }));
+  };
+
+  const finishRun = () => {
+    socketRef.current = null;
+    setStoppable(false);
+    setAsking(false);
+    askingRef.current = false;
+  };
+
+  const handleProgressEvent = (event: AskProgressEvent, chatId: number) => {
+    switch (event.type) {
+      case 'run_started':
+        break; // the pending turn is already on screen
+      case 'status':
+        appendStep({ kind: 'status', text: event.message });
+        break;
+      case 'tables_directory':
+        appendStep({ kind: 'tables_directory', count: event.count });
+        break;
+      case 'tables_requested':
+        appendStep({ kind: 'tables_requested', tables: event.table_names });
+        break;
+      case 'table_details_sent':
+        appendStep({ kind: 'table_details_sent', tables: event.table_names, unknown: event.unknown });
+        break;
+      case 'assistant_note':
+        appendStep({ kind: 'note', text: event.text });
+        break;
+      case 'exploratory_query':
+        appendStep({ kind: 'query', sql: event.sql, purpose: event.purpose });
+        break;
+      case 'query_result':
+        // Attach the result to the newest query step still waiting for one.
+        patchLastAssistant((turn) => {
+          const steps = [...(turn.steps ?? [])];
+          for (let i = steps.length - 1; i >= 0; i -= 1) {
+            const step = steps[i];
+            if (!step || step.kind !== 'query') continue;
+            if (step.result !== undefined || (step.error !== undefined && step.error !== null)) {
+              continue;
+            }
+            steps[i] = {
+              ...step,
+              error: event.error ?? null,
+              result:
+                event.columns !== undefined
+                  ? {
+                      columns: event.columns,
+                      rows: event.rows ?? [],
+                      row_count: event.row_count ?? 0,
+                      truncated: event.truncated ?? false,
+                    }
+                  : undefined,
+            };
+            break;
+          }
+          return { steps };
+        });
+        break;
+      case 'generating_sql':
+        appendStep({ kind: 'generating', attempt: event.attempt, attempts: event.attempts });
+        break;
+      case 'retry':
+        appendStep({ kind: 'retry', reason: event.reason, detail: event.detail });
+        break;
+      case 'final_result': {
+        const {
+          type: _type,
+          seq: _seq,
+          user_message_id: _userMessageId,
+          assistant_message_id: assistantMessageId,
+          session_title: sessionTitle,
+          ...askResponse
+        } = event;
+        patchLastAssistant({
+          ask: askResponse,
+          pending: false,
+          messageId: assistantMessageId,
+        });
+        if (sessionTitle) applySessionUpdate(chatId, sessionTitle);
+        finishRun();
+        break;
+      }
+      case 'error':
+        patchLastAssistant({ pending: false });
+        setAskError(event.detail);
+        finishRun();
+        break;
+      case 'cancelled':
+        patchLastAssistant({ pending: false, cancelled: true });
+        finishRun();
+        break;
+    }
+  };
+
   const submitQuestion = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || asking) return;
     setAskError(null);
     setAsking(true);
-    setTurns((prev) => [...prev, { kind: 'user', text: trimmed }]);
+    askingRef.current = true;
+    setTurns((prev) => [
+      ...prev,
+      { kind: 'user', text: trimmed },
+      { kind: 'assistant', question: trimmed, steps: [], pending: true },
+    ]);
+
+    let chatId = activeId;
+    let chatConnectionId = sessionConnectionId;
     try {
       // First question of a fresh chat creates the session on the fly.
-      let chatId = activeId;
       if (chatId === null) {
-        if (connectionId === null) return;
+        if (connectionId === null) {
+          finishRun();
+          return;
+        }
         const session = await createSession(connectionId);
         chatId = session.id;
+        chatConnectionId = session.connection_id;
       }
-      const res = await askInChat(chatId, { question: trimmed });
-      applySessionUpdate(chatId, res.session_title);
-      setTurns((prev) => [
-        ...prev,
-        {
-          kind: 'assistant',
-          ask: res,
-          question: trimmed,
-          messageId: res.assistant_message_id,
-        },
-      ]);
     } catch (err) {
+      patchLastAssistant({ pending: false });
+      setAskError(errorMessage(err));
+      finishRun();
+      return;
+    }
+
+    const token = useAuthStore.getState().token ?? '';
+    const boundChatId = chatId;
+
+    try {
+      // Preferred transport: WebSocket with live progress. Once the run has
+      // started, terminal events arrive via handleProgressEvent.
+      socketRef.current = await askViaSocket(
+        { connection_id: chatConnectionId ?? 0, question: trimmed, chat_id: boundChatId },
+        token,
+        { onEvent: (event) => handleProgressEvent(event, boundChatId) },
+      );
+      setStoppable(true);
+      return;
+    } catch {
+      // The socket never started a run — safe to fall back to plain HTTP.
+    }
+
+    try {
+      const res = await askInChat(boundChatId, { question: trimmed });
+      applySessionUpdate(boundChatId, res.session_title);
+      patchLastAssistant({ ask: res, pending: false, messageId: res.assistant_message_id });
+    } catch (err) {
+      patchLastAssistant({ pending: false });
       setAskError(errorMessage(err));
     } finally {
-      setAsking(false);
+      finishRun();
     }
+  };
+
+  const handleStop = () => {
+    socketRef.current?.cancel();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -198,7 +359,7 @@ export default function AskPage() {
 
   const handleRun = async (index: number, sql: string) => {
     const turn = turns[index];
-    if (!turn || turn.kind !== 'assistant' || sessionConnectionId === null) return;
+    if (!turn || turn.kind !== 'assistant' || !turn.ask || sessionConnectionId === null) return;
     patchTurn(index, { executing: true, runError: null });
     try {
       const result = await execute({
@@ -215,7 +376,7 @@ export default function AskPage() {
 
   const handleDownloadCsv = async (index: number, sql: string) => {
     const turn = turns[index];
-    if (!turn || turn.kind !== 'assistant' || sessionConnectionId === null) return;
+    if (!turn || turn.kind !== 'assistant' || !turn.ask || sessionConnectionId === null) return;
     setCsvBusy(true);
     try {
       const { blob, filename } = await executeCsv({
@@ -361,7 +522,6 @@ export default function AskPage() {
               )}
 
               {saveNotice && <p className="muted">{saveNotice}</p>}
-              {asking && <p className="muted chat-pending">{t('thinking')}</p>}
               <ErrorBanner message={askError} />
 
               <form className="chat-composer" onSubmit={handleSubmit}>
@@ -382,13 +542,19 @@ export default function AskPage() {
                   disabled={archived}
                   aria-label={t('yourQuestion')}
                 />
-                <button
-                  type="submit"
-                  className="btn btn--primary"
-                  disabled={composerDisabled || !question.trim()}
-                >
-                  {asking ? t('generating') : t('send')}
-                </button>
+                {asking && stoppable ? (
+                  <button type="button" className="btn btn--secondary" onClick={handleStop}>
+                    {t('stop')}
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    className="btn btn--primary"
+                    disabled={composerDisabled || !question.trim()}
+                  >
+                    {asking ? t('generating') : t('send')}
+                  </button>
+                )}
               </form>
             </>
           )}

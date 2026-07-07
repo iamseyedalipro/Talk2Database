@@ -29,5 +29,21 @@
   "unanswerableFallback": "This question cannot be answered from the connected database.",
   "pickHint": "Pick an option above, or rephrase your question below.",
   "loadingExamples": "Loading example questions…",
-  "exampleQuestions": "Example questions"
+  "exampleQuestions": "Example questions",
+  "activityScannedTables_one": "Scanned the table list ({{count}} table)",
+  "activityScannedTables_other": "Scanned the table list ({{count}} tables)",
+  "activityRequestedDetails": "Requested details for: {{tables}}",
+  "activityReadDetails": "Read table details: {{tables}}",
+  "activityNone": "(none)",
+  "activityRanQuery": "Ran an exploratory query",
+  "activityWritingSql": "Writing the SQL…",
+  "activityWritingSqlAttempt": "Writing the SQL (attempt {{attempt}} of {{attempts}})…",
+  "activityRetryGuard": "The draft was not a single read-only SELECT — retrying",
+  "activityRetryIdentifiers": "The draft referenced unknown tables/columns — retrying",
+  "activityViewSql": "View SQL",
+  "activityRows_one": "{{count}} row",
+  "activityRows_other": "{{count}} rows",
+  "activitySampleSuffix": " (sample)",
+  "activityStarting": "Starting…",
+  "activityStopped": "Stopped by you."
 }

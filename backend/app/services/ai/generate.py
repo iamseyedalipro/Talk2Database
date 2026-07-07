@@ -18,6 +18,7 @@ from app.config import Settings
 from app.connectors.base import Connector
 from app.services.ai.base import ChatMessage, LLMProvider, SqlGenerationResult, TokenUsage
 from app.services.ai.prompts import build_guard_feedback, build_question_block
+from app.services.progress import ProgressEmitter, noop_emit
 from app.services.schema.introspect import SchemaData
 from app.services.sql_guard import SqlGuardError
 from app.services.sql_verify import (
@@ -59,6 +60,7 @@ async def generate_with_verification(
     system_prompt: str | None = None,
     history: list[ChatMessage] | None = None,
     question_context: str | None = None,
+    emit: ProgressEmitter = noop_emit,
 ) -> GenerationOutcome:
     """Generate SQL for ``question``, verifying identifiers against ``full_schema``.
 
@@ -111,6 +113,7 @@ async def generate_with_verification(
                 schema_block,
                 messages,
             )
+        await emit({"type": "generating_sql", "attempt": attempt + 1, "attempts": attempts})
         result, call_usage = await run_in_threadpool(
             provider.generate_sql,
             messages=messages,
@@ -135,6 +138,14 @@ async def generate_with_verification(
         except SqlGuardError as exc:
             if attempt == attempts - 1:
                 raise
+            await emit(
+                {
+                    "type": "retry",
+                    "attempt": attempt + 1,
+                    "reason": "guard_rejected",
+                    "detail": str(exc),
+                }
+            )
             messages.append({"role": "assistant", "content": result.model_dump_json()})
             messages.append({"role": "user", "content": build_guard_feedback(str(exc))})
             retry_count += 1
@@ -161,6 +172,14 @@ async def generate_with_verification(
 
         last_verification = verification
         if attempt < attempts - 1:
+            await emit(
+                {
+                    "type": "retry",
+                    "attempt": attempt + 1,
+                    "reason": "unknown_identifiers",
+                    "detail": verification.describe(),
+                }
+            )
             messages.append({"role": "assistant", "content": result.model_dump_json()})
             messages.append(
                 {"role": "user", "content": build_correction_feedback(verification, full_schema)}

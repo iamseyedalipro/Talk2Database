@@ -150,5 +150,18 @@
     "resetToDefault": "Reset to default",
     "confirmReset": "Reset \"{{title}}\" to the built-in default prompt?",
     "promptSaved": "Prompt saved."
+  },
+  "askSettings": {
+    "title": "Ask analysis mode",
+    "intro": "When enabled, every Ask question runs a deeper investigation: the AI scans the table list, requests details for the tables it needs, and runs small read-only exploratory queries to understand the data before writing the final SQL. Users watch each step live.",
+    "warning": "⚠ Exploratory queries send a small sample of row data (capped below) to the AI provider — an exception to the schema-only default that applies only while this mode is on.",
+    "loading": "Loading Ask settings…",
+    "enable": "Enable Ask analysis mode for all users",
+    "enableAria": "Enable Ask analysis mode",
+    "rowCapLabel": "Max rows per exploratory query ({{min}}–{{max}})",
+    "rowCapAria": "Exploratory query row cap",
+    "saving": "Saving…",
+    "save": "Save",
+    "saved": "Ask settings saved."
   }
 }

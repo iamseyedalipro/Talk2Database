@@ -41,6 +41,13 @@ DEFAULT_DIMENSION_COMBOS: list[list[str]] = [
     ["URL", "Device"],
 ]
 
+KEY_ASK_ANALYSIS_MODE = "ask_analysis_mode"
+KEY_ASK_ANALYSIS_ROW_CAP = "ask_analysis_row_cap"
+
+DEFAULT_ASK_ANALYSIS_ROW_CAP = 10
+ASK_ANALYSIS_ROW_CAP_MIN = 5
+ASK_ANALYSIS_ROW_CAP_MAX = 100
+
 KEY_CLARITY_TOKEN = "clarity_api_token"
 KEY_CLARITY_PROJECT_ID = "clarity_project_id"
 KEY_CLARITY_FETCH_TIME = "clarity_fetch_time"
@@ -70,6 +77,23 @@ async def delete_setting(session: AsyncSession, key: str) -> None:
     if row is not None:
         await session.delete(row)
         await session.flush()
+
+
+def clamp_row_cap(value: Any) -> int:
+    """Coerce a stored row cap to a safe int within the allowed range."""
+    try:
+        cap = int(value)
+    except (TypeError, ValueError):
+        return DEFAULT_ASK_ANALYSIS_ROW_CAP
+    return max(ASK_ANALYSIS_ROW_CAP_MIN, min(ASK_ANALYSIS_ROW_CAP_MAX, cap))
+
+
+async def get_ask_runtime_settings(session: AsyncSession) -> tuple[bool, int]:
+    """Return ``(analysis_mode_enabled, exploratory_row_cap)`` for the Ask flow."""
+    mode = await get_setting(session, KEY_ASK_ANALYSIS_MODE)
+    raw_cap = await get_setting(session, KEY_ASK_ANALYSIS_ROW_CAP)
+    cap = clamp_row_cap(raw_cap) if raw_cap is not None else DEFAULT_ASK_ANALYSIS_ROW_CAP
+    return bool(mode), cap
 
 
 def combo_key(dimensions: list[str]) -> str:
