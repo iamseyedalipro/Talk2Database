@@ -15,6 +15,7 @@ schema block plus token usage, consumed exactly like a :class:`SelectedSchema`.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -31,6 +32,7 @@ from app.services.ai.base import (
     ToolResult,
     ToolSpec,
 )
+from app.services.progress import ProgressEmitter, noop_emit
 from app.services.schema.introspect import SchemaData, TableInfo
 from app.services.schema.select import select_schema
 from app.services.schema.serialize import (
@@ -111,12 +113,16 @@ def _lookup(schema: SchemaData) -> dict[str, TableInfo]:
 
 
 def _execute_details_call(
-    call: ToolCall, by_name: dict[str, TableInfo], expanded: dict[str, TableInfo]
+    call: ToolCall,
+    by_name: dict[str, TableInfo],
+    expanded: dict[str, TableInfo],
+    render: Callable[[list[TableInfo]], str] = serialize_tables,
 ) -> ToolResult:
     """Render detail for the requested tables; record them in ``expanded``.
 
     Unknown names are reported (never invented). If *nothing* resolves, the
     result is an error so the model retries with names from the directory.
+    ``render`` picks the detail format (text here; JSON in the analysis loop).
     """
     raw = call.input.get("table_names")
     names = [n for n in raw if isinstance(n, str)] if isinstance(raw, list) else []
@@ -144,11 +150,10 @@ def _execute_details_call(
             is_error=True,
         )
 
-    detail = serialize_tables(known)
+    detail = render(known)
     if unknown:
         detail += (
-            f"\n\nUnrecognized (ignored): {', '.join(unknown)}. "
-            f"Valid names: {', '.join(valid)}"
+            f"\n\nUnrecognized (ignored): {', '.join(unknown)}. Valid names: {', '.join(valid)}"
         )
     return ToolResult(tool_call_id=call.id, content=detail)
 
@@ -176,6 +181,7 @@ async def discover_schema(
     ask_system_prompt: str,
     glossary_text: str,
     settings: Settings,
+    emit: ProgressEmitter = noop_emit,
 ) -> DiscoveredSchema:
     """Let the model pick which tables' details to send, then render them.
 
@@ -197,14 +203,20 @@ async def discover_schema(
         )
     ]
     directory = table_directory(schema)
-    messages: list[ToolChatMessage] = [
-        ToolChatMessage(role="user", text=f"Question: {question}")
-    ]
+    messages: list[ToolChatMessage] = [ToolChatMessage(role="user", text=f"Question: {question}")]
     expanded: dict[str, TableInfo] = {}
     usage = TokenUsage()
     warnings: list[str] = []
 
-    for _ in range(max(1, settings.ask_discovery_max_rounds)):
+    await emit(
+        {
+            "type": "tables_directory",
+            "count": total,
+            "tables": [_qualified(t) for t in tables],
+        }
+    )
+
+    for round_no in range(1, max(1, settings.ask_discovery_max_rounds) + 1):
         try:
             turn: ChatTurn = await run_in_threadpool(
                 provider.chat, system=system, messages=messages, tools=tools
@@ -229,6 +241,11 @@ async def discover_schema(
         )
         results: list[ToolResult] = []
         for call in turn.tool_calls:
+            raw_names = call.input.get("table_names")
+            requested = (
+                [n for n in raw_names if isinstance(n, str)] if isinstance(raw_names, list) else []
+            )
+            await emit({"type": "tables_requested", "round": round_no, "table_names": requested})
             if len(expanded) >= settings.ask_discovery_max_tables:
                 results.append(
                     ToolResult(
@@ -241,7 +258,17 @@ async def discover_schema(
                     )
                 )
                 continue
+            before = set(expanded)
             results.append(_execute_details_call(call, by_name, expanded))
+            unknown = [n for n in requested if (by_name.get(n) or by_name.get(n.strip())) is None]
+            await emit(
+                {
+                    "type": "table_details_sent",
+                    "round": round_no,
+                    "table_names": sorted(set(expanded) - before),
+                    "unknown": unknown,
+                }
+            )
         messages.append(ToolChatMessage(role="user", tool_results=results))
 
         if len(expanded) >= settings.ask_discovery_max_tables:

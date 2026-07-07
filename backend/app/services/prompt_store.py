@@ -18,6 +18,7 @@ PROMPT_KEYS: frozenset[str] = frozenset(DEFAULT_PROMPTS)
 
 ASK_PROMPT_KEY = "ask_system_template"
 ANALYSIS_PROMPT_KEY = "analysis_system"
+ASK_ANALYSIS_PROMPT_KEY = "ask_analysis_loop"
 
 
 def _setting_key(key: str) -> str:

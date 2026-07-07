@@ -1604,3 +1604,121 @@ textarea {
   padding: 0.5rem 0.7rem;
   margin: 0.35rem 0;
 }
+
+/* ------------------------- Ask agent activity feed ------------------------ */
+
+.activity-feed {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.75rem;
+  background: var(--surface-2, rgba(124, 58, 237, 0.04));
+}
+
+.activity-feed__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.activity-feed__step {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+  font-size: 0.88rem;
+}
+
+.activity-feed__marker {
+  flex: none;
+  width: 1.1rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.activity-feed__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.activity-feed__note {
+  font-style: italic;
+  color: var(--muted);
+}
+
+.activity-feed__spinner {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent, #7c3aed);
+  border-radius: 50%;
+  animation: activity-feed-spin 0.8s linear infinite;
+}
+
+@keyframes activity-feed-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.activity-feed__query summary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.activity-feed__sql {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--surface-2, rgba(124, 58, 237, 0.06));
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.45rem 0.6rem;
+  margin: 0.3rem 0;
+}
+
+.activity-feed__error {
+  color: var(--danger, #dc2626);
+  font-size: 0.82rem;
+  margin: 0.25rem 0;
+}
+
+.activity-feed__preview {
+  overflow-x: auto;
+  margin-top: 0.35rem;
+}
+
+.activity-feed__preview table {
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.activity-feed__preview th,
+.activity-feed__preview td {
+  border: 1px solid var(--border);
+  padding: 0.2rem 0.5rem;
+  text-align: left;
+  white-space: nowrap;
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-feed__preview p {
+  margin: 0.2rem 0 0;
+  font-size: 0.75rem;
+}
+
+.activity-feed__cancelled {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-style: italic;
+}

@@ -18,6 +18,25 @@ _bearer = HTTPBearer(auto_error=False)
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
+async def resolve_user_from_token(session: AsyncSession, token: str) -> User | None:
+    """Return the active user a JWT belongs to, or ``None`` when invalid.
+
+    Shared by the HTTP bearer dependency and the Ask WebSocket (where the
+    browser cannot send an Authorization header, so the token arrives in the
+    first message instead).
+    """
+    try:
+        payload = decode_access_token(token)
+        user_id = int(payload["sub"])
+    except (jwt.PyJWTError, KeyError, ValueError):
+        return None
+
+    user = await session.get(User, user_id)
+    if user is None or not user.is_active:
+        return None
+    return user
+
+
 async def get_current_user(
     session: SessionDep,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
@@ -30,14 +49,8 @@ async def get_current_user(
     )
     if credentials is None:
         raise unauthorized
-    try:
-        payload = decode_access_token(credentials.credentials)
-        user_id = int(payload["sub"])
-    except (jwt.PyJWTError, KeyError, ValueError) as exc:
-        raise unauthorized from exc
-
-    user = await session.get(User, user_id)
-    if user is None or not user.is_active:
+    user = await resolve_user_from_token(session, credentials.credentials)
+    if user is None:
         raise unauthorized
     return user
 
