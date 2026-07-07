@@ -1,0 +1,22 @@
+{
+  "title": "Analysis",
+  "intro": "Ask an analytical question — e.g. “why don’t users click on any podcast?” — and get an answer grounded in your data. The AI may run a few read-only queries to find evidence.",
+  "dataSources": "Data sources",
+  "clarityStored_one": "(data through {{date}}, {{count}} day stored)",
+  "clarityStored_other": "(data through {{date}}, {{count}} days stored)",
+  "clarityUnavailable": "(no data stored yet — configure it in Admin)",
+  "noConnections": "No database connections yet. <link>Add one</link> to analyze your own data.",
+  "questionPlaceholder": "e.g. Why don't users click on any podcast?",
+  "questionAria": "Your analytical question",
+  "selectSource": "Select at least one data source",
+  "analyzing": "Analyzing…",
+  "analyze": "Analyze",
+  "gathering": "Gathering data and reasoning…",
+  "answer": "Answer",
+  "showSteps_one": "Show the {{count}} query the AI ran",
+  "showSteps_other": "Show the {{count}} queries the AI ran",
+  "hideSteps_one": "Hide the {{count}} query the AI ran",
+  "hideSteps_other": "Hide the {{count}} queries the AI ran",
+  "unknownConnection": "unknown connection",
+  "rows": "{{count}} row(s)"
+}

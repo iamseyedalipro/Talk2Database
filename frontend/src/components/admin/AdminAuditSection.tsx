@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { listAudit } from '../../api/endpoints';
 import { ApiError } from '../../api/client';
 import type { AuditItem, QueryStatus } from '../../api/types';
@@ -13,6 +14,7 @@ type StatusFilter = QueryStatus | 'all';
  * server-side (ADMIN_AUDIT_ENABLED=false → 404).
  */
 export default function AdminAuditSection() {
+  const { t } = useTranslation('admin');
   const [items, setItems] = useState<AuditItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,49 +53,49 @@ export default function AdminAuditSection() {
   return (
     <section className="card">
       <div className="page__header">
-        <h2 className="page__title">Audit log</h2>
+        <h2 className="page__title">{t('audit.title')}</h2>
         <button type="button" className="btn btn--ghost" onClick={() => void load()}>
-          Refresh
+          {t('refresh')}
         </button>
       </div>
-      <p className="muted">Every user's questions and generated SQL. Result rows are never stored.</p>
+      <p className="muted">{t('audit.description')}</p>
 
       <div className="audit-filters">
         <label className="field field--inline">
-          <span>Status</span>
+          <span>{t('audit.statusLabel')}</span>
           <select value={status} onChange={(e) => setStatus(e.target.value as StatusFilter)}>
-            <option value="all">all</option>
-            <option value="preview">preview</option>
-            <option value="success">success</option>
-            <option value="error">error</option>
+            <option value="all">{t('audit.statusAll')}</option>
+            <option value="preview">{t('audit.statusPreview')}</option>
+            <option value="success">{t('audit.statusSuccess')}</option>
+            <option value="error">{t('audit.statusError')}</option>
           </select>
         </label>
         <input
           type="search"
-          placeholder="Search questions…"
+          placeholder={t('audit.searchPlaceholder')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          aria-label="Search questions"
+          aria-label={t('audit.searchAria')}
         />
       </div>
 
       <ErrorBanner message={error} />
 
       {loading ? (
-        <Spinner label="Loading audit log…" />
+        <Spinner label={t('audit.loading')} />
       ) : items.length === 0 ? (
-        <p className="muted">No matching queries.</p>
+        <p className="muted">{t('audit.empty')}</p>
       ) : (
         <div className="table-scroll">
           <table className="data-table">
             <thead>
               <tr>
-                <th>User</th>
-                <th>Question</th>
-                <th>SQL</th>
-                <th>Status</th>
-                <th>Rows</th>
-                <th>When</th>
+                <th>{t('audit.colUser')}</th>
+                <th>{t('audit.colQuestion')}</th>
+                <th>{t('audit.colSql')}</th>
+                <th>{t('audit.colStatus')}</th>
+                <th>{t('audit.colRows')}</th>
+                <th>{t('audit.colWhen')}</th>
               </tr>
             </thead>
             <tbody>
@@ -105,7 +107,7 @@ export default function AdminAuditSection() {
                     {item.generated_sql ? (
                       <code className="inline-sql">{truncate(item.generated_sql, 40)}</code>
                     ) : (
-                      <span className="muted">clarification asked</span>
+                      <span className="muted">{t('audit.clarificationAsked')}</span>
                     )}
                   </td>
                   <td>

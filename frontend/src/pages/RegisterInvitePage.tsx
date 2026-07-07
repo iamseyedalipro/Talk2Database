@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { register } from '../api/endpoints';
 import AppFooter from '../components/AppFooter';
@@ -11,6 +12,7 @@ import { errorMessage } from '../utils/format';
  * and password, registers the account, and logs the user in.
  */
 export default function RegisterInvitePage() {
+  const { t } = useTranslation('auth');
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const setAuth = useAuthStore((s) => s.setAuth);
@@ -44,17 +46,15 @@ export default function RegisterInvitePage() {
           <span className="brand__name">Talk2Database</span>
         </div>
 
-        <h1>Accept your invitation</h1>
-        <p className="muted">Create your account to start asking questions.</p>
+        <h1>{t('acceptInviteTitle')}</h1>
+        <p className="muted">{t('acceptInviteSubtitle')}</p>
 
-        {!inviteToken && (
-          <ErrorBanner message="This invite link is missing its token. Ask your administrator for a new one." />
-        )}
+        {!inviteToken && <ErrorBanner message={t('missingToken')} />}
         <ErrorBanner message={error} />
 
         <form className="form" onSubmit={handleSubmit}>
           <label className="field">
-            <span>Email</span>
+            <span>{t('email')}</span>
             <input
               type="email"
               autoComplete="username"
@@ -64,7 +64,7 @@ export default function RegisterInvitePage() {
             />
           </label>
           <label className="field">
-            <span>Password (min 8 characters)</span>
+            <span>{t('passwordWithMin')}</span>
             <input
               type="password"
               autoComplete="new-password"
@@ -79,14 +79,14 @@ export default function RegisterInvitePage() {
             className="btn btn--primary btn--block"
             disabled={submitting || !inviteToken}
           >
-            {submitting ? 'Creating account…' : 'Create account'}
+            {submitting ? t('creatingAccount') : t('createAccount')}
           </button>
         </form>
 
         <p className="muted auth-footnote">
-          Already have an account?{' '}
+          {t('alreadyHaveAccount')}{' '}
           <button type="button" className="linklike" onClick={() => navigate('/login')}>
-            Sign in
+            {t('signIn')}
           </button>
         </p>
       </div>

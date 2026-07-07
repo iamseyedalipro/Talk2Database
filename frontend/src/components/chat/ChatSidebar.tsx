@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ChatSessionItem } from '../../api/types';
 
 interface Props {
@@ -26,6 +27,7 @@ export default function ChatSidebar({
   onArchive,
   onDelete,
 }: Props) {
+  const { t } = useTranslation('chat');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [showArchived, setShowArchived] = useState(false);
@@ -56,7 +58,7 @@ export default function ChatSidebar({
               if (e.key === 'Enter') commitRename(session.id);
               if (e.key === 'Escape') setEditingId(null);
             }}
-            aria-label="Chat title"
+            aria-label={t('chatTitle')}
           />
         ) : (
           <>
@@ -72,8 +74,8 @@ export default function ChatSidebar({
               <button
                 type="button"
                 className="chat-sidebar__action"
-                title="Rename"
-                aria-label={`Rename chat ${session.title}`}
+                title={t('rename')}
+                aria-label={t('renameChat', { title: session.title })}
                 onClick={() => {
                   setEditingId(session.id);
                   setEditTitle(session.title);
@@ -84,8 +86,12 @@ export default function ChatSidebar({
               <button
                 type="button"
                 className="chat-sidebar__action"
-                title={session.archived ? 'Unarchive' : 'Archive'}
-                aria-label={`${session.archived ? 'Unarchive' : 'Archive'} chat ${session.title}`}
+                title={session.archived ? t('unarchive') : t('archive')}
+                aria-label={
+                  session.archived
+                    ? t('unarchiveChat', { title: session.title })
+                    : t('archiveChat', { title: session.title })
+                }
                 onClick={() => onArchive(session.id, !session.archived)}
               >
                 {session.archived ? '↩' : '🗄'}
@@ -93,10 +99,10 @@ export default function ChatSidebar({
               <button
                 type="button"
                 className="chat-sidebar__action chat-sidebar__action--danger"
-                title="Delete"
-                aria-label={`Delete chat ${session.title}`}
+                title={t('delete')}
+                aria-label={t('deleteChat', { title: session.title })}
                 onClick={() => {
-                  if (window.confirm(`Delete chat "${session.title}"? This cannot be undone.`)) {
+                  if (window.confirm(t('deleteConfirm', { title: session.title }))) {
                     onDelete(session.id);
                   }
                 }}
@@ -113,12 +119,12 @@ export default function ChatSidebar({
   return (
     <aside className="chat-sidebar card">
       <button type="button" className="btn btn--primary btn--block" onClick={onNewChat}>
-        + New chat
+        {t('newChat')}
       </button>
 
-      {loading && <p className="muted chat-sidebar__status">Loading chats…</p>}
+      {loading && <p className="muted chat-sidebar__status">{t('loadingChats')}</p>}
       {!loading && sessions.length === 0 && (
-        <p className="muted chat-sidebar__status">No chats yet. Ask your first question!</p>
+        <p className="muted chat-sidebar__status">{t('noChats')}</p>
       )}
 
       <ul className="chat-sidebar__list">{active.map(renderItem)}</ul>
@@ -131,7 +137,7 @@ export default function ChatSidebar({
             onClick={() => setShowArchived((v) => !v)}
             aria-expanded={showArchived}
           >
-            {showArchived ? '▾' : '▸'} Archived ({archived.length})
+            {showArchived ? '▾' : '▸'} {t('archivedGroup', { count: archived.length })}
           </button>
           {showArchived && <ul className="chat-sidebar__list">{archived.map(renderItem)}</ul>}
         </div>

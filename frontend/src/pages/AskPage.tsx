@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import {
   askInChat,
@@ -49,6 +50,7 @@ function turnsFromMessages(messages: ChatMessageItem[]): ChatTurn[] {
  * the session history so the AI can refine earlier SQL.
  */
 export default function AskPage() {
+  const { t } = useTranslation('ask');
   const [connections, setConnections] = useState<Connection[]>([]);
   const [connectionId, setConnectionId] = useState<number | null>(null);
   const [connError, setConnError] = useState<string | null>(null);
@@ -273,28 +275,26 @@ export default function AskPage() {
                   className="btn btn--ghost chat-sidebar-toggle"
                   onClick={() => setSidebarOpen((v) => !v)}
                   aria-expanded={sidebarOpen}
-                  aria-label={sidebarOpen ? 'Close chat list' : 'Open chat list'}
+                  aria-label={sidebarOpen ? t('closeChatList') : t('openChatList')}
                 >
                   ☰
                 </button>
                 <div>
                   <h1 className="page__title">
-                    {activeSession ? activeSession.title : 'Ask your database'}
+                    {activeSession ? activeSession.title : t('title')}
                   </h1>
                   <p className="muted">
-                    {activeSession
-                      ? 'Continue the conversation — follow-ups refine the SQL above.'
-                      : 'Describe what you want in plain language. We generate a read-only SQL SELECT for you to review before it runs.'}
+                    {activeSession ? t('continueSubtitle') : t('newSubtitle')}
                   </p>
                 </div>
               </div>
               {!noConnections && !activeSession && (
                 <label className="ask-page__connection">
-                  Data source
+                  {t('dataSource')}
                   <select
                     value={connectionId ?? ''}
                     onChange={(e) => setConnectionId(Number(e.target.value))}
-                    aria-label="Data source"
+                    aria-label={t('dataSource')}
                   >
                     {connections.map((c) => (
                       <option key={c.id} value={c.id}>
@@ -306,11 +306,11 @@ export default function AskPage() {
               )}
               {activeSession && (
                 <span className="ask-page__connection muted">
-                  Data source
+                  {t('dataSource')}
                   <strong>
                     {sessionConnection
                       ? `${sessionConnection.name} (${sessionConnection.type})`
-                      : 'deleted connection'}
+                      : t('deletedConnection')}
                   </strong>
                 </span>
               )}
@@ -319,14 +319,12 @@ export default function AskPage() {
             <ErrorBanner message={connError} />
             {noConnections && (
               <p className="muted">
-                You have no connections yet. <Link to="/connections">Add a connection</Link> to
-                start asking questions.
+                {t('noConnections')} <Link to="/connections">{t('addConnectionLink')}</Link>{' '}
+                {t('noConnectionsSuffix')}
               </p>
             )}
             {archived && (
-              <p className="banner banner--info">
-                This chat is archived. Unarchive it from the sidebar to continue the conversation.
-              </p>
+              <p className="banner banner--info">{t('archivedNote')}</p>
             )}
           </section>
 
@@ -334,7 +332,7 @@ export default function AskPage() {
             <>
               {emptyThread && !activeSession && connectionId !== null && (
                 <section className="card">
-                  <p className="muted">Not sure where to start? Try one of these:</p>
+                  <p className="muted">{t('tryOne')}</p>
                   <SuggestedQuestions
                     questions={suggestions}
                     loading={suggestionsLoading}
@@ -345,7 +343,7 @@ export default function AskPage() {
               )}
 
               {threadLoading ? (
-                <p className="muted chat-pending">Loading conversation…</p>
+                <p className="muted chat-pending">{t('loadingConversation')}</p>
               ) : (
                 <ChatThread
                   turns={turns}
@@ -363,17 +361,13 @@ export default function AskPage() {
               )}
 
               {saveNotice && <p className="muted">{saveNotice}</p>}
-              {asking && <p className="muted chat-pending">Thinking…</p>}
+              {asking && <p className="muted chat-pending">{t('thinking')}</p>}
               <ErrorBanner message={askError} />
 
               <form className="chat-composer" onSubmit={handleSubmit}>
                 <textarea
                   className="ask-input"
-                  placeholder={
-                    emptyThread
-                      ? 'e.g. How many orders were placed in the last 30 days, by day?'
-                      : 'Ask a follow-up question…'
-                  }
+                  placeholder={emptyThread ? t('placeholderNew') : t('placeholderFollowUp')}
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
                   onKeyDown={(e) => {
@@ -386,14 +380,14 @@ export default function AskPage() {
                   }}
                   rows={2}
                   disabled={archived}
-                  aria-label="Your question"
+                  aria-label={t('yourQuestion')}
                 />
                 <button
                   type="submit"
                   className="btn btn--primary"
                   disabled={composerDisabled || !question.trim()}
                 >
-                  {asking ? 'Generating…' : 'Send'}
+                  {asking ? t('generating') : t('send')}
                 </button>
               </form>
             </>
@@ -404,7 +398,7 @@ export default function AskPage() {
               draft={saveDraft}
               onSaved={() => {
                 setSaveIndex(null);
-                setSaveNotice('Saved to your query library.');
+                setSaveNotice(t('savedNotice'));
               }}
               onCancel={() => setSaveIndex(null)}
             />

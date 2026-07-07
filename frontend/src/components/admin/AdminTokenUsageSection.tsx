@@ -8,6 +8,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { useTranslation } from 'react-i18next';
 import { getUsageReport } from '../../api/endpoints';
 import type { UsageByKey, UsageReport } from '../../api/types';
 import { errorMessage } from '../../utils/format';
@@ -35,6 +36,7 @@ interface Tile {
  * the last 30 days). Usage is captured on every provider call server-side.
  */
 export default function AdminTokenUsageSection() {
+  const { t } = useTranslation('admin');
   const [report, setReport] = useState<UsageReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,35 +66,32 @@ export default function AdminTokenUsageSection() {
   const totals = report?.totals;
   const tiles: Tile[] = totals
     ? [
-        { label: 'Total tokens', value: totals.total_tokens },
-        { label: 'Input', value: totals.input_tokens },
-        { label: 'Output', value: totals.output_tokens },
-        { label: 'Cache read', value: totals.cache_read_tokens },
-        { label: 'Cache write', value: totals.cache_write_tokens },
-        { label: 'API calls', value: totals.call_count },
+        { label: t('usage.totalTokens'), value: totals.total_tokens },
+        { label: t('usage.input'), value: totals.input_tokens },
+        { label: t('usage.output'), value: totals.output_tokens },
+        { label: t('usage.cacheRead'), value: totals.cache_read_tokens },
+        { label: t('usage.cacheWrite'), value: totals.cache_write_tokens },
+        { label: t('usage.apiCalls'), value: totals.call_count },
       ]
     : [];
 
   return (
     <section className="card">
       <div className="page__header">
-        <h2 className="page__title">Token usage</h2>
+        <h2 className="page__title">{t('usage.title')}</h2>
         <button type="button" className="btn btn--ghost" onClick={() => void load()}>
-          Refresh
+          {t('refresh')}
         </button>
       </div>
-      <p className="muted">
-        LLM token usage across all users. Captured on every provider call (SQL generation,
-        result summaries, and suggested questions).
-      </p>
+      <p className="muted">{t('usage.description')}</p>
 
       <div className="audit-filters">
         <label className="field field--inline">
-          <span>From</span>
+          <span>{t('usage.from')}</span>
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
         </label>
         <label className="field field--inline">
-          <span>To</span>
+          <span>{t('usage.to')}</span>
           <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
         </label>
       </div>
@@ -100,9 +99,9 @@ export default function AdminTokenUsageSection() {
       <ErrorBanner message={error} />
 
       {loading ? (
-        <Spinner label="Loading token usage…" />
+        <Spinner label={t('usage.loading')} />
       ) : !report || report.totals.call_count === 0 ? (
-        <p className="muted">No token usage recorded for this period yet.</p>
+        <p className="muted">{t('usage.empty')}</p>
       ) : (
         <>
           <dl className="status-grid">
@@ -114,7 +113,7 @@ export default function AdminTokenUsageSection() {
             ))}
           </dl>
 
-          <h3 className="usage-subhead">Tokens per day</h3>
+          <h3 className="usage-subhead">{t('usage.tokensPerDay')}</h3>
           <div className="usage-chart">
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={report.daily} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
@@ -124,7 +123,7 @@ export default function AdminTokenUsageSection() {
                 <Tooltip formatter={(v: number) => numberFormat.format(v)} />
                 <Bar
                   dataKey="total_tokens"
-                  name="Total tokens"
+                  name={t('usage.totalTokens')}
                   fill={CHART_COLOR}
                   radius={[4, 4, 0, 0]}
                 />
@@ -132,9 +131,13 @@ export default function AdminTokenUsageSection() {
             </ResponsiveContainer>
           </div>
 
-          <UsageBreakdown title="By user" head="User" rows={report.by_user} />
-          <UsageBreakdown title="By model" head="Model" rows={report.by_model} />
-          <UsageBreakdown title="By provider" head="Provider" rows={report.by_provider} />
+          <UsageBreakdown title={t('usage.byUser')} head={t('usage.headUser')} rows={report.by_user} />
+          <UsageBreakdown title={t('usage.byModel')} head={t('usage.headModel')} rows={report.by_model} />
+          <UsageBreakdown
+            title={t('usage.byProvider')}
+            head={t('usage.headProvider')}
+            rows={report.by_provider}
+          />
         </>
       )}
     </section>
@@ -150,6 +153,7 @@ function UsageBreakdown({
   head: string;
   rows: UsageByKey[];
 }) {
+  const { t } = useTranslation('admin');
   if (rows.length === 0) return null;
   return (
     <>
@@ -159,12 +163,12 @@ function UsageBreakdown({
           <thead>
             <tr>
               <th>{head}</th>
-              <th>Input</th>
-              <th>Output</th>
-              <th>Cache read</th>
-              <th>Cache write</th>
-              <th>Total</th>
-              <th>Calls</th>
+              <th>{t('usage.colInput')}</th>
+              <th>{t('usage.colOutput')}</th>
+              <th>{t('usage.colCacheRead')}</th>
+              <th>{t('usage.colCacheWrite')}</th>
+              <th>{t('usage.colTotal')}</th>
+              <th>{t('usage.colCalls')}</th>
             </tr>
           </thead>
           <tbody>

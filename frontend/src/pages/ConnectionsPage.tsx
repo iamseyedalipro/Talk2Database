@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   createConnection,
   deleteConnection,
@@ -36,6 +37,7 @@ const emptyForm = (): FormState => ({
  * databases here; the Ask page then queries the selected one live and read-only.
  */
 export default function ConnectionsPage() {
+  const { t } = useTranslation('connections');
   const currentUser = useAuthStore((s) => s.user);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -124,12 +126,12 @@ export default function ConnectionsPage() {
 
   const handleTest = async (id: number) => {
     setTestingId(id);
-    setTestResult((prev) => ({ ...prev, [id]: 'Testing…' }));
+    setTestResult((prev) => ({ ...prev, [id]: t('testing') }));
     try {
       const res = await testConnection(id);
       setTestResult((prev) => ({
         ...prev,
-        [id]: res.ok ? '✓ Reachable' : `✗ ${res.message ?? 'Unreachable'}`,
+        [id]: res.ok ? t('reachable') : `✗ ${res.message ?? t('unreachable')}`,
       }));
     } catch (err) {
       setTestResult((prev) => ({ ...prev, [id]: `✗ ${errorMessage(err)}` }));
@@ -139,7 +141,7 @@ export default function ConnectionsPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Delete this connection? Its cached schema is removed too.')) return;
+    if (!window.confirm(t('deleteConfirm'))) return;
     try {
       await deleteConnection(id);
       if (editingId === id) resetForm();
@@ -155,28 +157,25 @@ export default function ConnectionsPage() {
   return (
     <div className="page">
       <section className="card">
-        <h1 className="page__title">Connections</h1>
-        <p className="muted">
-          Connect to your own databases. Queries run live and read-only — for the strongest
-          safety, point each connection at a read-only database user.
-        </p>
+        <h1 className="page__title">{t('title')}</h1>
+        <p className="muted">{t('subtitle')}</p>
 
         <ErrorBanner message={loadError} />
 
         {connections.length === 0 ? (
-          <p className="muted">No connections yet. Add one below to start asking questions.</p>
+          <p className="muted">{t('emptyState')}</p>
         ) : (
           <div className="table-scroll">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Type</th>
-                  <th>Host</th>
-                  <th>Database</th>
-                  <th>User</th>
-                  <th>Created</th>
-                  <th>Test</th>
+                  <th>{t('colName')}</th>
+                  <th>{t('colType')}</th>
+                  <th>{t('colHost')}</th>
+                  <th>{t('colDatabase')}</th>
+                  <th>{t('colUser')}</th>
+                  <th>{t('colCreated')}</th>
+                  <th>{t('colTest')}</th>
                   <th />
                 </tr>
               </thead>
@@ -187,7 +186,7 @@ export default function ConnectionsPage() {
                       {c.name}
                       {!canManage(c) && (
                         <span className="pill pill--neutral" style={{ marginLeft: 8 }}>
-                          Shared
+                          {t('sharedPill')}
                         </span>
                       )}
                     </td>
@@ -205,7 +204,7 @@ export default function ConnectionsPage() {
                         onClick={() => handleTest(c.id)}
                         disabled={testingId === c.id}
                       >
-                        Test
+                        {t('test')}
                       </button>
                       {testResult[c.id] && (
                         <span className="muted" style={{ marginLeft: 8 }}>
@@ -221,18 +220,18 @@ export default function ConnectionsPage() {
                             className="btn btn--ghost"
                             onClick={() => startEdit(c)}
                           >
-                            Edit
+                            {t('edit')}
                           </button>
                           <button
                             type="button"
                             className="btn btn--ghost"
                             onClick={() => handleDelete(c.id)}
                           >
-                            Delete
+                            {t('delete')}
                           </button>
                         </>
                       ) : (
-                        <span className="muted">Read-only</span>
+                        <span className="muted">{t('readOnly')}</span>
                       )}
                     </td>
                   </tr>
@@ -244,19 +243,19 @@ export default function ConnectionsPage() {
       </section>
 
       <section className="card">
-        <h2 className="page__title">{editingId !== null ? 'Edit connection' : 'Add a connection'}</h2>
+        <h2 className="page__title">{editingId !== null ? t('editTitle') : t('addTitle')}</h2>
         <form className="connection-form" onSubmit={handleSubmit}>
           <label>
-            Name
+            {t('name')}
             <input
               value={form.name}
               onChange={(e) => update('name', e.target.value)}
               required
-              placeholder="Production analytics"
+              placeholder={t('namePlaceholder')}
             />
           </label>
           <label>
-            Type
+            {t('type')}
             <select
               value={form.type}
               onChange={(e) => {
@@ -274,7 +273,7 @@ export default function ConnectionsPage() {
             </select>
           </label>
           <label>
-            Host
+            {t('host')}
             <input
               value={form.host}
               onChange={(e) => update('host', e.target.value)}
@@ -283,7 +282,7 @@ export default function ConnectionsPage() {
             />
           </label>
           <label>
-            Port
+            {t('port')}
             <input
               type="number"
               value={form.port}
@@ -294,7 +293,7 @@ export default function ConnectionsPage() {
             />
           </label>
           <label>
-            Database
+            {t('database')}
             <input
               value={form.database}
               onChange={(e) => update('database', e.target.value)}
@@ -302,7 +301,7 @@ export default function ConnectionsPage() {
             />
           </label>
           <label>
-            Username
+            {t('username')}
             <input
               value={form.username}
               onChange={(e) => update('username', e.target.value)}
@@ -310,21 +309,21 @@ export default function ConnectionsPage() {
             />
           </label>
           <label>
-            Password
+            {t('password')}
             <input
               type="password"
               value={form.password}
               onChange={(e) => update('password', e.target.value)}
-              placeholder={editingId !== null ? 'leave blank to keep current' : ''}
+              placeholder={editingId !== null ? t('passwordKeepPlaceholder') : ''}
             />
           </label>
           {form.type === 'postgres' && (
             <label>
-              Schemas
+              {t('schemas')}
               <input
                 value={form.schemas}
                 onChange={(e) => update('schemas', e.target.value)}
-                placeholder="auto-discover (leave blank, or: public, sales, …)"
+                placeholder={t('schemasPlaceholder')}
               />
             </label>
           )}
@@ -333,11 +332,11 @@ export default function ConnectionsPage() {
 
           <div className="ask-form__actions">
             <button type="submit" className="btn btn--primary" disabled={saving}>
-              {saving ? 'Saving…' : editingId !== null ? 'Save changes' : 'Add connection'}
+              {saving ? t('saving') : editingId !== null ? t('saveChanges') : t('addConnection')}
             </button>
             {editingId !== null && (
               <button type="button" className="btn btn--ghost" onClick={resetForm}>
-                Cancel
+                {t('cancel')}
               </button>
             )}
           </div>

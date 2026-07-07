@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   deleteSavedQuery,
   listSavedQueries,
@@ -24,6 +25,7 @@ interface EditState {
  * can manage, rename / toggle sharing / delete.
  */
 export default function SavedQueriesPage() {
+  const { t } = useTranslation('saved');
   const isAdmin = useAuthStore((s) => s.user?.role === 'admin');
   const canManage = (item: SavedQuery) => item.is_owner || (isAdmin && item.shared);
 
@@ -71,7 +73,7 @@ export default function SavedQueriesPage() {
   };
 
   const handleDelete = async (item: SavedQuery) => {
-    if (!window.confirm(`Delete saved query “${item.name}”?`)) return;
+    if (!window.confirm(t('deleteConfirm', { name: item.name }))) return;
     setRunError(null);
     try {
       await deleteSavedQuery(item.id);
@@ -100,37 +102,33 @@ export default function SavedQueriesPage() {
     <div className="page">
       <section className="card">
         <div className="page__header">
-          <h1 className="page__title">Saved queries</h1>
+          <h1 className="page__title">{t('title')}</h1>
           <button type="button" className="btn btn--ghost" onClick={() => void load()}>
-            Refresh
+            {t('refresh')}
           </button>
         </div>
 
-        <p className="muted">
-          Re-run a vetted query without re-asking the AI. Shared queries are visible to everyone.
-        </p>
+        <p className="muted">{t('subtitle')}</p>
 
         <ErrorBanner message={listError} />
         <ErrorBanner message={runError} />
 
         {loading ? (
-          <Spinner label="Loading saved queries…" />
+          <Spinner label={t('loading')} />
         ) : items.length === 0 ? (
-          <p className="muted">
-            No saved queries yet. Save one from the Ask page or your query history.
-          </p>
+          <p className="muted">{t('emptyState')}</p>
         ) : (
           <div className="table-scroll">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Question</th>
-                  <th>SQL</th>
-                  <th>Shared</th>
-                  <th>Owner</th>
-                  <th>Created</th>
-                  <th aria-label="Actions" />
+                  <th>{t('colName')}</th>
+                  <th>{t('colQuestion')}</th>
+                  <th>{t('colSql')}</th>
+                  <th>{t('colShared')}</th>
+                  <th>{t('colOwner')}</th>
+                  <th>{t('colCreated')}</th>
+                  <th aria-label={t('actions')} />
                 </tr>
               </thead>
               <tbody>
@@ -142,7 +140,7 @@ export default function SavedQueriesPage() {
                           type="text"
                           value={edit.name}
                           onChange={(e) => setEdit({ ...edit, name: e.target.value })}
-                          aria-label="Saved query name"
+                          aria-label={t('nameAria')}
                         />
                       ) : (
                         item.name
@@ -158,16 +156,16 @@ export default function SavedQueriesPage() {
                           type="checkbox"
                           checked={edit.shared}
                           onChange={(e) => setEdit({ ...edit, shared: e.target.checked })}
-                          aria-label="Shared"
+                          aria-label={t('sharedAria')}
                         />
                       ) : item.shared ? (
-                        <span className="pill pill--ok">shared</span>
+                        <span className="pill pill--ok">{t('sharedPill')}</span>
                       ) : (
-                        <span className="pill pill--neutral">private</span>
+                        <span className="pill pill--neutral">{t('privatePill')}</span>
                       )}
                     </td>
                     <td title={item.owner_email ?? ''}>
-                      {item.is_owner ? 'You' : (item.owner_email ?? '—')}
+                      {item.is_owner ? t('you') : (item.owner_email ?? '—')}
                     </td>
                     <td>{formatDate(item.created_at)}</td>
                     <td className="row-actions">
@@ -179,14 +177,14 @@ export default function SavedQueriesPage() {
                             onClick={() => void handleSaveEdit()}
                             disabled={!edit.name.trim()}
                           >
-                            Save
+                            {t('save')}
                           </button>
                           <button
                             type="button"
                             className="btn btn--small btn--ghost"
                             onClick={() => setEdit(null)}
                           >
-                            Cancel
+                            {t('cancel')}
                           </button>
                         </>
                       ) : (
@@ -197,7 +195,7 @@ export default function SavedQueriesPage() {
                             onClick={() => void handleRun(item)}
                             disabled={runningId === item.id}
                           >
-                            {runningId === item.id ? 'Running…' : 'Run'}
+                            {runningId === item.id ? t('running') : t('run')}
                           </button>
                           {canManage(item) && (
                             <>
@@ -208,14 +206,14 @@ export default function SavedQueriesPage() {
                                   setEdit({ id: item.id, name: item.name, shared: item.shared })
                                 }
                               >
-                                Edit
+                                {t('edit')}
                               </button>
                               <button
                                 type="button"
                                 className="btn btn--small btn--danger"
                                 onClick={() => void handleDelete(item)}
                               >
-                                Delete
+                                {t('delete')}
                               </button>
                             </>
                           )}
@@ -232,7 +230,7 @@ export default function SavedQueriesPage() {
 
       {result && (
         <section className="card">
-          <h2 className="page__title">Result</h2>
+          <h2 className="page__title">{t('resultTitle')}</h2>
           <ResultsView result={result} question={activeQuestion} />
         </section>
       )}

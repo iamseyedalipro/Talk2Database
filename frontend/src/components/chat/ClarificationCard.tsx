@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { AskResponse } from '../../api/types';
 
 interface Props {

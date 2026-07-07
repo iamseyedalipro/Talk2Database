@@ -1,0 +1,29 @@
+{
+  "views": {
+    "table": "Table",
+    "bar": "Bar",
+    "hbar": "H-Bar",
+    "line": "Line",
+    "area": "Area",
+    "pie": "Pie",
+    "scatter": "Scatter"
+  },
+  "resultView": "Result view",
+  "explaining": "Explaining…",
+  "explainResults": "Explain results",
+  "preparing": "Preparing…",
+  "downloadCsv": "Download CSV",
+  "summarizing": "Summarizing results…",
+  "rows_one": "{{count}} row",
+  "rows_other": "{{count}} rows",
+  "elapsedMs": "{{value}} ms",
+  "truncated": "truncated",
+  "truncatedTitle": "Result was truncated to the row limit",
+  "noRows": "No rows returned.",
+  "xAxis": "X axis",
+  "xAxisNumeric": "X axis (numeric)",
+  "yAxisNumeric": "Y axis (numeric)",
+  "nothingToChart": "Nothing to chart.",
+  "noNumericSingle": "No numeric values to plot for the selected column. Pick a numeric column.",
+  "noNumericPlural": "No numeric values to plot for the selected columns. Pick a numeric column."
+}

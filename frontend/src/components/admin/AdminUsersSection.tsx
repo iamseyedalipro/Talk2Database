@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { deleteUser, inviteUser, listUsers } from '../../api/endpoints';
 import type { InviteResponse, Role, User } from '../../api/types';
 import { useAuthStore } from '../../store/auth';
@@ -7,6 +8,7 @@ import { ErrorBanner, InfoBanner, Spinner } from '../ui';
 
 /** Users table with delete buttons and an invite form. */
 export default function AdminUsersSection() {
+  const { t } = useTranslation('admin');
   const currentUser = useAuthStore((s) => s.user);
 
   const [users, setUsers] = useState<User[]>([]);
@@ -59,7 +61,7 @@ export default function AdminUsersSection() {
 
   const handleDelete = async (user: User) => {
     setRowError(null);
-    if (!window.confirm(`Delete ${user.email}? This cannot be undone.`)) return;
+    if (!window.confirm(t('users.confirmDelete', { email: user.email }))) return;
     setDeletingId(user.id);
     try {
       await deleteUser(user.id);
@@ -84,9 +86,9 @@ export default function AdminUsersSection() {
   return (
     <section className="card">
       <div className="page__header">
-        <h2 className="page__title">Users</h2>
+        <h2 className="page__title">{t('users.title')}</h2>
         <button type="button" className="btn btn--ghost" onClick={() => void load()}>
-          Refresh
+          {t('refresh')}
         </button>
       </div>
 
@@ -94,18 +96,18 @@ export default function AdminUsersSection() {
       <ErrorBanner message={rowError} />
 
       {loading ? (
-        <Spinner label="Loading users…" />
+        <Spinner label={t('users.loading')} />
       ) : (
         <div className="table-scroll">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Active</th>
-                <th>Created</th>
-                <th>Last login</th>
-                <th aria-label="Actions" />
+                <th>{t('users.colEmail')}</th>
+                <th>{t('users.colRole')}</th>
+                <th>{t('users.colActive')}</th>
+                <th>{t('users.colCreated')}</th>
+                <th>{t('users.colLastLogin')}</th>
+                <th aria-label={t('users.colActions')} />
               </tr>
             </thead>
             <tbody>
@@ -114,10 +116,10 @@ export default function AdminUsersSection() {
                   <td>{user.email}</td>
                   <td>
                     <span className={`pill pill--${user.role === 'admin' ? 'busy' : 'neutral'}`}>
-                      {user.role}
+                      {t(user.role === 'admin' ? 'users.roleAdmin' : 'users.roleUser')}
                     </span>
                   </td>
-                  <td>{user.is_active ? 'yes' : 'no'}</td>
+                  <td>{user.is_active ? t('users.activeYes') : t('users.activeNo')}</td>
                   <td>{formatDate(user.created_at)}</td>
                   <td>{formatDate(user.last_login_at)}</td>
                   <td className="row-actions">
@@ -126,11 +128,13 @@ export default function AdminUsersSection() {
                       className="btn btn--small btn--danger"
                       disabled={deletingId === user.id || user.id === currentUser?.id}
                       title={
-                        user.id === currentUser?.id ? 'You cannot delete your own account' : 'Delete user'
+                        user.id === currentUser?.id
+                          ? t('users.cannotDeleteSelf')
+                          : t('users.deleteUser')
                       }
                       onClick={() => void handleDelete(user)}
                     >
-                      {deletingId === user.id ? '…' : 'Delete'}
+                      {deletingId === user.id ? '…' : t('users.delete')}
                     </button>
                   </td>
                 </tr>
@@ -141,10 +145,10 @@ export default function AdminUsersSection() {
       )}
 
       <div className="subsection">
-        <h3>Invite a user</h3>
+        <h3>{t('users.inviteTitle')}</h3>
         <form className="invite-form" onSubmit={handleInvite}>
           <label className="field">
-            <span>Email</span>
+            <span>{t('users.emailLabel')}</span>
             <input
               type="email"
               required
@@ -153,14 +157,14 @@ export default function AdminUsersSection() {
             />
           </label>
           <label className="field">
-            <span>Role</span>
+            <span>{t('users.roleLabel')}</span>
             <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value as Role)}>
-              <option value="user">user</option>
-              <option value="admin">admin</option>
+              <option value="user">{t('users.roleUser')}</option>
+              <option value="admin">{t('users.roleAdmin')}</option>
             </select>
           </label>
           <button type="submit" className="btn btn--primary" disabled={inviting}>
-            {inviting ? 'Creating…' : 'Create invite'}
+            {inviting ? t('users.creating') : t('users.createInvite')}
           </button>
         </form>
 
@@ -170,13 +174,21 @@ export default function AdminUsersSection() {
           <InfoBanner>
             <div className="invite-result">
               <p>
-                Invite created for <strong>{invite.email}</strong> ({invite.role}). Share this link
-                so they can register — it expires {formatDate(invite.expires_at)}.
+                <Trans
+                  t={t}
+                  i18nKey="users.inviteCreated"
+                  values={{
+                    email: invite.email,
+                    role: invite.role,
+                    expires: formatDate(invite.expires_at),
+                  }}
+                  components={{ strong: <strong /> }}
+                />
               </p>
               <div className="invite-result__url">
                 <input type="text" readOnly value={invite.accept_url} onFocus={(e) => e.target.select()} />
                 <button type="button" className="btn btn--secondary" onClick={() => void copyAcceptUrl()}>
-                  {copied ? 'Copied!' : 'Copy'}
+                  {copied ? t('users.copied') : t('users.copy')}
                 </button>
               </div>
             </div>

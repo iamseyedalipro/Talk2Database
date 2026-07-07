@@ -1,0 +1,10 @@
+{
+  "title": "Save query",
+  "subtitle": "Bookmark this query to re-run it later without re-asking the AI.",
+  "name": "Name",
+  "namePlaceholder": "e.g. Orders per day (last 30d)",
+  "shareLabel": "Share with everyone (visible to all panel users)",
+  "cancel": "Cancel",
+  "saving": "Saving…",
+  "save": "Save"
+}
