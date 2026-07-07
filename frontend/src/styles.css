@@ -224,6 +224,14 @@ code {
   padding: 1.5rem 1.25rem 3rem;
 }
 
+/* Full-width pages (e.g. a single dashboard's widget grid) break out of the
+   1100px reading column so their content can span the whole screen. */
+.app-main--wide {
+  max-width: none;
+  padding-left: clamp(1.25rem, 3vw, 3rem);
+  padding-right: clamp(1.25rem, 3vw, 3rem);
+}
+
 .app-footer {
   border-top: 1px solid var(--border);
   padding: 1rem 1.25rem;

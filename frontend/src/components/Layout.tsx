@@ -44,6 +44,11 @@ export default function Layout() {
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     isActive ? 'nav-link nav-link--active' : 'nav-link';
 
+  // A single dashboard (/dashboards/:id) is a drag-and-resize grid; let it use
+  // the full page width instead of the 1100px reading column so widgets can be
+  // arranged across the whole screen.
+  const isDashboardDetail = /^\/dashboards\/[^/]+$/.test(location.pathname);
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -134,7 +139,7 @@ export default function Layout() {
           </div>
         </div>
       </header>
-      <main className="app-main">
+      <main className={isDashboardDetail ? 'app-main app-main--wide' : 'app-main'}>
         {/* Keyed on the path so navigating to a new page clears a prior crash. */}
         <ErrorBoundary key={location.pathname}>
           <Outlet />
