@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { clarityAvailability, listConnections, runAnalysis } from '../api/endpoints';
 import type { AnalysisResponse, ClarityAvailability, Connection } from '../api/types';
@@ -12,6 +13,7 @@ import { errorMessage } from '../utils/format';
  * that data — along with every SQL query the AI ran to reach it.
  */
 export default function AnalysisPage() {
+  const { t } = useTranslation('analysis');
   const [connections, setConnections] = useState<Connection[]>([]);
   const [clarity, setClarity] = useState<ClarityAvailability | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -69,17 +71,14 @@ export default function AnalysisPage() {
   return (
     <div className="page">
       <section className="card">
-        <h1 className="page__title">Analysis</h1>
-        <p className="muted">
-          Ask an analytical question — e.g. “why don’t users click on any podcast?” — and get an
-          answer grounded in your data. The AI may run a few read-only queries to find evidence.
-        </p>
+        <h1 className="page__title">{t('title')}</h1>
+        <p className="muted">{t('intro')}</p>
 
         <ErrorBanner message={loadError} />
 
         <form className="ask-form" onSubmit={handleSubmit}>
           <fieldset className="analysis-sources">
-            <legend>Data sources</legend>
+            <legend>{t('dataSources')}</legend>
             <label className="analysis-source">
               <input
                 type="checkbox"
@@ -91,11 +90,13 @@ export default function AnalysisPage() {
                 Microsoft Clarity{' '}
                 {clarity?.available ? (
                   <span className="muted">
-                    (data through {clarity.latest_data_date}, {clarity.days_stored} day
-                    {clarity.days_stored === 1 ? '' : 's'} stored)
+                    {t('clarityStored', {
+                      date: clarity.latest_data_date,
+                      count: clarity.days_stored,
+                    })}
                   </span>
                 ) : (
-                  <span className="muted">(no data stored yet — configure it in Admin)</span>
+                  <span className="muted">{t('clarityUnavailable')}</span>
                 )}
               </span>
             </label>
@@ -113,30 +114,33 @@ export default function AnalysisPage() {
             ))}
             {connections.length === 0 && (
               <p className="muted">
-                No database connections yet. <Link to="/connections">Add one</Link> to analyze your
-                own data.
+                <Trans
+                  t={t}
+                  i18nKey="noConnections"
+                  components={{ link: <Link to="/connections" /> }}
+                />
               </p>
             )}
           </fieldset>
 
           <textarea
             className="ask-input"
-            placeholder="e.g. Why don't users click on any podcast?"
+            placeholder={t('questionPlaceholder')}
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             rows={4}
-            aria-label="Your analytical question"
+            aria-label={t('questionAria')}
           />
           <div className="ask-form__actions">
             <button
               type="submit"
               className="btn btn--primary"
               disabled={running || !question.trim() || noSources}
-              title={noSources ? 'Select at least one data source' : undefined}
+              title={noSources ? t('selectSource') : undefined}
             >
-              {running ? 'Analyzing…' : 'Analyze'}
+              {running ? t('analyzing') : t('analyze')}
             </button>
-            {running && <Spinner label="Gathering data and reasoning…" />}
+            {running && <Spinner label={t('gathering')} />}
           </div>
         </form>
 
@@ -145,7 +149,7 @@ export default function AnalysisPage() {
 
       {result && (
         <section className="card">
-          <h2 className="page__title">Answer</h2>
+          <h2 className="page__title">{t('answer')}</h2>
           {result.warnings.map((w) => (
             <p key={w} className="muted">
               ⚠ {w}
@@ -163,22 +167,21 @@ export default function AnalysisPage() {
                 className="btn btn--ghost"
                 onClick={() => setShowSteps((s) => !s)}
               >
-                {showSteps ? 'Hide' : 'Show'} the {result.steps.length} quer
-                {result.steps.length === 1 ? 'y' : 'ies'} the AI ran
+                {t(showSteps ? 'hideSteps' : 'showSteps', { count: result.steps.length })}
               </button>
               {showSteps && (
                 <ol className="analysis-steps">
                   {result.steps.map((step, i) => (
                     <li key={i} className="analysis-step">
                       <div className="muted">
-                        {step.connection_name ?? 'unknown connection'}
+                        {step.connection_name ?? t('unknownConnection')}
                         {step.purpose ? ` — ${step.purpose}` : ''}
                       </div>
                       <pre className="analysis-step__sql">{step.sql}</pre>
                       {step.error ? (
                         <div className="banner banner--error">{step.error}</div>
                       ) : (
-                        <div className="muted">{step.row_count ?? 0} row(s)</div>
+                        <div className="muted">{t('rows', { count: step.row_count ?? 0 })}</div>
                       )}
                     </li>
                   ))}

@@ -249,3 +249,71 @@ def test_cancel_mid_flow_leaves_no_history(harness) -> None:
     assert harness.session.rolled_back
     assert harness.session.added == []
     assert not harness.session.committed
+
+
+def test_chat_id_run_uses_history_and_persists_turn(
+    harness, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A session-bound run feeds stored history to the model and persists the
+    finished turn; final_result carries the chat bookkeeping fields."""
+
+    class RecordingProvider(FakeProvider):
+        def __init__(self, results: list[SqlGenerationResult]) -> None:
+            super().__init__(results)
+            self.seen_messages: list[list[ChatMessage]] = []
+
+        def generate_sql(self, *, messages, system_prompt, schema_block):
+            self.seen_messages.append(list(messages))
+            return super().generate_sql(
+                messages=messages, system_prompt=system_prompt, schema_block=schema_block
+            )
+
+    provider = RecordingProvider(
+        [SqlGenerationResult(status="ok", sql="SELECT amount FROM payments", explanation="e")]
+    )
+    harness.providers["provider"] = provider
+
+    chat = SimpleNamespace(
+        id=3, user_id=1, archived=False, connection_id=7, title="New chat", updated_at=None
+    )
+    history = [
+        {"role": "user", "content": "Question: list payments"},
+        {"role": "assistant", "content": '{"status": "ok", "sql": "SELECT * FROM payments"}'},
+    ]
+
+    async def fake_get_own_chat_session(_session, user_id, chat_id):
+        assert user_id == 1
+        assert chat_id == 3
+        return chat
+
+    async def fake_load_chat_context(_session, chat_id):
+        assert chat_id == 3
+        return history, None
+
+    monkeypatch.setattr(ask_ws_module, "get_own_chat_session", fake_get_own_chat_session)
+    monkeypatch.setattr(ask_ws_module, "load_chat_context", fake_load_chat_context)
+
+    with harness.client.websocket_connect("/api/ask/ws") as ws:
+        ws.send_json({**_start_message(), "chat_id": 3})
+        events = []
+        while True:
+            event = ws.receive_json()
+            events.append(event)
+            if event["type"] in {"final_result", "error", "cancelled"}:
+                break
+
+    final = events[-1]
+    assert final["type"] == "final_result"
+    assert final["status"] == "ok"
+    # The chat bookkeeping fields ride along with the final result.
+    assert final["session_title"] == "total payments?"
+    assert isinstance(final["user_message_id"], int)
+    assert isinstance(final["assistant_message_id"], int)
+    # The model saw the stored history before the new question.
+    sent = provider.seen_messages[0]
+    assert sent[0]["content"] == "Question: list payments"
+    assert sent[1]["role"] == "assistant"
+    assert "follow-up in an ongoing conversation" in sent[-1]["content"]
+    # QueryHistory + the two chat messages persisted, then committed.
+    assert harness.session.committed
+    assert len(harness.session.added) == 3

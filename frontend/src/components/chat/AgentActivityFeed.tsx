@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { AskActivityStep } from '../../api/types';
 
 interface Props {
@@ -8,37 +9,40 @@ interface Props {
   cancelled?: boolean;
 }
 
-function stepLabel(step: AskActivityStep): string {
+type Translate = (key: string, options?: Record<string, unknown>) => string;
+
+function stepLabel(step: AskActivityStep, t: Translate): string {
   switch (step.kind) {
     case 'status':
       return step.text;
     case 'tables_directory':
-      return `Scanned the table list (${step.count} table${step.count === 1 ? '' : 's'})`;
+      return t('activityScannedTables', { count: step.count });
     case 'tables_requested':
-      return `Requested details for: ${step.tables.join(', ') || '(none)'}`;
+      return t('activityRequestedDetails', { tables: step.tables.join(', ') || t('activityNone') });
     case 'table_details_sent':
-      return `Read table details: ${step.tables.join(', ') || '(none)'}`;
+      return t('activityReadDetails', { tables: step.tables.join(', ') || t('activityNone') });
     case 'note':
       return step.text;
     case 'query':
-      return step.purpose || 'Ran an exploratory query';
+      return step.purpose || t('activityRanQuery');
     case 'generating':
       return step.attempt > 1
-        ? `Writing the SQL (attempt ${step.attempt} of ${step.attempts})…`
-        : 'Writing the SQL…';
+        ? t('activityWritingSqlAttempt', { attempt: step.attempt, attempts: step.attempts })
+        : t('activityWritingSql');
     case 'retry':
       return step.reason === 'guard_rejected'
-        ? 'The draft was not a single read-only SELECT — retrying'
-        : 'The draft referenced unknown tables/columns — retrying';
+        ? t('activityRetryGuard')
+        : t('activityRetryIdentifiers');
   }
 }
 
 /** One exploratory query with collapsible SQL and a small result preview. */
 function QueryStep({ step }: { step: Extract<AskActivityStep, { kind: 'query' }> }) {
+  const { t } = useTranslation('chat');
   return (
     <>
       <details className="activity-feed__query">
-        <summary>View SQL</summary>
+        <summary>{t('activityViewSql')}</summary>
         <pre className="activity-feed__sql">{step.sql}</pre>
       </details>
       {step.error && <p className="activity-feed__error">⚠ {step.error}</p>}
@@ -63,8 +67,8 @@ function QueryStep({ step }: { step: Extract<AskActivityStep, { kind: 'query' }>
             </tbody>
           </table>
           <p className="muted">
-            {step.result.row_count} row{step.result.row_count === 1 ? '' : 's'}
-            {step.result.truncated ? ' (sample)' : ''}
+            {t('activityRows', { count: step.result.row_count })}
+            {step.result.truncated ? t('activitySampleSuffix') : ''}
           </p>
         </div>
       )}
@@ -77,6 +81,7 @@ function QueryStep({ step }: { step: Extract<AskActivityStep, { kind: 'query' }>
  * exploratory queries it ran (with row samples), and generation retries.
  */
 export default function AgentActivityFeed({ steps, pending, cancelled }: Props) {
+  const { t } = useTranslation('chat');
   if (steps.length === 0 && !pending && !cancelled) return null;
 
   return (
@@ -91,7 +96,7 @@ export default function AgentActivityFeed({ steps, pending, cancelled }: Props) 
               </span>
               <div className="activity-feed__body">
                 <span className={step.kind === 'note' ? 'activity-feed__note' : undefined}>
-                  {stepLabel(step)}
+                  {stepLabel(step, t)}
                 </span>
                 {step.kind === 'query' && <QueryStep step={step} />}
                 {step.kind === 'retry' && <p className="muted">{step.detail}</p>}
@@ -104,11 +109,11 @@ export default function AgentActivityFeed({ steps, pending, cancelled }: Props) 
             <span className="activity-feed__marker">
               <span className="activity-feed__spinner" />
             </span>
-            <div className="activity-feed__body">Starting…</div>
+            <div className="activity-feed__body">{t('activityStarting')}</div>
           </li>
         )}
       </ol>
-      {cancelled && <p className="activity-feed__cancelled">Stopped by you.</p>}
+      {cancelled && <p className="activity-feed__cancelled">{t('activityStopped')}</p>}
     </div>
   );
 }

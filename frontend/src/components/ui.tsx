@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 /** Inline error banner that surfaces server `detail` messages. */
 export function ErrorBanner({ message }: { message: string | null }) {
@@ -31,6 +32,7 @@ export function Spinner({ label }: { label?: string }) {
 
 /** Status pill used in history/imports tables. */
 export function StatusPill({ status }: { status: string }) {
+  const { t } = useTranslation('ui');
   const tone =
     status === 'success'
       ? 'ok'
@@ -39,5 +41,5 @@ export function StatusPill({ status }: { status: string }) {
         : status === 'running'
           ? 'busy'
           : 'neutral';
-  return <span className={`pill pill--${tone}`}>{status}</span>;
+  return <span className={`pill pill--${tone}`}>{t(`status.${status}`, { defaultValue: status })}</span>;
 }

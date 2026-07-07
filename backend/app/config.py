@@ -71,6 +71,17 @@ class Settings(BaseSettings):
     ask_analysis_max_rounds: int = 8  # max provider round-trips in the analysis loop
     ask_analysis_max_queries: int = 5  # max exploratory queries per question
 
+    # -- Chat sessions ------------------------------------------------------ #
+    # How much conversation history a follow-up question carries to the model.
+    chat_history_max_turns: int = 8  # last N user+assistant pairs
+    chat_history_max_chars: int = 12000  # drop oldest pairs beyond this budget
+    # Follow-up context may include a small sample of previously-executed result
+    # rows (better refinements, e.g. "why is this value zero?"). This sends row
+    # data to the AI provider — disable to keep the strict no-row-data promise.
+    chat_context_sample_rows_enabled: bool = True
+    chat_result_sample_rows: int = 5  # rows kept per executed result
+    chat_result_sample_cell_chars: int = 200  # per-cell truncation in the sample
+
     # -- Schema cost control ---------------------------------------------- #
     schema_max_tokens: int = 6000
     # Default namespace/table scoping. A connection may override these in its

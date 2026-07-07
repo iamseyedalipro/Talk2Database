@@ -5,6 +5,12 @@ import { defineConfig } from 'vite';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  define: {
+    // react-draggable (used by react-grid-layout) reads process.env.DRAGGABLE_DEBUG
+    // when a drag starts; without this define the bare `process` reference throws
+    // in the browser and every dashboard drag/resize silently aborts.
+    'process.env.DRAGGABLE_DEBUG': 'false',
+  },
   server: {
     port: 5173,
     proxy: {

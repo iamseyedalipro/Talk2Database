@@ -69,7 +69,7 @@ def _settings(**overrides: Any) -> Settings:
     return Settings(ai_api_key="test", **overrides)
 
 
-async def _run(provider: FakeProvider, settings: Settings | None = None):
+async def _run(provider: FakeProvider, settings: Settings | None = None, **kwargs: Any):
     return await generate_with_verification(
         provider=provider,
         connector=FakeConnector(),
@@ -77,6 +77,7 @@ async def _run(provider: FakeProvider, settings: Settings | None = None):
         full_schema=SCHEMA,
         selected_text="TABLE payments",
         settings=settings or _settings(),
+        **kwargs,
     )
 
 

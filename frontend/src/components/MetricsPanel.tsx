@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createMetric, deleteMetric, updateMetric } from '../api/endpoints';
 import type { Metric } from '../api/types';
 import { errorMessage } from '../utils/format';
@@ -26,6 +27,7 @@ const EMPTY: Draft = { id: null, name: '', definition: '', expression: '' };
  * agreed-upon SQL.
  */
 export default function MetricsPanel({ connectionId, metrics, onChange }: Props) {
+  const { t } = useTranslation('browse');
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -52,7 +54,7 @@ export default function MetricsPanel({ connectionId, metrics, onChange }: Props)
   };
 
   const remove = async (metric: Metric) => {
-    if (!window.confirm(`Delete metric “${metric.name}”?`)) return;
+    if (!window.confirm(t('deleteMetricConfirm', { name: metric.name }))) return;
     setError(null);
     try {
       await deleteMetric(connectionId, metric.id);
@@ -65,10 +67,10 @@ export default function MetricsPanel({ connectionId, metrics, onChange }: Props)
   return (
     <div className="metrics-panel">
       <div className="metrics-panel__head">
-        <h3 className="metrics-panel__title">Metrics</h3>
+        <h3 className="metrics-panel__title">{t('metrics')}</h3>
         {!draft && (
           <button type="button" className="btn btn--small" onClick={() => setDraft({ ...EMPTY })}>
-            Add
+            {t('add')}
           </button>
         )}
       </div>
@@ -79,24 +81,24 @@ export default function MetricsPanel({ connectionId, metrics, onChange }: Props)
         <div className="metrics-panel__form">
           <input
             type="text"
-            placeholder="Name (e.g. MRR)"
+            placeholder={t('metricNamePlaceholder')}
             value={draft.name}
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            aria-label="Metric name"
+            aria-label={t('metricName')}
           />
           <textarea
-            placeholder="Definition (plain language)"
+            placeholder={t('metricDefinitionPlaceholder')}
             value={draft.definition}
             onChange={(e) => setDraft({ ...draft, definition: e.target.value })}
             rows={2}
-            aria-label="Metric definition"
+            aria-label={t('metricDefinition')}
           />
           <input
             type="text"
-            placeholder="SQL expression (optional)"
+            placeholder={t('metricExpressionPlaceholder')}
             value={draft.expression}
             onChange={(e) => setDraft({ ...draft, expression: e.target.value })}
-            aria-label="Metric SQL expression"
+            aria-label={t('metricExpression')}
           />
           <div className="metrics-panel__form-actions">
             <button
@@ -105,21 +107,21 @@ export default function MetricsPanel({ connectionId, metrics, onChange }: Props)
               onClick={() => void save()}
               disabled={busy || !draft.name.trim() || !draft.definition.trim()}
             >
-              {busy ? 'Saving…' : 'Save'}
+              {busy ? t('saving') : t('save')}
             </button>
             <button
               type="button"
               className="btn btn--small btn--ghost"
               onClick={() => setDraft(null)}
             >
-              Cancel
+              {t('cancel')}
             </button>
           </div>
         </div>
       )}
 
       {metrics.length === 0 && !draft ? (
-        <p className="muted metrics-panel__empty">No metrics defined yet.</p>
+        <p className="muted metrics-panel__empty">{t('noMetrics')}</p>
       ) : (
         <ul className="metrics-panel__list">
           {metrics.map((m) => (
@@ -139,14 +141,14 @@ export default function MetricsPanel({ connectionId, metrics, onChange }: Props)
                       })
                     }
                   >
-                    Edit
+                    {t('edit')}
                   </button>
                   <button
                     type="button"
                     className="btn btn--small btn--danger"
                     onClick={() => void remove(m)}
                   >
-                    Delete
+                    {t('delete')}
                   </button>
                 </span>
               </div>

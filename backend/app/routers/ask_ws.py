@@ -5,7 +5,11 @@ Protocol (JSON messages, discriminated by ``type``):
 - client -> server: ``{"type": "start", "token", "connection_id", "question"}``
   (first message; the browser cannot send an Authorization header, so the JWT
   travels here instead of in the URL, keeping it out of access logs), then
-  optionally ``{"type": "cancel"}``.
+  optionally ``{"type": "cancel"}``. ``start`` may also carry a ``chat_id``:
+  the run then belongs to that chat session — its stored history feeds the
+  model and the finished turn is persisted, exactly like
+  ``POST /chats/{id}/ask`` (the ``final_result`` event additionally carries
+  ``user_message_id``, ``assistant_message_id``, and ``session_title``).
 - server -> client: progress events from the flow (``run_started``, ``status``,
   ``tables_directory``, ``tables_requested``, ``table_details_sent``,
   ``assistant_note``, ``exploratory_query``, ``query_result``,
@@ -29,6 +33,12 @@ from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 
 from app.deps import SessionDep, resolve_user_from_token
 from app.services.ask_flow import AskFlowError, run_ask_flow
+from app.services.chat_context import (
+    get_own_chat_session,
+    load_chat_context,
+    persist_chat_turn,
+    require_askable,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +89,7 @@ async def ask_ws(websocket: WebSocket, session: SessionDep) -> None:
 
     question = str(raw.get("question") or "").strip()
     connection_id = raw.get("connection_id")
+    chat_id = raw.get("chat_id")
     if not question or not isinstance(connection_id, int):
         await _reject(
             websocket,
@@ -86,6 +97,9 @@ async def ask_ws(websocket: WebSocket, session: SessionDep) -> None:
             "bad_request",
             "'start' requires a non-empty question and an integer connection_id.",
         )
+        return
+    if chat_id is not None and not isinstance(chat_id, int):
+        await _reject(websocket, _CLOSE_BAD_REQUEST, "bad_request", "'chat_id' must be an integer.")
         return
 
     user = await resolve_user_from_token(session, str(raw.get("token") or ""))
@@ -114,17 +128,42 @@ async def ask_ws(websocket: WebSocket, session: SessionDep) -> None:
         never the sentinel — the coordinator owns shutdown ordering.
         """
         try:
-            outcome = await run_ask_flow(
-                session,
-                user,
-                connection_id=connection_id,
-                question=question,
-                emit=emit,
-            )
+            chat_fields: dict[str, Any] = {}
+            if chat_id is not None:
+                # A session-bound run: stored history feeds the model and the
+                # finished turn is persisted (same rules as POST /chats/{id}/ask).
+                chat = await get_own_chat_session(session, user.id, chat_id)
+                run_connection_id = require_askable(chat)
+                history, question_context = await load_chat_context(session, chat.id)
+                outcome = await run_ask_flow(
+                    session,
+                    user,
+                    connection_id=run_connection_id,
+                    question=question,
+                    history=history,
+                    question_context=question_context,
+                    emit=emit,
+                )
+                user_message_id, assistant_message_id = await persist_chat_turn(
+                    session, chat, question, outcome.response
+                )
+                chat_fields = {
+                    "user_message_id": user_message_id,
+                    "assistant_message_id": assistant_message_id,
+                    "session_title": chat.title,
+                }
+            else:
+                outcome = await run_ask_flow(
+                    session,
+                    user,
+                    connection_id=connection_id,
+                    question=question,
+                    emit=emit,
+                )
         except AskFlowError as exc:
             await session.rollback()
             await queue.put({"type": "error", "code": "ask_failed", "detail": exc.detail})
-        except HTTPException as exc:  # load_connector raises 403/404 directly
+        except HTTPException as exc:  # load_connector / chat lookup raise 403/404/409 directly
             await session.rollback()
             await queue.put({"type": "error", "code": "ask_failed", "detail": str(exc.detail)})
         except Exception:
@@ -135,7 +174,9 @@ async def ask_ws(websocket: WebSocket, session: SessionDep) -> None:
             )
         else:
             await session.commit()
-            await queue.put({"type": "final_result", **outcome.response.model_dump()})
+            await queue.put(
+                {"type": "final_result", **outcome.response.model_dump(), **chat_fields}
+            )
 
     async def watch_client() -> str:
         """Return 'cancel' on a cancel message, 'disconnect' when the socket dies."""

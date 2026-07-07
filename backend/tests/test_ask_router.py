@@ -146,6 +146,8 @@ def harness(monkeypatch: pytest.MonkeyPatch):
     async def fake_load_glossary(*_args: Any, **_kwargs: Any):
         return [], []
 
+    # The pipeline lives in services/ask_flow (shared by /ask, /ask/ws, and
+    # /chats/{id}/ask).
     monkeypatch.setattr(ask_flow_module, "load_connector", fake_load_connector)
     monkeypatch.setattr(ask_flow_module, "ensure_snapshot", fake_ensure_snapshot)
     monkeypatch.setattr(ask_flow_module, "load_glossary", fake_load_glossary)

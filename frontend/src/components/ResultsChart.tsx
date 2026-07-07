@@ -30,6 +30,10 @@ interface Props {
   /** AI-suggested initial axis columns; applied when they match real columns. */
   suggestedX?: string | null;
   suggestedY?: string | null;
+  /** Hide the X/Y dropdowns (dashboard widgets render with fixed axes). */
+  hideControls?: boolean;
+  /** Chart canvas height in px (default 360). */
+  height?: number;
 }
 
 interface ChartRow {
@@ -67,7 +71,14 @@ function toNumber(value: unknown): number | null {
  * chart. The user picks an X column and a Y column (numeric) from dropdowns built
  * from the result `columns`. Scatter treats X as numeric too.
  */
-export default function ResultsChart({ result, kind, suggestedX, suggestedY }: Props) {
+export default function ResultsChart({
+  result,
+  kind,
+  suggestedX,
+  suggestedY,
+  hideControls,
+  height = 360,
+}: Props) {
   const { columns, rows } = result;
 
   // Columns whose values are at least partly numeric are eligible for the Y axis
@@ -213,28 +224,30 @@ export default function ResultsChart({ result, kind, suggestedX, suggestedY }: P
 
   return (
     <div className="chart">
-      <div className="chart__controls">
-        <label className="field field--inline">
-          <span>{numericX ? 'X axis (numeric)' : 'X axis'}</span>
-          <select value={xName} onChange={(e) => setXName(e.target.value)}>
-            {xOptions.map((col) => (
-              <option key={col.name} value={col.name}>
-                {col.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field field--inline">
-          <span>Y axis (numeric)</span>
-          <select value={yName} onChange={(e) => setYName(e.target.value)}>
-            {(numericCols.length > 0 ? numericCols : columns).map((col) => (
-              <option key={col.name} value={col.name}>
-                {col.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      {!hideControls && (
+        <div className="chart__controls">
+          <label className="field field--inline">
+            <span>{numericX ? 'X axis (numeric)' : 'X axis'}</span>
+            <select value={xName} onChange={(e) => setXName(e.target.value)}>
+              {xOptions.map((col) => (
+                <option key={col.name} value={col.name}>
+                  {col.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field field--inline">
+            <span>Y axis (numeric)</span>
+            <select value={yName} onChange={(e) => setYName(e.target.value)}>
+              {(numericCols.length > 0 ? numericCols : columns).map((col) => (
+                <option key={col.name} value={col.name}>
+                  {col.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
 
       {data.length === 0 ? (
         <p className="muted">
@@ -243,7 +256,7 @@ export default function ResultsChart({ result, kind, suggestedX, suggestedY }: P
         </p>
       ) : (
         <div className="chart__canvas">
-          <ResponsiveContainer width="100%" height={360}>
+          <ResponsiveContainer width="100%" height={height}>
             {renderChart()}
           </ResponsiveContainer>
         </div>

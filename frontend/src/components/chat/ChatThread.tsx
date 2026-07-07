@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { AskActivityStep, AskResponse, ExecuteResponse } from '../../api/types';
 import { ErrorBanner } from '../ui';
 import ResultsView from '../ResultsView';
@@ -25,6 +26,10 @@ export type ChatTurn =
       executedSql?: string;
       executing?: boolean;
       runError?: string | null;
+      /** Persisted chat message id (chat sessions); runs attach results to it. */
+      messageId?: number;
+      /** True when `result` is a stored sample restored from a past session. */
+      restoredSample?: boolean;
     };
 
 interface Props {
@@ -52,6 +57,7 @@ export default function ChatThread({
   csvBusy,
   busy,
 }: Props) {
+  const { t } = useTranslation('chat');
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -63,7 +69,7 @@ export default function ChatThread({
       {turns.map((turn, index) => {
         if (turn.kind === 'user') {
           return (
-            <div key={index} className="chat-bubble chat-bubble--user">
+            <div key={index} className="chat-bubble chat-bubble--user" dir="auto">
               {turn.text}
             </div>
           );
@@ -101,12 +107,14 @@ export default function ChatThread({
               <>
                 {ask.status === 'verification_failed' && (
                   <div className="banner banner--error">
-                    The generated SQL references identifiers that do not exist:{' '}
-                    {ask.invalid_identifiers.join(', ')}. You can edit it below or rephrase your
-                    question.
+                    {t('invalidIdentifiers', { list: ask.invalid_identifiers.join(', ') })}
                   </div>
                 )}
-                {ask.explanation && <p className="explanation">{ask.explanation}</p>}
+                {ask.explanation && (
+                  <p className="explanation" dir="auto">
+                    {ask.explanation}
+                  </p>
+                )}
                 {ask.warnings.length > 0 && (
                   <ul className="warnings">
                     {ask.warnings.map((warning, i) => (
@@ -133,8 +141,11 @@ export default function ChatThread({
                         onClick={() => onSave(index)}
                         disabled={!turn.executedSql}
                       >
-                        Save query
+                        {t('saveQuery')}
                       </button>
+                      {turn.restoredSample && (
+                        <span className="muted chat-restored-note">{t('restoredSample')}</span>
+                      )}
                     </div>
                     <ResultsView
                       result={turn.result}

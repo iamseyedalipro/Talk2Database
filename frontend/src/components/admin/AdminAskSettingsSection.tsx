@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getAskSettings, updateAskSettings } from '../../api/endpoints';
 import type { AskSettings } from '../../api/types';
 import { errorMessage } from '../../utils/format';
@@ -13,6 +14,7 @@ import { ErrorBanner, InfoBanner, Spinner } from '../ui';
  * schema-only default, opted into here.
  */
 export default function AdminAskSettingsSection() {
+  const { t } = useTranslation('admin');
   const [settings, setSettings] = useState<AskSettings | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -54,21 +56,14 @@ export default function AdminAskSettingsSection() {
 
   return (
     <section className="card">
-      <h2 className="page__title">Ask analysis mode</h2>
-      <p className="muted">
-        When enabled, every Ask question runs a deeper investigation: the AI scans the table
-        list, requests details for the tables it needs, and runs small read-only exploratory
-        queries to understand the data before writing the final SQL. Users watch each step live.
-      </p>
-      <p className="muted">
-        ⚠ Exploratory queries send a small sample of row data (capped below) to the AI provider —
-        an exception to the schema-only default that applies only while this mode is on.
-      </p>
+      <h2 className="page__title">{t('askSettings.title')}</h2>
+      <p className="muted">{t('askSettings.intro')}</p>
+      <p className="muted">{t('askSettings.warning')}</p>
 
       <ErrorBanner message={loadError} />
 
       {settings === null && !loadError ? (
-        <Spinner label="Loading Ask settings…" />
+        <Spinner label={t('askSettings.loading')} />
       ) : settings !== null ? (
         <>
           <label className="field field--checkbox">
@@ -76,20 +71,20 @@ export default function AdminAskSettingsSection() {
               type="checkbox"
               checked={analysisMode}
               onChange={(e) => setAnalysisMode(e.target.checked)}
-              aria-label="Enable Ask analysis mode"
+              aria-label={t('askSettings.enableAria')}
             />{' '}
-            Enable Ask analysis mode for all users
+            {t('askSettings.enable')}
           </label>
 
           <label className="field">
-            Max rows per exploratory query ({settings.row_cap_min}–{settings.row_cap_max})
+            {t('askSettings.rowCapLabel', { min: settings.row_cap_min, max: settings.row_cap_max })}
             <input
               type="number"
               min={settings.row_cap_min}
               max={settings.row_cap_max}
               value={rowCap}
               onChange={(e) => setRowCap(Number(e.target.value))}
-              aria-label="Exploratory query row cap"
+              aria-label={t('askSettings.rowCapAria')}
             />
           </label>
 
@@ -106,10 +101,10 @@ export default function AdminAskSettingsSection() {
               }
               onClick={() => void handleSave()}
             >
-              {busy ? 'Saving…' : 'Save'}
+              {busy ? t('askSettings.saving') : t('askSettings.save')}
             </button>
           </div>
-          {saved && <InfoBanner>Ask settings saved.</InfoBanner>}
+          {saved && <InfoBanner>{t('askSettings.saved')}</InfoBanner>}
           <ErrorBanner message={saveError} />
         </>
       ) : null}

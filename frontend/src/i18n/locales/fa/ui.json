@@ -1,0 +1,9 @@
+{
+  "status": {
+    "success": "موفق",
+    "error": "خطا",
+    "failed": "ناموفق",
+    "running": "در حال اجرا",
+    "pending": "در انتظار"
+  }
+}

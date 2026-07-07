@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { configureClient } from './api/client';
+import './i18n';
 import { useAuthStore } from './store/auth';
 import { initTheme } from './store/theme';
 import './styles.css';

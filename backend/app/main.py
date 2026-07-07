@@ -23,9 +23,11 @@ from app.routers import (
     ask_settings,
     ask_ws,
     auth,
+    chats,
     clarity,
     connection_access,
     connections,
+    dashboards,
     execute,
     glossary,
     history,
@@ -57,10 +59,12 @@ def _build_api_router() -> APIRouter:
     api.include_router(ask.router)
     api.include_router(ask_ws.router)
     api.include_router(ask_settings.router)
+    api.include_router(chats.router)
     api.include_router(analysis.router)
     api.include_router(execute.router)
     api.include_router(history.router)
     api.include_router(saved_queries.router)
+    api.include_router(dashboards.router)
     api.include_router(results.router)
     api.include_router(clarity.router)
     api.include_router(prompts.router)

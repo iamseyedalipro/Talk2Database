@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { bootstrap, bootstrapAvailable, login } from '../api/endpoints';
 import AppFooter from '../components/AppFooter';
@@ -12,6 +13,7 @@ import { errorMessage } from '../utils/format';
  * normal login form.
  */
 export default function LoginPage() {
+  const { t } = useTranslation('auth');
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
@@ -68,7 +70,7 @@ export default function LoginPage() {
     return (
       <div className="auth-screen">
         <div className="auth-card">
-          <Spinner label="Loading…" />
+          <Spinner label={t('loading')} />
         </div>
         <AppFooter />
       </div>
@@ -83,24 +85,18 @@ export default function LoginPage() {
           <span className="brand__name">Talk2Database</span>
         </div>
 
-        <h1>{bootstrapMode ? 'Create the first admin account' : 'Sign in'}</h1>
+        <h1>{bootstrapMode ? t('bootstrapTitle') : t('signIn')}</h1>
         <p className="muted">
-          {bootstrapMode
-            ? 'No accounts exist yet. This first account will be the administrator.'
-            : 'Ask your database questions in plain language.'}
+          {bootstrapMode ? t('bootstrapSubtitle') : t('signInSubtitle')}
         </p>
 
-        {bootstrapMode && (
-          <InfoBanner>
-            You are setting up Talk2Database for the first time. Choose strong credentials.
-          </InfoBanner>
-        )}
+        {bootstrapMode && <InfoBanner>{t('bootstrapInfo')}</InfoBanner>}
 
         <ErrorBanner message={error} />
 
         <form className="form" onSubmit={handleSubmit}>
           <label className="field">
-            <span>Email</span>
+            <span>{t('email')}</span>
             <input
               type="email"
               autoComplete="username"
@@ -110,7 +106,7 @@ export default function LoginPage() {
             />
           </label>
           <label className="field">
-            <span>Password{bootstrapMode ? ' (min 8 characters)' : ''}</span>
+            <span>{bootstrapMode ? t('passwordWithMin') : t('password')}</span>
             <input
               type="password"
               autoComplete={bootstrapMode ? 'new-password' : 'current-password'}
@@ -122,17 +118,15 @@ export default function LoginPage() {
           </label>
           <button type="submit" className="btn btn--primary btn--block" disabled={submitting}>
             {submitting
-              ? 'Please wait…'
+              ? t('pleaseWait')
               : bootstrapMode
-                ? 'Create admin account'
-                : 'Sign in'}
+                ? t('createAdmin')
+                : t('signIn')}
           </button>
         </form>
 
         {!bootstrapMode && (
-          <p className="muted auth-footnote">
-            New users join via an invite link from an administrator.
-          </p>
+          <p className="muted auth-footnote">{t('inviteFootnote')}</p>
         )}
       </div>
       <AppFooter />

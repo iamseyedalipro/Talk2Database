@@ -6,9 +6,11 @@ autogeneration and ``create_all`` can see them.
 
 from app.db.base import Base
 from app.models.app_setting import AppSetting
+from app.models.chat import ChatMessage, ChatSession
 from app.models.clarity import ClarityFetchRun, ClaritySnapshot
 from app.models.connection import Connection, DataSourceType
 from app.models.connection_access import ConnectionAccess
+from app.models.dashboard import Dashboard, DashboardWidget
 from app.models.glossary import GlossaryDescription, Metric
 from app.models.invite import Invite
 from app.models.query_history import QueryHistory, QueryStatus
@@ -20,10 +22,14 @@ from app.models.user import User, UserRole
 __all__ = [
     "AppSetting",
     "Base",
+    "ChatMessage",
+    "ChatSession",
     "ClarityFetchRun",
     "ClaritySnapshot",
     "Connection",
     "ConnectionAccess",
+    "Dashboard",
+    "DashboardWidget",
     "DataSourceType",
     "GlossaryDescription",
     "Invite",

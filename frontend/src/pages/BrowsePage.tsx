@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import CodeMirror, { type EditorView, Prec, keymap, placeholder } from '@uiw/react-codemirror';
-import { MariaSQL, MySQL, PostgreSQL, type SQLDialect, sql } from '@codemirror/lang-sql';
+import { sql } from '@codemirror/lang-sql';
 import { oneDark } from '@codemirror/theme-one-dark';
 import {
   deleteDescription,
@@ -28,17 +29,9 @@ import SaveQueryModal from '../components/SaveQueryModal';
 import SchemaTree from '../components/SchemaTree';
 import { ErrorBanner } from '../components/ui';
 import { errorMessage } from '../utils/format';
-import { buildPreviewSql } from '../utils/sql';
+import { buildPreviewSql, dialectFor } from '../utils/sql';
 
 const PREVIEW_LIMIT = 100;
-const PLACEHOLDER = 'Write a read-only SELECT, then press Run (Ctrl/⌘ + Enter).';
-
-/** CodeMirror SQL dialect for a data-source type (drives highlighting + autocomplete). */
-function dialectFor(type: DataSourceType): SQLDialect {
-  if (type === 'mysql') return MySQL;
-  if (type === 'mariadb') return MariaSQL;
-  return PostgreSQL;
-}
 
 /**
  * DBeaver-style workspace: pick a connection, browse its structure on the left,
@@ -46,6 +39,7 @@ function dialectFor(type: DataSourceType): SQLDialect {
  * validated, read-only `/execute` endpoint as the Ask flow.
  */
 export default function BrowsePage() {
+  const { t } = useTranslation('browse');
   const [connections, setConnections] = useState<Connection[]>([]);
   const [connectionId, setConnectionId] = useState<number | null>(null);
   const [connError, setConnError] = useState<string | null>(null);
@@ -217,7 +211,7 @@ export default function BrowsePage() {
   const extensions = useMemo(
     () => [
       sql({ dialect: dialectFor(type), schema: completionSchema, upperCaseKeywords: true }),
-      placeholder(PLACEHOLDER),
+      placeholder(t('editorPlaceholder')),
       Prec.highest(
         keymap.of([
           {
@@ -230,18 +224,17 @@ export default function BrowsePage() {
         ]),
       ),
     ],
-    [completionSchema, type],
+    [completionSchema, type, t],
   );
 
   if (connections.length === 0) {
     return (
       <div className="page">
         <section className="card">
-          <h1 className="page__title">Browse &amp; query</h1>
+          <h1 className="page__title">{t('pageTitle')}</h1>
           <ErrorBanner message={connError} />
           <p className="muted">
-            You have no connections yet. <Link to="/connections">Add a connection</Link> to browse
-            its tables and run queries.
+            <Trans t={t} i18nKey="noConnections" components={{ link: <Link to="/connections" /> }} />
           </p>
         </section>
       </div>
@@ -252,23 +245,23 @@ export default function BrowsePage() {
     <div className="browse">
       <aside className="browse__sidebar card">
         <div className="browse__sidebar-head">
-          <h2 className="browse__sidebar-title">Tables</h2>
+          <h2 className="browse__sidebar-title">{t('tables')}</h2>
           <button
             type="button"
             className="btn btn--secondary btn--small"
             onClick={handleRefresh}
             disabled={refreshing || schemaLoading || connectionId === null}
-            title="Re-introspect the schema"
+            title={t('refreshTitle')}
           >
-            {refreshing ? 'Refreshing…' : 'Refresh'}
+            {refreshing ? t('refreshing') : t('refresh')}
           </button>
         </div>
         <label className="ask-form__field browse__conn">
-          Data source
+          {t('dataSource')}
           <select
             value={connectionId ?? ''}
             onChange={(e) => setConnectionId(Number(e.target.value))}
-            aria-label="Data source"
+            aria-label={t('dataSource')}
           >
             {connections.map((c) => (
               <option key={c.id} value={c.id}>
@@ -301,7 +294,7 @@ export default function BrowsePage() {
       <section className="browse__main">
         <div className="card">
           <div className="browse__editor-head">
-            <h1 className="page__title">SQL editor</h1>
+            <h1 className="page__title">{t('sqlEditor')}</h1>
             <div className="browse__editor-actions">
               <button
                 type="button"
@@ -311,9 +304,9 @@ export default function BrowsePage() {
                   setShowSave(true);
                 }}
                 disabled={!sqlText.trim() || connectionId === null}
-                title="Save this query to your library"
+                title={t('saveQueryTitle')}
               >
-                Save query
+                {t('saveQuery')}
               </button>
               <button
                 type="button"
@@ -321,13 +314,13 @@ export default function BrowsePage() {
                 onClick={() => runQuery(sqlText)}
                 disabled={running || !sqlText.trim() || connectionId === null}
               >
-                {running ? 'Running…' : 'Run ▸'}
+                {running ? t('running') : t('run')}
               </button>
             </div>
           </div>
           {saveNotice && <p className="browse__save-notice muted">{saveNotice}</p>}
           <p className="muted">
-            Write your own read-only <code>SELECT</code>. Only single read-only queries run.
+            <Trans t={t} i18nKey="readOnlyHint" components={{ code: <code /> }} />
           </p>
 
           <div className="browse__editor">
@@ -357,7 +350,7 @@ export default function BrowsePage() {
           draft={{ generated_sql: sqlText.trim(), question: null, connection_id: connectionId }}
           onSaved={() => {
             setShowSave(false);
-            setSaveNotice('Saved to your query library.');
+            setSaveNotice(t('savedNotice'));
           }}
           onCancel={() => setShowSave(false)}
         />

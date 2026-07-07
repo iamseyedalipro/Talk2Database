@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import AdminAskSettingsSection from '../components/admin/AdminAskSettingsSection';
 import AdminAuditSection from '../components/admin/AdminAuditSection';
 import AdminClaritySection from '../components/admin/AdminClaritySection';
@@ -11,9 +12,10 @@ import AdminUsersSection from '../components/admin/AdminUsersSection';
  * integration, AI prompts, and the audit log. Admin-guarded by the router.
  */
 export default function AdminPage() {
+  const { t } = useTranslation('admin');
   return (
     <div className="page">
-      <h1 className="page__title">Administration</h1>
+      <h1 className="page__title">{t('title')}</h1>
       <AdminUsersSection />
       <AdminConnectionAccessSection />
       <AdminTokenUsageSection />

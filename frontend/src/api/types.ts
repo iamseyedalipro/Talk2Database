@@ -10,6 +10,8 @@ export interface User {
   email: string;
   role: Role;
   is_active: boolean;
+  /** UI language preference ("en" | "fa"); "fa" flips the layout to RTL. */
+  language: string;
   created_at: string;
   last_login_at: string | null;
 }
@@ -132,6 +134,133 @@ export interface SuggestedQuestionsResponse {
   questions: string[];
 }
 
+/* ----------------------------- Chat sessions ----------------------------- */
+
+export interface ChatSessionItem {
+  id: number;
+  title: string;
+  connection_id: number | null;
+  archived: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChatSessionCreate {
+  connection_id: number;
+  title?: string;
+}
+
+export interface ChatSessionUpdate {
+  title?: string;
+  archived?: boolean;
+}
+
+export interface ChatResultSample {
+  columns: ResultColumn[];
+  rows: unknown[][];
+  row_count: number;
+  truncated: boolean;
+}
+
+export interface ChatMessageItem {
+  id: number;
+  role: 'user' | 'assistant';
+  /** The question text (user turns). */
+  content: string | null;
+  /** The stored AskResponse (assistant turns). */
+  ask: AskResponse | null;
+  history_id: number | null;
+  executed_sql: string | null;
+  result_sample: ChatResultSample | null;
+  created_at: string;
+}
+
+export interface ChatAskPayload {
+  question: string;
+}
+
+export interface ChatAskResponse extends AskResponse {
+  user_message_id: number;
+  assistant_message_id: number;
+  session_title: string;
+}
+
+/* ------------------------------- Dashboards ------------------------------ */
+
+export type WidgetView = 'table' | 'bar' | 'hbar' | 'line' | 'area' | 'pie' | 'scatter';
+
+export interface WidgetViz {
+  view: WidgetView;
+  x_column: string | null;
+  y_column: string | null;
+}
+
+export interface WidgetItem {
+  id: number;
+  title: string;
+  connection_id: number | null;
+  sql: string;
+  viz: WidgetViz;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface WidgetCreate {
+  title: string;
+  connection_id: number;
+  sql: string;
+  viz: WidgetViz;
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+}
+
+export interface WidgetUpdate {
+  title?: string;
+  connection_id?: number;
+  sql?: string;
+  viz?: WidgetViz;
+}
+
+export interface DashboardItem {
+  id: number;
+  name: string;
+  description: string | null;
+  shared: boolean;
+  owner_email: string | null;
+  is_owner: boolean;
+  widget_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DashboardDetail extends DashboardItem {
+  widgets: WidgetItem[];
+}
+
+export interface DashboardCreate {
+  name: string;
+  description?: string | null;
+  shared?: boolean;
+}
+
+export interface DashboardUpdate {
+  name?: string;
+  description?: string | null;
+  shared?: boolean;
+}
+
+export interface LayoutItemUpdate {
+  widget_id: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 /* --------------------------- Ask over WebSocket --------------------------- */
 
 /** A small sample of an exploratory query's rows, shown in the activity feed. */
@@ -157,9 +286,19 @@ export type AskProgressEvent =
   | ({ type: 'query_result'; seq: number; sql: string; error?: string | null } & Partial<QueryResultPreview>)
   | { type: 'generating_sql'; seq: number; attempt: number; attempts: number }
   | { type: 'retry'; seq: number; attempt: number; reason: string; detail: string }
-  | ({ type: 'final_result'; seq: number } & AskResponse)
+  /**
+   * The chat bookkeeping fields (`user_message_id`, `assistant_message_id`,
+   * `session_title`) are present when the run was started with a `chat_id`.
+   */
+  | ({ type: 'final_result'; seq: number } & AskResponse &
+      Partial<Pick<ChatAskResponse, 'user_message_id' | 'assistant_message_id' | 'session_title'>>)
   | { type: 'error'; seq: number; code: string; detail: string }
   | { type: 'cancelled'; seq: number };
+
+/** The WebSocket `start` payload; `chat_id` binds the run to a chat session. */
+export interface AskSocketPayload extends AskPayload {
+  chat_id?: number;
+}
 
 /** One rendered step in the chat's agent activity feed. */
 export type AskActivityStep =
@@ -203,6 +342,8 @@ export interface ExecutePayload {
   connection_id: number;
   sql: string;
   history_id?: number;
+  /** Chat turn to attach the executed SQL + a result sample to. */
+  chat_message_id?: number;
   max_rows?: number;
 }
 

@@ -9,8 +9,9 @@ from fastapi.responses import StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
 from app.config import get_settings
-from app.connectors import Connector, ConnectorQueryError
+from app.connectors import Connector, ConnectorQueryError, QueryResult
 from app.deps import CurrentUser, SessionDep
+from app.models.chat import ChatMessage, ChatSession
 from app.models.query_history import QueryHistory, QueryStatus
 from app.schemas.execute import (
     ExecuteRequest,
@@ -60,6 +61,47 @@ async def _record_history(
     history.executed_at = datetime.now(tz=UTC)
 
 
+def _truncate_cell(value: object, max_chars: int) -> object:
+    if isinstance(value, str) and len(value) > max_chars:
+        return value[:max_chars] + "…"
+    return value
+
+
+async def _attach_chat_sample(
+    session: SessionDep,
+    user_id: int,
+    chat_message_id: int | None,
+    *,
+    safe_sql: str,
+    result: QueryResult,
+) -> None:
+    """Store the executed SQL + a capped result sample on a chat turn.
+
+    Later questions in the session feed this sample back to the model as
+    conversational context. Only the owner of the chat may attach to it.
+    """
+    if chat_message_id is None:
+        return
+    message = await session.get(ChatMessage, chat_message_id)
+    if message is None or message.role != "assistant":
+        return
+    chat = await session.get(ChatSession, message.session_id)
+    if chat is None or chat.user_id != user_id:
+        return
+    settings = get_settings()
+    max_cell = settings.chat_result_sample_cell_chars
+    message.executed_sql = safe_sql
+    message.result_sample_json = {
+        "columns": [{"name": name, "type": type_} for name, type_ in result.columns],
+        "rows": [
+            [_truncate_cell(cell, max_cell) for cell in row]
+            for row in result.rows[: settings.chat_result_sample_rows]
+        ],
+        "row_count": result.row_count,
+        "truncated": result.truncated or result.row_count > settings.chat_result_sample_rows,
+    }
+
+
 @router.post("", response_model=ExecuteResponse)
 async def execute(
     payload: ExecuteRequest, user: CurrentUser, session: SessionDep
@@ -85,6 +127,9 @@ async def execute(
         payload.history_id,
         status_value=QueryStatus.SUCCESS,
         row_count=result.row_count,
+    )
+    await _attach_chat_sample(
+        session, user.id, payload.chat_message_id, safe_sql=safe_sql, result=result
     )
     return ExecuteResponse(
         columns=[ResultColumn(name=name, type=type_) for name, type_ in result.columns],

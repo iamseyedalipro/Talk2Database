@@ -9,7 +9,7 @@
  * event and the caller must NOT re-run the question.
  */
 
-import type { AskPayload, AskProgressEvent } from './types';
+import type { AskProgressEvent, AskSocketPayload } from './types';
 
 export interface AskSocketHandlers {
   /** Every server event after (and including) `run_started`, in order. */
@@ -29,7 +29,7 @@ function socketUrl(): string {
 }
 
 export function askViaSocket(
-  payload: AskPayload,
+  payload: AskSocketPayload,
   token: string,
   handlers: AskSocketHandlers,
 ): Promise<AskSocketHandle> {
@@ -67,6 +67,9 @@ export function askViaSocket(
           token,
           connection_id: payload.connection_id,
           question: payload.question,
+          // Binds the run to a chat session: history feeds the model and the
+          // finished turn is persisted server-side.
+          chat_id: payload.chat_id,
         }),
       );
     };

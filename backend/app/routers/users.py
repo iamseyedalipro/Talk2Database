@@ -8,16 +8,25 @@ from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy import func, select
 
 from app.config import get_settings
-from app.deps import AdminUser, SessionDep
+from app.deps import AdminUser, CurrentUser, SessionDep
 from app.models.invite import Invite
 from app.models.user import User, UserRole
 from app.schemas.auth import UserOut
-from app.schemas.user import InviteRequest, InviteResponse
+from app.schemas.user import InviteRequest, InviteResponse, UserSelfUpdate
 from app.services.auth_service import generate_invite_token, hash_invite_token
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 _INVITE_TTL = timedelta(days=7)
+
+
+@router.patch("/me", response_model=UserOut)
+async def update_me(payload: UserSelfUpdate, user: CurrentUser, session: SessionDep) -> User:
+    """Self-service account preferences (currently: UI language)."""
+    if payload.language is not None:
+        user.language = payload.language
+    await session.flush()
+    return user
 
 
 @router.get("", response_model=list[UserOut])

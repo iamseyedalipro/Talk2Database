@@ -16,17 +16,22 @@ def test_default_ask_template_renders_label() -> None:
 
 
 def test_custom_template_renders() -> None:
-    assert render_ask_system("Write {label} SQL.", "MySQL") == "Write MySQL SQL."
+    rendered = render_ask_system("Write {label} SQL.", "MySQL")
+    assert rendered.startswith("Write MySQL SQL.")
+    # The answer-language rule is appended outside the editable template so
+    # admin prompt overrides can never drop it.
+    assert "same language as the user's question" in rendered
 
 
 def test_bad_placeholder_falls_back_to_default() -> None:
     rendered = render_ask_system("Broken {labl} template", "MariaDB")
-    assert rendered == DEFAULT_PROMPTS["ask_system_template"].format(label="MariaDB")
+    assert rendered.startswith(DEFAULT_PROMPTS["ask_system_template"].format(label="MariaDB"))
+    assert "same language as the user's question" in rendered
 
 
 def test_stray_brace_falls_back_to_default() -> None:
     rendered = render_ask_system("Return {sql, explanation}", "PostgreSQL")
-    assert rendered == DEFAULT_PROMPTS["ask_system_template"].format(label="PostgreSQL")
+    assert rendered.startswith(DEFAULT_PROMPTS["ask_system_template"].format(label="PostgreSQL"))
 
 
 def test_validate_combos_accepts_defaults() -> None:

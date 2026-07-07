@@ -15,6 +15,12 @@ import type {
   AuditQuery,
   BootstrapAvailable,
   BootstrapPayload,
+  ChatAskPayload,
+  ChatAskResponse,
+  ChatMessageItem,
+  ChatSessionCreate,
+  ChatSessionItem,
+  ChatSessionUpdate,
   ClarityAvailability,
   ClarityRun,
   ClaritySettings,
@@ -25,6 +31,10 @@ import type {
   ConnectionCreate,
   ConnectionTestResult,
   ConnectionUpdate,
+  DashboardCreate,
+  DashboardDetail,
+  DashboardItem,
+  DashboardUpdate,
   DbSchema,
   DescriptionUpsert,
   GlossaryData,
@@ -39,6 +49,7 @@ import type {
   HistoryItem,
   InvitePayload,
   InviteResponse,
+  LayoutItemUpdate,
   LoginPayload,
   PromptTemplate,
   RegisterPayload,
@@ -55,6 +66,9 @@ import type {
   UsageQuery,
   UsageReport,
   User,
+  WidgetCreate,
+  WidgetItem,
+  WidgetUpdate,
 } from './types';
 
 /* --------------------------------- Auth ---------------------------------- */
@@ -80,6 +94,9 @@ export const inviteUser = (body: InvitePayload) =>
   api.post<InviteResponse>('/users/invite', body);
 
 export const deleteUser = (id: number) => api.del<void>(`/users/${id}`);
+
+/** Self-service account preferences (currently: UI language). */
+export const updateMe = (body: { language: string }) => api.patch<User>('/users/me', body);
 
 export const getUserConnectionAccess = (userId: number) =>
   api.get<ConnectionAccess>(`/admin/users/${userId}/connection-access`);
@@ -127,6 +144,54 @@ export const summarizeResults = (body: SummarizePayload) =>
 
 export const explainPlan = (body: ExplainPayload) =>
   api.post<ExplainResult>('/execute/explain', body);
+
+/* ------------------------------- Dashboards ------------------------------ */
+
+export const listDashboards = () => api.get<DashboardItem[]>('/dashboards');
+
+export const createDashboard = (body: DashboardCreate) =>
+  api.post<DashboardItem>('/dashboards', body);
+
+export const getDashboard = (id: number) => api.get<DashboardDetail>(`/dashboards/${id}`);
+
+export const updateDashboard = (id: number, body: DashboardUpdate) =>
+  api.patch<DashboardItem>(`/dashboards/${id}`, body);
+
+export const deleteDashboard = (id: number) => api.del<void>(`/dashboards/${id}`);
+
+export const createWidget = (dashboardId: number, body: WidgetCreate) =>
+  api.post<WidgetItem>(`/dashboards/${dashboardId}/widgets`, body);
+
+export const updateWidget = (dashboardId: number, widgetId: number, body: WidgetUpdate) =>
+  api.patch<WidgetItem>(`/dashboards/${dashboardId}/widgets/${widgetId}`, body);
+
+export const deleteWidget = (dashboardId: number, widgetId: number) =>
+  api.del<void>(`/dashboards/${dashboardId}/widgets/${widgetId}`);
+
+export const saveDashboardLayout = (dashboardId: number, items: LayoutItemUpdate[]) =>
+  api.put<void>(`/dashboards/${dashboardId}/layout`, { items });
+
+export const runWidget = (dashboardId: number, widgetId: number) =>
+  api.post<ExecuteResponse>(`/dashboards/${dashboardId}/widgets/${widgetId}/run`, {});
+
+/* ----------------------------- Chat sessions ----------------------------- */
+
+export const listChats = (includeArchived = false) =>
+  api.get<ChatSessionItem[]>(`/chats?include_archived=${includeArchived}`);
+
+export const createChat = (body: ChatSessionCreate) =>
+  api.post<ChatSessionItem>('/chats', body);
+
+export const updateChat = (id: number, body: ChatSessionUpdate) =>
+  api.patch<ChatSessionItem>(`/chats/${id}`, body);
+
+export const deleteChat = (id: number) => api.del<void>(`/chats/${id}`);
+
+export const listChatMessages = (id: number) =>
+  api.get<ChatMessageItem[]>(`/chats/${id}/messages`);
+
+export const askInChat = (id: number, body: ChatAskPayload) =>
+  api.post<ChatAskResponse>(`/chats/${id}/ask`, body);
 
 /* -------------------------------- History -------------------------------- */
 

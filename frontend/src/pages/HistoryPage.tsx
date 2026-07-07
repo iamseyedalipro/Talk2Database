@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getHistory, listHistory, rerunHistory } from '../api/endpoints';
 import type { ExecuteResponse, HistoryItem } from '../api/types';
 import ResultsView from '../components/ResultsView';
@@ -14,6 +15,7 @@ interface DetailState {
 }
 
 export default function HistoryPage() {
+  const { t } = useTranslation('history');
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
@@ -81,29 +83,29 @@ export default function HistoryPage() {
     <div className="page">
       <section className="card">
         <div className="page__header">
-          <h1 className="page__title">Query history</h1>
+          <h1 className="page__title">{t('title')}</h1>
           <button type="button" className="btn btn--ghost" onClick={() => void load()}>
-            Refresh
+            {t('refresh')}
           </button>
         </div>
 
         <ErrorBanner message={listError} />
 
         {loading ? (
-          <Spinner label="Loading history…" />
+          <Spinner label={t('loading')} />
         ) : items.length === 0 ? (
-          <p className="muted">No queries yet. Ask your first question on the Ask page.</p>
+          <p className="muted">{t('emptyState')}</p>
         ) : (
           <div className="table-scroll">
             <table className="data-table data-table--history">
               <thead>
                 <tr>
-                  <th>Question</th>
-                  <th>SQL</th>
-                  <th>Status</th>
-                  <th>Rows</th>
-                  <th>Created</th>
-                  <th aria-label="Actions" />
+                  <th>{t('colQuestion')}</th>
+                  <th>{t('colSql')}</th>
+                  <th>{t('colStatus')}</th>
+                  <th>{t('colRows')}</th>
+                  <th>{t('colCreated')}</th>
+                  <th aria-label={t('actions')} />
                 </tr>
               </thead>
               <tbody>
@@ -114,7 +116,7 @@ export default function HistoryPage() {
                       {item.generated_sql ? (
                         <code className="inline-sql">{truncate(item.generated_sql, 50)}</code>
                       ) : (
-                        <span className="muted">clarification asked</span>
+                        <span className="muted">{t('clarificationAsked')}</span>
                       )}
                     </td>
                     <td>
@@ -128,7 +130,7 @@ export default function HistoryPage() {
                         className="btn btn--small"
                         onClick={() => void openDetail(item)}
                       >
-                        View
+                        {t('view')}
                       </button>
                     </td>
                   </tr>
@@ -142,14 +144,14 @@ export default function HistoryPage() {
       {detail && (
         <section className="card">
           <div className="page__header">
-            <h2 className="page__title">Query #{detail.item.id}</h2>
+            <h2 className="page__title">{t('queryTitle', { id: detail.item.id })}</h2>
             <button type="button" className="btn btn--ghost" onClick={closeDetail}>
-              Close
+              {t('close')}
             </button>
           </div>
 
           <p className="detail-question">
-            <strong>Question:</strong> {detail.item.question}
+            <strong>{t('questionLabel')}</strong> {detail.item.question}
           </p>
           {detail.item.error_message && (
             <ErrorBanner message={detail.item.error_message} />
@@ -161,7 +163,7 @@ export default function HistoryPage() {
               value={detail.sql}
               spellCheck={false}
               rows={8}
-              aria-label="Editable SQL"
+              aria-label={t('editableSql')}
               onChange={(e) => setDetail({ ...detail, sql: e.target.value })}
             />
           ) : detail.item.generated_sql ? (
@@ -170,9 +172,9 @@ export default function HistoryPage() {
             </pre>
           ) : (
             <p className="muted">
-              No SQL was generated —{' '}
+              {t('noSql')}{' '}
               {detail.item.clarification_json?.clarification_question ??
-                'the assistant asked for clarification instead.'}
+                t('clarificationFallback')}
             </p>
           )}
 
@@ -186,7 +188,7 @@ export default function HistoryPage() {
                   disabled={running || detail.sql.trim().length === 0}
                   onClick={() => void handleRerun(detail.sql)}
                 >
-                  {running ? 'Running…' : 'Run edited SQL'}
+                  {running ? t('running') : t('runEdited')}
                 </button>
                 <button
                   type="button"
@@ -196,7 +198,7 @@ export default function HistoryPage() {
                     setDetail({ ...detail, editing: false, sql: detail.item.generated_sql ?? '' })
                   }
                 >
-                  Cancel edit
+                  {t('cancelEdit')}
                 </button>
               </>
             ) : (
@@ -207,7 +209,7 @@ export default function HistoryPage() {
                   disabled={running}
                   onClick={() => void handleRerun()}
                 >
-                  {running ? 'Running…' : 'Re-run'}
+                  {running ? t('running') : t('rerun')}
                 </button>
                 <button
                   type="button"
@@ -215,7 +217,7 @@ export default function HistoryPage() {
                   disabled={running}
                   onClick={() => setDetail({ ...detail, editing: true })}
                 >
-                  Edit &amp; run
+                  {t('editAndRun')}
                 </button>
                 <button
                   type="button"
@@ -223,7 +225,7 @@ export default function HistoryPage() {
                   disabled={running}
                   onClick={() => setSaveOpen(true)}
                 >
-                  Save query
+                  {t('saveQuery')}
                 </button>
                 {saveNotice && <span className="muted">{saveNotice}</span>}
               </>
@@ -246,7 +248,7 @@ export default function HistoryPage() {
           }}
           onSaved={() => {
             setSaveOpen(false);
-            setSaveNotice('Saved to your library.');
+            setSaveNotice(t('savedNotice'));
           }}
           onCancel={() => setSaveOpen(false)}
         />

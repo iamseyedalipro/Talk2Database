@@ -58,6 +58,8 @@ async def generate_with_verification(
     selected_text: str,
     settings: Settings,
     system_prompt: str | None = None,
+    history: list[ChatMessage] | None = None,
+    question_context: str | None = None,
     emit: ProgressEmitter = noop_emit,
 ) -> GenerationOutcome:
     """Generate SQL for ``question``, verifying identifiers against ``full_schema``.
@@ -69,6 +71,12 @@ async def generate_with_verification(
     ``system_prompt`` overrides the connector's built-in prompt (the admin panel
     stores an editable template); ``None`` keeps the default.
 
+    ``history`` prepends prior conversation turns (chat sessions) before the
+    current question; the schema system block stays byte-identical so provider
+    prompt caching is unaffected. ``question_context`` is an optional data block
+    (e.g. the sample of the last executed result) shown right before the current
+    question, kept separate so the stored question text stays clean.
+
     Raises:
         AIProviderError: when the provider fails.
         SqlGuardError: when even the final attempt is not a read-only SELECT.
@@ -76,7 +84,13 @@ async def generate_with_verification(
     if system_prompt is None:
         system_prompt = connector.system_prompt()
     schema_block = connector.schema_block(selected_text)
-    messages: list[ChatMessage] = [{"role": "user", "content": build_question_block(question)}]
+    question_block = build_question_block(question, follow_up=bool(history))
+    if question_context:
+        question_block = f"{question_context}\n\n{question_block}"
+    messages: list[ChatMessage] = [
+        *(history or []),
+        {"role": "user", "content": question_block},
+    ]
 
     attempts = 1 + max(0, settings.ask_max_retries)
     retry_count = 0

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   getUserConnectionAccess,
   listConnections,
@@ -18,6 +19,7 @@ const setsEqual = (a: Set<number>, b: Set<number>): boolean =>
  * locked); the rest are grants an admin can toggle, search, bulk-select, and save.
  */
 export default function AdminConnectionAccessSection() {
+  const { t } = useTranslation('admin');
   const [users, setUsers] = useState<User[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -137,7 +139,7 @@ export default function AdminConnectionAccessSection() {
     });
 
   const chooseUser = (value: string) => {
-    if (dirty && !window.confirm('You have unsaved changes. Discard them?')) return;
+    if (dirty && !window.confirm(t('access.confirmDiscard'))) return;
     setSelectedUserId(value === '' ? null : Number(value));
   };
 
@@ -174,39 +176,35 @@ export default function AdminConnectionAccessSection() {
           {conn.type} · {conn.host} · {conn.database}
         </span>
       </span>
-      {locked && <span className="pill pill--neutral">owner</span>}
+      {locked && <span className="pill pill--neutral">{t('access.ownerPill')}</span>}
     </label>
   );
 
   return (
     <section className="card">
       <div className="page__header">
-        <h2 className="page__title">Connection access</h2>
+        <h2 className="page__title">{t('access.title')}</h2>
         <button type="button" className="btn btn--ghost" onClick={() => void loadBase()}>
-          Refresh
+          {t('refresh')}
         </button>
       </div>
 
-      <p className="muted">
-        Grant a user access to connections they don&apos;t own. Granted users can ask
-        questions, run read-only queries, browse the schema, and edit the glossary — but
-        cannot change or delete the connection.
-      </p>
+      <p className="muted">{t('access.description')}</p>
 
       <ErrorBanner message={loadError} />
 
       {loading ? (
-        <Spinner label="Loading…" />
+        <Spinner label={t('access.loading')} />
       ) : (
         <>
           <label className="field">
-            <span>User</span>
+            <span>{t('access.userLabel')}</span>
             <select value={selectedUserId ?? ''} onChange={(e) => chooseUser(e.target.value)}>
-              <option value="">Select a user…</option>
+              <option value="">{t('access.selectUser')}</option>
               {users.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.email}
-                  {u.role === 'admin' ? ' (admin)' : ''}
+                  {u.role === 'admin' ? t('access.adminSuffix') : ''}
                 </option>
               ))}
             </select>
@@ -217,27 +215,24 @@ export default function AdminConnectionAccessSection() {
               <ErrorBanner message={accessError} />
 
               {accessLoading ? (
-                <Spinner label="Loading access…" />
+                <Spinner label={t('access.loadingAccess')} />
               ) : isAdminUser ? (
-                <InfoBanner>
-                  {selectedUser?.email} is an admin and already has access to every
-                  connection. There is nothing to grant.
-                </InfoBanner>
+                <InfoBanner>{t('access.adminHasAccess', { email: selectedUser?.email })}</InfoBanner>
               ) : connections.length === 0 ? (
-                <p className="muted">There are no connections to share yet.</p>
+                <p className="muted">{t('access.noConnectionsYet')}</p>
               ) : (
                 <>
                   <div className="access-toolbar">
                     <input
                       type="search"
                       className="access-search"
-                      placeholder="Search connections…"
+                      placeholder={t('access.searchPlaceholder')}
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                     />
                     <div className="access-toolbar__right">
                       <span className="access-count muted">
-                        {grantedCount} of {totalShareable} granted
+                        {t('access.grantedCount', { granted: grantedCount, total: totalShareable })}
                       </span>
                       <button
                         type="button"
@@ -245,7 +240,7 @@ export default function AdminConnectionAccessSection() {
                         onClick={selectAllVisible}
                         disabled={saving || shareable.length === 0}
                       >
-                        Select all
+                        {t('access.selectAll')}
                       </button>
                       <button
                         type="button"
@@ -253,7 +248,7 @@ export default function AdminConnectionAccessSection() {
                         onClick={clearAllVisible}
                         disabled={saving || shareable.length === 0}
                       >
-                        Clear all
+                        {t('access.clearAll')}
                       </button>
                     </div>
                   </div>
@@ -261,18 +256,16 @@ export default function AdminConnectionAccessSection() {
                   <div className="access-groups">
                     {owned.length > 0 && (
                       <div className="access-group">
-                        <div className="access-group__title">Owned by this user</div>
+                        <div className="access-group__title">{t('access.ownedByUser')}</div>
                         {owned.map((c) => renderRow(c, true))}
                       </div>
                     )}
 
                     <div className="access-group">
-                      <div className="access-group__title">Available connections</div>
+                      <div className="access-group__title">{t('access.availableConnections')}</div>
                       {shareable.length === 0 ? (
                         <p className="muted access-empty">
-                          {query.trim()
-                            ? 'No connections match your search.'
-                            : 'No other connections to share.'}
+                          {query.trim() ? t('access.noSearchMatch') : t('access.noOtherConnections')}
                         </p>
                       ) : (
                         shareable.map((c) => renderRow(c, false))
@@ -282,7 +275,7 @@ export default function AdminConnectionAccessSection() {
 
                   <div className="access-actions">
                     <span className={dirty ? 'access-dirty' : 'access-dirty muted'}>
-                      {dirty ? '● Unsaved changes' : 'All changes saved'}
+                      {dirty ? t('access.unsavedChanges') : t('access.allSaved')}
                     </span>
                     <button
                       type="button"
@@ -290,7 +283,7 @@ export default function AdminConnectionAccessSection() {
                       onClick={() => void handleSave()}
                       disabled={saving || !dirty}
                     >
-                      {saving ? 'Saving…' : 'Save access'}
+                      {saving ? t('access.saving') : t('access.saveAccess')}
                     </button>
                   </div>
                 </>

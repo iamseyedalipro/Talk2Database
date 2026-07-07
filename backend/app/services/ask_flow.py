@@ -19,7 +19,7 @@ from app.config import get_settings
 from app.models.query_history import QueryHistory, QueryStatus, ResponseStatus
 from app.models.user import User
 from app.schemas.ask import AskResponse, SuggestedInterpretationOut
-from app.services.ai.base import AIProviderError, TokenUsage
+from app.services.ai.base import AIProviderError, ChatMessage, TokenUsage
 from app.services.ai.factory import get_ai_provider
 from app.services.ai.generate import generate_with_verification
 from app.services.app_settings import get_ask_runtime_settings
@@ -63,9 +63,15 @@ async def run_ask_flow(
     *,
     connection_id: int,
     question: str,
+    history: list[ChatMessage] | None = None,
+    question_context: str | None = None,
     emit: ProgressEmitter = noop_emit,
 ) -> AskFlowResult:
     """Generate previewable SQL for ``question`` and persist history/usage.
+
+    ``history`` carries prior chat-session turns; ``question_context`` is an
+    optional data block (e.g. the sample of the last executed result) shown to
+    the model just before the question, keeping the stored question text clean.
 
     Raises :class:`AskFlowError` for every expected failure. ``load_connector``
     raises ``HTTPException`` directly (404/403), which both callers translate.
@@ -160,6 +166,8 @@ async def run_ask_flow(
             selected_text=schema_text,
             settings=settings,
             system_prompt=system_prompt,
+            history=history,
+            question_context=question_context,
             emit=emit,
         )
     except AIProviderError as exc:
@@ -197,7 +205,7 @@ async def run_ask_flow(
         generated_sql = outcome.safe_sql
         invalid_identifiers = []
 
-    history = QueryHistory(
+    history_row = QueryHistory(
         user_id=user.id,
         connection_id=connection.id,
         question=question,
@@ -209,7 +217,7 @@ async def run_ask_flow(
         model=provider.model,
         last_status=QueryStatus.PREVIEW,
     )
-    session.add(history)
+    session.add(history_row)
     await session.flush()
 
     try:
@@ -233,7 +241,7 @@ async def run_ask_flow(
         )
 
     response = AskResponse(
-        history_id=history.id,
+        history_id=history_row.id,
         status=response_status,
         generated_sql=generated_sql,
         explanation=result.explanation,
@@ -246,4 +254,4 @@ async def run_ask_flow(
         model=provider.model,
         warnings=warnings,
     )
-    return AskFlowResult(response=response, history_id=history.id)
+    return AskFlowResult(response=response, history_id=history_row.id)

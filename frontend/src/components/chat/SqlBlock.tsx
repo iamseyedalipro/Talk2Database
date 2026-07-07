@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { explainPlan } from '../../api/endpoints';
 import type { ExplainResult } from '../../api/types';
 import { errorMessage } from '../../utils/format';
@@ -20,6 +21,7 @@ interface Props {
  * runs without an explicit click.
  */
 export default function SqlBlock({ sql, connectionId, onRun, busy, ran }: Props) {
+  const { t } = useTranslation('chat');
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(sql);
 
@@ -48,7 +50,7 @@ export default function SqlBlock({ sql, connectionId, onRun, busy, ran }: Props)
           onChange={(e) => setValue(e.target.value)}
           spellCheck={false}
           rows={8}
-          aria-label="Editable SQL"
+          aria-label={t('editableSql')}
         />
       ) : (
         <pre className="sql-box">
@@ -61,10 +63,15 @@ export default function SqlBlock({ sql, connectionId, onRun, busy, ran }: Props)
             <span className="explain-estimate__error">{explainError}</span>
           ) : (
             <>
-              Estimated cost:{' '}
-              <strong>{estimate?.cost != null ? estimate.cost.toLocaleString() : 'n/a'}</strong>
-              {' · '}estimated rows:{' '}
-              <strong>{estimate?.rows != null ? estimate.rows.toLocaleString() : 'n/a'}</strong>
+              {t('estimatedCost')}{' '}
+              <strong>
+                {estimate?.cost != null ? estimate.cost.toLocaleString() : t('notAvailable')}
+              </strong>
+              {' · '}
+              {t('estimatedRows')}{' '}
+              <strong>
+                {estimate?.rows != null ? estimate.rows.toLocaleString() : t('notAvailable')}
+              </strong>
             </>
           )}
         </p>
@@ -76,7 +83,7 @@ export default function SqlBlock({ sql, connectionId, onRun, busy, ran }: Props)
           onClick={() => void handleExplain()}
           disabled={busy || explaining || value.trim().length === 0}
         >
-          {explaining ? 'Estimating…' : 'Show cost estimate'}
+          {explaining ? t('estimating') : t('showCostEstimate')}
         </button>
         {!editing && (
           <button
@@ -85,7 +92,7 @@ export default function SqlBlock({ sql, connectionId, onRun, busy, ran }: Props)
             onClick={() => setEditing(true)}
             disabled={busy}
           >
-            Edit
+            {t('edit')}
           </button>
         )}
         <button
@@ -94,7 +101,7 @@ export default function SqlBlock({ sql, connectionId, onRun, busy, ran }: Props)
           onClick={() => onRun(value)}
           disabled={busy || value.trim().length === 0}
         >
-          {busy ? 'Running…' : ran ? 'Run again' : 'Run'}
+          {busy ? t('running') : ran ? t('runAgain') : t('run')}
         </button>
       </div>
     </div>

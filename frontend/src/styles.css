@@ -204,6 +204,18 @@ code {
   white-space: nowrap;
 }
 
+/* Mobile-only affordances: the hamburger button and the account block that
+   lives inside the slide-down nav panel. Hidden on desktop. */
+.nav-toggle {
+  display: none;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.nav__account {
+  display: none;
+}
+
 .app-main {
   flex: 1;
   max-width: 1100px;
@@ -305,7 +317,7 @@ code {
   gap: 1.1rem;
   max-height: 360px;
   overflow-y: auto;
-  padding-right: 0.25rem;
+  padding-inline-end: 0.25rem;
 }
 
 .access-group {
@@ -573,6 +585,29 @@ textarea {
   text-align: center;
 }
 
+.lang-switch {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.lang-switch__btn {
+  background: var(--surface);
+  border: none;
+  padding: 0.3rem 0.55rem;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.lang-switch__btn.is-active {
+  background: var(--primary);
+  color: #fff;
+}
+
 .linklike {
   background: none;
   border: none;
@@ -676,7 +711,7 @@ textarea {
 
 .data-table th,
 .data-table td {
-  text-align: left;
+  text-align: start;
   padding: 0.55rem 0.75rem;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
@@ -756,7 +791,7 @@ textarea {
   margin: 0 0 1rem;
   padding: 0.7rem 0.9rem;
   background: var(--surface-muted, rgba(124, 58, 237, 0.08));
-  border-left: 3px solid var(--accent, #7c3aed);
+  border-inline-start: 3px solid var(--accent, #7c3aed);
   border-radius: 6px;
   color: var(--text);
   font-size: 0.95rem;
@@ -784,7 +819,8 @@ textarea {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  margin: 0.15rem 0 0.35rem 1.6rem;
+  margin-block: 0.15rem 0.35rem;
+  margin-inline: 1.6rem 0;
 }
 
 .schema-tree__desc-text {
@@ -811,7 +847,8 @@ textarea {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.3rem;
-  margin: 0.25rem 0 0.4rem 1.6rem;
+  margin-block: 0.25rem 0.4rem;
+  margin-inline: 1.6rem 0;
 }
 
 .schema-tree__annotate input {
@@ -918,11 +955,11 @@ textarea {
   font-size: 0.85rem;
   cursor: pointer;
   color: var(--muted);
-  border-right: 1px solid var(--border);
+  border-inline-end: 1px solid var(--border);
 }
 
 .chart-toggle__btn:last-child {
-  border-right: none;
+  border-inline-end: none;
 }
 
 .chart-toggle__btn.is-active {
@@ -969,9 +1006,12 @@ textarea {
 
 .explanation {
   background: var(--surface-alt);
-  border-left: 3px solid var(--primary);
+  border-inline-start: 3px solid var(--primary);
   padding: 0.6rem 0.85rem;
-  border-radius: 0 8px 8px 0;
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+  border-start-end-radius: 8px;
+  border-end-end-radius: 8px;
   margin: 0 0 0.75rem;
 }
 
@@ -993,8 +1033,11 @@ textarea {
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.5);
-  display: grid;
-  place-items: center;
+  /* Flex + margin:auto on the card gives "safe" centering: a card that cannot
+     fit stays reachable (pinned to the near edge, overlay scrolls) instead of
+     overflowing off-screen the way grid place-items:center does. */
+  display: flex;
+  overflow-y: auto;
   padding: 1.25rem;
   z-index: 50;
 }
@@ -1003,8 +1046,13 @@ textarea {
   background: var(--surface);
   border-radius: var(--radius);
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.3);
+  margin: auto;
   width: min(720px, 100%);
-  max-height: 90vh;
+  max-width: 100%;
+  /* Long unwrapped content (e.g. a one-line SQL preview) must not expand the
+     card past the viewport; capping min-width lets inner overflow-x scroll. */
+  min-width: 0;
+  max-height: min(90vh, 90dvh);
   display: flex;
   flex-direction: column;
 }
@@ -1022,6 +1070,11 @@ textarea {
 .modal__body {
   padding: 0.5rem 1.25rem 1rem;
   overflow-y: auto;
+  min-width: 0;
+}
+
+.modal .sql-box {
+  max-width: 100%;
 }
 
 .modal__footer {
@@ -1033,6 +1086,161 @@ textarea {
 }
 
 /* ------------------------------ Chat (Ask) -------------------------------- */
+
+/* Two panes: session sidebar + conversation. The sidebar collapses into a
+   toggleable drawer on small screens (see the responsive section). */
+.ask-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.ask-layout__main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.ask-layout__sidebar {
+  position: sticky;
+  top: 76px;
+}
+
+.chat-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  max-height: calc(100vh - 100px);
+}
+
+.chat-sidebar__status {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.chat-sidebar__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  overflow-y: auto;
+}
+
+.chat-sidebar__item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 8px;
+  padding: 0.15rem 0.3rem;
+}
+
+.chat-sidebar__item:hover {
+  background: var(--bg);
+}
+
+.chat-sidebar__item.is-active {
+  background: var(--nav-active-bg);
+}
+
+.chat-sidebar__title {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.88rem;
+  color: var(--text);
+  text-align: start;
+  padding: 0.35rem 0.2rem;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-sidebar__item.is-active .chat-sidebar__title {
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+
+.chat-sidebar__actions {
+  display: none;
+  flex: none;
+  gap: 0.1rem;
+}
+
+.chat-sidebar__item:hover .chat-sidebar__actions,
+.chat-sidebar__item.is-active .chat-sidebar__actions {
+  display: inline-flex;
+}
+
+.chat-sidebar__action {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.8rem;
+  padding: 0.25rem 0.3rem;
+  border-radius: 6px;
+}
+
+.chat-sidebar__action:hover {
+  color: var(--text);
+  background: var(--surface-alt);
+}
+
+.chat-sidebar__action--danger:hover {
+  color: var(--danger);
+}
+
+.chat-sidebar__rename {
+  font-size: 0.85rem;
+  padding: 0.3rem 0.4rem;
+}
+
+.chat-sidebar__group-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.25rem 0;
+  text-align: start;
+  width: 100%;
+}
+
+.chat-sidebar__archived {
+  border-top: 1px solid var(--border);
+  padding-top: 0.5rem;
+}
+
+/* Sidebar toggle lives in the page header; only visible on small screens. */
+.chat-sidebar-toggle {
+  display: none;
+  font-size: 1.05rem;
+  line-height: 1;
+  flex: none;
+}
+
+.ask-page__heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.chat-restored-note {
+  font-size: 0.82rem;
+}
 
 .ask-page__title-row {
   display: flex;
@@ -1133,7 +1341,7 @@ textarea {
   font-size: 0.88rem;
   padding: 0.4rem 0.9rem;
   cursor: pointer;
-  text-align: left;
+  text-align: start;
 }
 
 .chip:hover:not(:disabled) {
@@ -1163,7 +1371,7 @@ textarea {
   flex-direction: column;
   align-items: flex-start;
   gap: 0.15rem;
-  text-align: left;
+  text-align: start;
   padding: 0.6rem 0.85rem;
 }
 
@@ -1317,7 +1525,7 @@ textarea {
   font: inherit;
   font-size: 0.88rem;
   color: var(--text);
-  text-align: left;
+  text-align: start;
   padding: 0.3rem 0.2rem;
   flex: 1;
   overflow: hidden;
@@ -1350,15 +1558,16 @@ textarea {
 }
 
 .schema-tree__cols {
-  margin-left: 1.1rem;
-  border-left: 1px solid var(--border);
+  margin-inline-start: 1.1rem;
+  border-inline-start: 1px solid var(--border);
 }
 
 .schema-tree__col {
   display: flex;
   align-items: baseline;
   gap: 0.4rem;
-  padding: 0.1rem 0.2rem 0.1rem 0.5rem;
+  padding-block: 0.1rem;
+  padding-inline: 0.5rem 0.2rem;
 }
 
 .schema-tree__col-name {
@@ -1370,7 +1579,7 @@ textarea {
   font-size: 0.8rem;
   color: var(--text);
   padding: 0.1rem 0;
-  text-align: left;
+  text-align: start;
   transition: color 0.12s ease;
 }
 
@@ -1406,7 +1615,7 @@ textarea {
   color: var(--tone-fk-fg);
 }
 
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .browse {
     grid-template-columns: 1fr;
   }
@@ -1590,7 +1799,7 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  padding-left: 1.25rem;
+  padding-inline-start: 1.25rem;
 }
 
 .analysis-step__sql {
@@ -1603,6 +1812,381 @@ textarea {
   border-radius: 6px;
   padding: 0.5rem 0.7rem;
   margin: 0.35rem 0;
+}
+
+/* ------------------------------- Dashboards ------------------------------ */
+
+.dashboard-create {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.dashboard-create input[type='text'] {
+  flex: 1 1 16rem;
+}
+
+.dashboard-create .field--checkbox {
+  flex: none;
+}
+
+.dashboard-grid .react-grid-item.react-grid-placeholder {
+  background: var(--nav-active-bg);
+  border-radius: var(--radius);
+  opacity: 0.7;
+}
+
+.widget-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0.75rem 0.9rem;
+  overflow: hidden;
+}
+
+.widget-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.5rem;
+}
+
+.widget-card__head--drag {
+  cursor: grab;
+}
+
+.widget-card__head--drag:active {
+  cursor: grabbing;
+}
+
+.widget-card__title {
+  font-size: 0.95rem;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.widget-card__actions {
+  display: flex;
+  gap: 0.1rem;
+  flex: none;
+}
+
+.widget-card__btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding: 0.2rem 0.35rem;
+  border-radius: 6px;
+}
+
+.widget-card__btn:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--surface-alt);
+}
+
+.widget-card__btn--danger:hover:not(:disabled) {
+  color: var(--danger);
+}
+
+.widget-card__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.widget-card__error {
+  margin: 0;
+}
+
+.dashboard-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dashboard-stack__item {
+  min-height: 260px;
+  display: flex;
+}
+
+.dashboard-stack__item .widget-card {
+  flex: 1;
+}
+
+.modal--wide {
+  width: min(880px, 100%);
+}
+
+.widget-editor__row {
+  display: flex;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  margin: 0.75rem 0;
+}
+
+.widget-editor__row .field {
+  flex: 1 1 14rem;
+}
+
+.widget-editor__row--end {
+  align-items: flex-end;
+}
+
+.widget-editor__row--end .btn {
+  flex: none;
+}
+
+.widget-editor__sql {
+  margin-top: 0.25rem;
+}
+
+.widget-editor__preview {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+
+/* ------------------------------- Responsive ------------------------------ */
+/* Two shared breakpoints: 900px collapses the nav and wide two-column
+   layouts; 640px tightens phone density. pointer:coarse grows touch targets. */
+
+.table-scroll {
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 900px) {
+  /* Chat sessions: sidebar becomes a toggleable drawer above the thread. */
+  .ask-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .ask-layout__sidebar {
+    display: none;
+    position: static;
+  }
+
+  .ask-layout__sidebar.is-open {
+    display: block;
+  }
+
+  .chat-sidebar {
+    max-height: 50vh;
+  }
+
+  .chat-sidebar__actions {
+    display: inline-flex; /* no hover on touch — always show actions */
+  }
+
+  .chat-sidebar-toggle {
+    display: inline-flex;
+  }
+
+  .nav {
+    display: none;
+  }
+
+  /* Slide-down panel under the sticky header, opened by the hamburger. */
+  .nav--open {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    position: absolute;
+    top: 60px;
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    padding: 0.5rem 1rem 0.9rem;
+  }
+
+  .nav--open .nav-link {
+    padding: 0.65rem 0.75rem;
+  }
+
+  .nav__account {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .nav__account-email {
+    color: var(--muted);
+    font-size: 0.85rem;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .nav-toggle {
+    display: inline-flex;
+  }
+
+  /* Email + logout move into the nav panel on small screens. */
+  .nav-user__email,
+  .nav-user__logout {
+    display: none;
+  }
+
+  .app-header__inner {
+    justify-content: space-between;
+  }
+
+  .nav-user {
+    gap: 0.25rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-main {
+    padding: 1rem 0.75rem 2rem;
+  }
+
+  .card {
+    padding: 1rem;
+  }
+
+  .page__title {
+    font-size: 1.2rem;
+  }
+
+  .page__header,
+  .browse__editor-head {
+    flex-wrap: wrap;
+  }
+
+  .ask-page__title-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .ask-page__connection {
+    min-width: 0;
+  }
+
+  .chat-bubble--user {
+    max-width: 92%;
+  }
+
+  .chat-composer {
+    flex-wrap: wrap;
+  }
+
+  .chat-composer .ask-input {
+    flex: 1 1 100%;
+  }
+
+  .chat-composer .btn {
+    flex: 1;
+  }
+
+  .results-view__toolbar {
+    flex-wrap: wrap;
+  }
+
+  .chart-toggle {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .modal-overlay {
+    padding: 0.75rem;
+  }
+
+  .modal__header,
+  .modal__body,
+  .modal__footer {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+@media (pointer: coarse) {
+  .btn,
+  .nav-link,
+  select,
+  input:not([type='checkbox']):not([type='radio']) {
+    min-height: 44px;
+  }
+
+  .btn--small {
+    min-height: 36px;
+  }
+
+  .nav-link {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* Hover-revealed controls must be permanently visible on touch screens. */
+  .schema-tree__preview {
+    opacity: 1;
+  }
+}
+
+/* ---------------------------------- RTL ---------------------------------- */
+/* Persian flips the document via <html dir="rtl"> (set in src/i18n). Layout
+   uses flex/grid + logical properties, which mirror automatically; the rules
+   here handle the exceptions. */
+
+/* SQL, code, and technical inputs are always left-to-right — CodeMirror and
+   SQL text must never mirror. */
+.sql-box,
+.sql-editor,
+.cm-editor,
+.browse__editor,
+code,
+pre,
+.invite-result__url input {
+  direction: ltr;
+  text-align: left;
+}
+
+/* Recharts positions axes/tooltips with physical coordinates; keep the chart
+   canvas LTR so nothing mispositions under an RTL document. */
+.chart__canvas,
+.usage-chart,
+.dashboard-grid,
+.react-grid-item {
+  direction: ltr;
+}
+
+/* Persian system fonts: prefer faces with proper Persian glyph shaping. */
+[dir='rtl'] body,
+[dir='rtl'] input,
+[dir='rtl'] select,
+[dir='rtl'] textarea,
+[dir='rtl'] button {
+  font-family: 'Vazirmatn', 'IRANSans', Tahoma, var(--font);
+}
+
+/* The slide-down mobile nav spans the full width in both directions already
+   (left: 0; right: 0). Chevrons/carets that encode direction: */
+[dir='rtl'] .schema-tree__chevron {
+  transform: scaleX(-1);
+}
+
+/* Keep number-heavy meta readable in RTL copy. */
+[dir='rtl'] .results__meta,
+[dir='rtl'] .explain-estimate {
+  unicode-bidi: plaintext;
 }
 
 /* ------------------------- Ask agent activity feed ------------------------ */
