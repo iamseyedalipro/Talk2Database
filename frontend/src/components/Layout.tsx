@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { useThemeStore } from '../store/theme';
@@ -12,6 +13,12 @@ export default function Layout() {
   const toggleTheme = useThemeStore((s) => s.toggle);
   const navigate = useNavigate();
   const location = useLocation();
+  const [navOpen, setNavOpen] = useState(false);
+
+  // The mobile nav panel covers the page; close it whenever the route changes.
+  useEffect(() => {
+    setNavOpen(false);
+  }, [location.pathname]);
 
   const handleLogout = () => {
     clear();
@@ -29,7 +36,7 @@ export default function Layout() {
             <span className="brand__mark">⌘</span>
             <span className="brand__name">Talk2Database</span>
           </div>
-          <nav className="nav">
+          <nav className={navOpen ? 'nav nav--open' : 'nav'} aria-label="Main">
             <NavLink to="/" end className={linkClass}>
               Ask
             </NavLink>
@@ -53,6 +60,14 @@ export default function Layout() {
                 Admin
               </NavLink>
             )}
+            <div className="nav__account">
+              <span className="nav__account-email" title={user?.email}>
+                {user?.email}
+              </span>
+              <button type="button" className="btn btn--ghost" onClick={handleLogout}>
+                Logout
+              </button>
+            </div>
           </nav>
           <div className="nav-user">
             <button
@@ -68,8 +83,17 @@ export default function Layout() {
             <span className="nav-user__email" title={user?.email}>
               {user?.email}
             </span>
-            <button type="button" className="btn btn--ghost" onClick={handleLogout}>
+            <button type="button" className="btn btn--ghost nav-user__logout" onClick={handleLogout}>
               Logout
+            </button>
+            <button
+              type="button"
+              className="btn btn--ghost nav-toggle"
+              onClick={() => setNavOpen((open) => !open)}
+              aria-expanded={navOpen}
+              aria-label={navOpen ? 'Close menu' : 'Open menu'}
+            >
+              {navOpen ? '✕' : '☰'}
             </button>
           </div>
         </div>

@@ -204,6 +204,18 @@ code {
   white-space: nowrap;
 }
 
+/* Mobile-only affordances: the hamburger button and the account block that
+   lives inside the slide-down nav panel. Hidden on desktop. */
+.nav-toggle {
+  display: none;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.nav__account {
+  display: none;
+}
+
 .app-main {
   flex: 1;
   max-width: 1100px;
@@ -993,8 +1005,11 @@ textarea {
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.5);
-  display: grid;
-  place-items: center;
+  /* Flex + margin:auto on the card gives "safe" centering: a card that cannot
+     fit stays reachable (pinned to the near edge, overlay scrolls) instead of
+     overflowing off-screen the way grid place-items:center does. */
+  display: flex;
+  overflow-y: auto;
   padding: 1.25rem;
   z-index: 50;
 }
@@ -1003,8 +1018,13 @@ textarea {
   background: var(--surface);
   border-radius: var(--radius);
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.3);
+  margin: auto;
   width: min(720px, 100%);
-  max-height: 90vh;
+  max-width: 100%;
+  /* Long unwrapped content (e.g. a one-line SQL preview) must not expand the
+     card past the viewport; capping min-width lets inner overflow-x scroll. */
+  min-width: 0;
+  max-height: min(90vh, 90dvh);
   display: flex;
   flex-direction: column;
 }
@@ -1022,6 +1042,11 @@ textarea {
 .modal__body {
   padding: 0.5rem 1.25rem 1rem;
   overflow-y: auto;
+  min-width: 0;
+}
+
+.modal .sql-box {
+  max-width: 100%;
 }
 
 .modal__footer {
@@ -1406,7 +1431,7 @@ textarea {
   color: var(--tone-fk-fg);
 }
 
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .browse {
     grid-template-columns: 1fr;
   }
@@ -1603,4 +1628,162 @@ textarea {
   border-radius: 6px;
   padding: 0.5rem 0.7rem;
   margin: 0.35rem 0;
+}
+
+/* ------------------------------- Responsive ------------------------------ */
+/* Two shared breakpoints: 900px collapses the nav and wide two-column
+   layouts; 640px tightens phone density. pointer:coarse grows touch targets. */
+
+.table-scroll {
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 900px) {
+  .nav {
+    display: none;
+  }
+
+  /* Slide-down panel under the sticky header, opened by the hamburger. */
+  .nav--open {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    position: absolute;
+    top: 60px;
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    padding: 0.5rem 1rem 0.9rem;
+  }
+
+  .nav--open .nav-link {
+    padding: 0.65rem 0.75rem;
+  }
+
+  .nav__account {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .nav__account-email {
+    color: var(--muted);
+    font-size: 0.85rem;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .nav-toggle {
+    display: inline-flex;
+  }
+
+  /* Email + logout move into the nav panel on small screens. */
+  .nav-user__email,
+  .nav-user__logout {
+    display: none;
+  }
+
+  .app-header__inner {
+    justify-content: space-between;
+  }
+
+  .nav-user {
+    gap: 0.25rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-main {
+    padding: 1rem 0.75rem 2rem;
+  }
+
+  .card {
+    padding: 1rem;
+  }
+
+  .page__title {
+    font-size: 1.2rem;
+  }
+
+  .page__header,
+  .browse__editor-head {
+    flex-wrap: wrap;
+  }
+
+  .ask-page__title-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .ask-page__connection {
+    min-width: 0;
+  }
+
+  .chat-bubble--user {
+    max-width: 92%;
+  }
+
+  .chat-composer {
+    flex-wrap: wrap;
+  }
+
+  .chat-composer .ask-input {
+    flex: 1 1 100%;
+  }
+
+  .chat-composer .btn {
+    flex: 1;
+  }
+
+  .results-view__toolbar {
+    flex-wrap: wrap;
+  }
+
+  .chart-toggle {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .modal-overlay {
+    padding: 0.75rem;
+  }
+
+  .modal__header,
+  .modal__body,
+  .modal__footer {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+@media (pointer: coarse) {
+  .btn,
+  .nav-link,
+  select,
+  input:not([type='checkbox']):not([type='radio']) {
+    min-height: 44px;
+  }
+
+  .btn--small {
+    min-height: 36px;
+  }
+
+  .nav-link {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* Hover-revealed controls must be permanently visible on touch screens. */
+  .schema-tree__preview {
+    opacity: 1;
+  }
 }
