@@ -58,6 +58,14 @@ class Settings(BaseSettings):
     # block + messages) before each AI call, to help tune the prompt. The dump
     # includes schema, glossary and question text - keep OFF in production.
     ask_log_prompt: bool = False
+    # Two-phase table-detail discovery: send only the table-name directory first,
+    # let the model request the columns of the tables it needs, then generate.
+    # Reasons semantically (e.g. "sales" -> payments table) where the lexical
+    # ``select_schema`` trimmer would drop the right table. Falls back to
+    # ``select_schema`` if the discovery loop gathers nothing.
+    ask_schema_discovery: bool = True
+    ask_discovery_max_rounds: int = 4  # max provider round-trips in the discovery loop
+    ask_discovery_max_tables: int = 20  # max tables the model may expand before generating
 
     # -- Schema cost control ---------------------------------------------- #
     schema_max_tokens: int = 6000

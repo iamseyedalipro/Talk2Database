@@ -195,7 +195,11 @@ class AnthropicProvider:
             elif isinstance(block, anthropic.types.ToolUseBlock):
                 block_input = block.input if isinstance(block.input, dict) else {}
                 tool_calls.append(ToolCall(id=block.id, name=block.name, input=dict(block_input)))
-        return ChatTurn(text="\n".join(text_parts).strip() or None, tool_calls=tool_calls)
+        return ChatTurn(
+            text="\n".join(text_parts).strip() or None,
+            tool_calls=tool_calls,
+            usage=_usage_from_response(response),
+        )
 
 
 def _usage_from_response(response: Any) -> TokenUsage:
