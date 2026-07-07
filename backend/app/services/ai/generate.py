@@ -9,6 +9,7 @@ provider prompt caching still applies across retries.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from starlette.concurrency import run_in_threadpool
@@ -24,6 +25,8 @@ from app.services.sql_verify import (
     build_correction_feedback,
     verify_identifiers,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -82,6 +85,18 @@ async def generate_with_verification(
     for attempt in range(attempts):
         result: SqlGenerationResult
         call_usage: TokenUsage
+        if settings.ask_log_prompt:
+            logger.info(
+                "ASK prompt (attempt %d/%d)\n"
+                "===== SYSTEM =====\n%s\n"
+                "===== SCHEMA BLOCK =====\n%s\n"
+                "===== MESSAGES =====\n%s",
+                attempt + 1,
+                attempts,
+                system_prompt,
+                schema_block,
+                messages,
+            )
         result, call_usage = await run_in_threadpool(
             provider.generate_sql,
             messages=messages,
