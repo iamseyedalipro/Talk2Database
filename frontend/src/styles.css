@@ -1785,6 +1785,149 @@ textarea {
   margin: 0.35rem 0;
 }
 
+/* ------------------------------- Dashboards ------------------------------ */
+
+.dashboard-create {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.dashboard-create input[type='text'] {
+  flex: 1 1 16rem;
+}
+
+.dashboard-create .field--checkbox {
+  flex: none;
+}
+
+.dashboard-grid .react-grid-item.react-grid-placeholder {
+  background: var(--nav-active-bg);
+  border-radius: var(--radius);
+  opacity: 0.7;
+}
+
+.widget-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0.75rem 0.9rem;
+  overflow: hidden;
+}
+
+.widget-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.5rem;
+}
+
+.widget-card__head--drag {
+  cursor: grab;
+}
+
+.widget-card__head--drag:active {
+  cursor: grabbing;
+}
+
+.widget-card__title {
+  font-size: 0.95rem;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.widget-card__actions {
+  display: flex;
+  gap: 0.1rem;
+  flex: none;
+}
+
+.widget-card__btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding: 0.2rem 0.35rem;
+  border-radius: 6px;
+}
+
+.widget-card__btn:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--surface-alt);
+}
+
+.widget-card__btn--danger:hover:not(:disabled) {
+  color: var(--danger);
+}
+
+.widget-card__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.widget-card__error {
+  margin: 0;
+}
+
+.dashboard-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dashboard-stack__item {
+  min-height: 260px;
+  display: flex;
+}
+
+.dashboard-stack__item .widget-card {
+  flex: 1;
+}
+
+.modal--wide {
+  width: min(880px, 100%);
+}
+
+.widget-editor__row {
+  display: flex;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  margin: 0.75rem 0;
+}
+
+.widget-editor__row .field {
+  flex: 1 1 14rem;
+}
+
+.widget-editor__row--end {
+  align-items: flex-end;
+}
+
+.widget-editor__row--end .btn {
+  flex: none;
+}
+
+.widget-editor__sql {
+  margin-top: 0.25rem;
+}
+
+.widget-editor__preview {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+
 /* ------------------------------- Responsive ------------------------------ */
 /* Two shared breakpoints: 900px collapses the nav and wide two-column
    layouts; 640px tightens phone density. pointer:coarse grows touch targets. */

@@ -5,7 +5,15 @@
  * string literal (or a syntax error) on the other engine.
  */
 
+import { MariaSQL, MySQL, PostgreSQL, type SQLDialect } from '@codemirror/lang-sql';
 import type { DataSourceType } from '../api/types';
+
+/** CodeMirror SQL dialect for a data-source type (drives highlighting + autocomplete). */
+export function dialectFor(type: DataSourceType): SQLDialect {
+  if (type === 'mysql') return MySQL;
+  if (type === 'mariadb') return MariaSQL;
+  return PostgreSQL;
+}
 
 /** The identifier quote character for a data-source type. */
 function quoteChar(type: DataSourceType): '"' | '`' {

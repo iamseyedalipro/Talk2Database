@@ -25,6 +25,7 @@ from app.routers import (
     clarity,
     connection_access,
     connections,
+    dashboards,
     execute,
     glossary,
     history,
@@ -59,6 +60,7 @@ def _build_api_router() -> APIRouter:
     api.include_router(execute.router)
     api.include_router(history.router)
     api.include_router(saved_queries.router)
+    api.include_router(dashboards.router)
     api.include_router(results.router)
     api.include_router(clarity.router)
     api.include_router(prompts.router)

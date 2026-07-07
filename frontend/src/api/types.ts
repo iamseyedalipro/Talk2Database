@@ -183,6 +183,82 @@ export interface ChatAskResponse extends AskResponse {
   session_title: string;
 }
 
+/* ------------------------------- Dashboards ------------------------------ */
+
+export type WidgetView = 'table' | 'bar' | 'hbar' | 'line' | 'area' | 'pie' | 'scatter';
+
+export interface WidgetViz {
+  view: WidgetView;
+  x_column: string | null;
+  y_column: string | null;
+}
+
+export interface WidgetItem {
+  id: number;
+  title: string;
+  connection_id: number | null;
+  sql: string;
+  viz: WidgetViz;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface WidgetCreate {
+  title: string;
+  connection_id: number;
+  sql: string;
+  viz: WidgetViz;
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+}
+
+export interface WidgetUpdate {
+  title?: string;
+  connection_id?: number;
+  sql?: string;
+  viz?: WidgetViz;
+}
+
+export interface DashboardItem {
+  id: number;
+  name: string;
+  description: string | null;
+  shared: boolean;
+  owner_email: string | null;
+  is_owner: boolean;
+  widget_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DashboardDetail extends DashboardItem {
+  widgets: WidgetItem[];
+}
+
+export interface DashboardCreate {
+  name: string;
+  description?: string | null;
+  shared?: boolean;
+}
+
+export interface DashboardUpdate {
+  name?: string;
+  description?: string | null;
+  shared?: boolean;
+}
+
+export interface LayoutItemUpdate {
+  widget_id: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 /* -------------------------------- Execute -------------------------------- */
 
 export interface ResultColumn {

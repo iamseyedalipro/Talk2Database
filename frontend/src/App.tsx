@@ -8,6 +8,7 @@ import AdminPage from './pages/AdminPage';
 import AnalysisPage from './pages/AnalysisPage';
 import AskPage from './pages/AskPage';
 import ConnectionsPage from './pages/ConnectionsPage';
+import DashboardListPage from './pages/DashboardListPage';
 import HistoryPage from './pages/HistoryPage';
 import LoginPage from './pages/LoginPage';
 import RegisterInvitePage from './pages/RegisterInvitePage';
@@ -16,6 +17,8 @@ import SavedQueriesPage from './pages/SavedQueriesPage';
 // The browse page pulls in the CodeMirror editor; code-split it so that weight
 // only loads when the user actually opens it.
 const BrowsePage = lazy(() => import('./pages/BrowsePage'));
+// The dashboard page pulls in the grid library and CodeMirror; code-split too.
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 
 export default function App() {
   return (
@@ -41,6 +44,15 @@ export default function App() {
           }
         />
         <Route path="/connections" element={<ConnectionsPage />} />
+        <Route path="/dashboards" element={<DashboardListPage />} />
+        <Route
+          path="/dashboards/:id"
+          element={
+            <Suspense fallback={<Spinner label="Loading dashboard…" />}>
+              <DashboardPage />
+            </Suspense>
+          }
+        />
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/saved" element={<SavedQueriesPage />} />
         <Route

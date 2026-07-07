@@ -29,6 +29,10 @@ import type {
   ConnectionCreate,
   ConnectionTestResult,
   ConnectionUpdate,
+  DashboardCreate,
+  DashboardDetail,
+  DashboardItem,
+  DashboardUpdate,
   DbSchema,
   DescriptionUpsert,
   GlossaryData,
@@ -43,6 +47,7 @@ import type {
   HistoryItem,
   InvitePayload,
   InviteResponse,
+  LayoutItemUpdate,
   LoginPayload,
   PromptTemplate,
   RegisterPayload,
@@ -59,6 +64,9 @@ import type {
   UsageQuery,
   UsageReport,
   User,
+  WidgetCreate,
+  WidgetItem,
+  WidgetUpdate,
 } from './types';
 
 /* --------------------------------- Auth ---------------------------------- */
@@ -126,6 +134,35 @@ export const summarizeResults = (body: SummarizePayload) =>
 
 export const explainPlan = (body: ExplainPayload) =>
   api.post<ExplainResult>('/execute/explain', body);
+
+/* ------------------------------- Dashboards ------------------------------ */
+
+export const listDashboards = () => api.get<DashboardItem[]>('/dashboards');
+
+export const createDashboard = (body: DashboardCreate) =>
+  api.post<DashboardItem>('/dashboards', body);
+
+export const getDashboard = (id: number) => api.get<DashboardDetail>(`/dashboards/${id}`);
+
+export const updateDashboard = (id: number, body: DashboardUpdate) =>
+  api.patch<DashboardItem>(`/dashboards/${id}`, body);
+
+export const deleteDashboard = (id: number) => api.del<void>(`/dashboards/${id}`);
+
+export const createWidget = (dashboardId: number, body: WidgetCreate) =>
+  api.post<WidgetItem>(`/dashboards/${dashboardId}/widgets`, body);
+
+export const updateWidget = (dashboardId: number, widgetId: number, body: WidgetUpdate) =>
+  api.patch<WidgetItem>(`/dashboards/${dashboardId}/widgets/${widgetId}`, body);
+
+export const deleteWidget = (dashboardId: number, widgetId: number) =>
+  api.del<void>(`/dashboards/${dashboardId}/widgets/${widgetId}`);
+
+export const saveDashboardLayout = (dashboardId: number, items: LayoutItemUpdate[]) =>
+  api.put<void>(`/dashboards/${dashboardId}/layout`, { items });
+
+export const runWidget = (dashboardId: number, widgetId: number) =>
+  api.post<ExecuteResponse>(`/dashboards/${dashboardId}/widgets/${widgetId}/run`, {});
 
 /* ----------------------------- Chat sessions ----------------------------- */
 

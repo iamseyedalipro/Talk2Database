@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import CodeMirror, { type EditorView, Prec, keymap, placeholder } from '@uiw/react-codemirror';
-import { MariaSQL, MySQL, PostgreSQL, type SQLDialect, sql } from '@codemirror/lang-sql';
+import { sql } from '@codemirror/lang-sql';
 import { oneDark } from '@codemirror/theme-one-dark';
 import {
   deleteDescription,
@@ -28,17 +28,10 @@ import SaveQueryModal from '../components/SaveQueryModal';
 import SchemaTree from '../components/SchemaTree';
 import { ErrorBanner } from '../components/ui';
 import { errorMessage } from '../utils/format';
-import { buildPreviewSql } from '../utils/sql';
+import { buildPreviewSql, dialectFor } from '../utils/sql';
 
 const PREVIEW_LIMIT = 100;
 const PLACEHOLDER = 'Write a read-only SELECT, then press Run (Ctrl/⌘ + Enter).';
-
-/** CodeMirror SQL dialect for a data-source type (drives highlighting + autocomplete). */
-function dialectFor(type: DataSourceType): SQLDialect {
-  if (type === 'mysql') return MySQL;
-  if (type === 'mariadb') return MariaSQL;
-  return PostgreSQL;
-}
 
 /**
  * DBeaver-style workspace: pick a connection, browse its structure on the left,

@@ -46,6 +46,9 @@ export default function Layout() {
             <NavLink to="/browse" className={linkClass}>
               Browse
             </NavLink>
+            <NavLink to="/dashboards" className={linkClass}>
+              Dashboards
+            </NavLink>
             <NavLink to="/connections" className={linkClass}>
               Connections
             </NavLink>
