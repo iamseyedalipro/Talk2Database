@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { createDashboard, deleteDashboard, listDashboards } from '../api/endpoints';
 import type { DashboardItem } from '../api/types';
@@ -7,6 +8,7 @@ import { errorMessage, formatDate } from '../utils/format';
 
 /** All dashboards the user may open: their own plus shared ones. */
 export default function DashboardListPage() {
+  const { t } = useTranslation('dashboards');
   const navigate = useNavigate();
   const [dashboards, setDashboards] = useState<DashboardItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,7 +43,7 @@ export default function DashboardListPage() {
   };
 
   const handleDelete = async (dashboard: DashboardItem) => {
-    if (!window.confirm(`Delete dashboard "${dashboard.name}"? This cannot be undone.`)) return;
+    if (!window.confirm(t('deleteConfirm', { name: dashboard.name }))) return;
     setError(null);
     try {
       await deleteDashboard(dashboard.id);
@@ -54,27 +56,24 @@ export default function DashboardListPage() {
   return (
     <div className="page">
       <section className="card">
-        <h1 className="page__title">Dashboards</h1>
-        <p className="muted">
-          Arrange saved SQL as live tables and charts. Private by default; share one to make it
-          visible to every panel user.
-        </p>
+        <h1 className="page__title">{t('title')}</h1>
+        <p className="muted">{t('intro')}</p>
 
         <form className="dashboard-create" onSubmit={handleCreate}>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="New dashboard name…"
+            placeholder={t('newNamePlaceholder')}
             maxLength={200}
-            aria-label="Dashboard name"
+            aria-label={t('dashboardName')}
           />
           <label className="field field--checkbox">
             <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} />
-            <span>Share with everyone</span>
+            <span>{t('shareWithEveryone')}</span>
           </label>
           <button type="submit" className="btn btn--primary" disabled={creating || !name.trim()}>
-            {creating ? 'Creating…' : 'Create dashboard'}
+            {creating ? t('creating') : t('createDashboard')}
           </button>
         </form>
 
@@ -83,19 +82,19 @@ export default function DashboardListPage() {
 
       <section className="card">
         {loading ? (
-          <Spinner label="Loading dashboards…" />
+          <Spinner label={t('loadingDashboards')} />
         ) : dashboards.length === 0 ? (
-          <p className="muted">No dashboards yet. Create your first one above.</p>
+          <p className="muted">{t('noDashboards')}</p>
         ) : (
           <div className="table-scroll">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Widgets</th>
-                  <th>Visibility</th>
-                  <th>Owner</th>
-                  <th>Updated</th>
+                  <th>{t('colName')}</th>
+                  <th>{t('colWidgets')}</th>
+                  <th>{t('colVisibility')}</th>
+                  <th>{t('colOwner')}</th>
+                  <th>{t('colUpdated')}</th>
                   <th />
                 </tr>
               </thead>
@@ -109,17 +108,17 @@ export default function DashboardListPage() {
                     <td>{d.widget_count}</td>
                     <td>
                       {d.shared ? (
-                        <span className="pill pill--busy">Shared</span>
+                        <span className="pill pill--busy">{t('shared')}</span>
                       ) : (
-                        <span className="pill pill--neutral">Private</span>
+                        <span className="pill pill--neutral">{t('private')}</span>
                       )}
                     </td>
-                    <td>{d.is_owner ? 'You' : (d.owner_email ?? '—')}</td>
+                    <td>{d.is_owner ? t('you') : (d.owner_email ?? '—')}</td>
                     <td>{formatDate(d.updated_at)}</td>
                     <td>
                       <div className="row-actions">
                         <Link className="btn btn--secondary btn--small" to={`/dashboards/${d.id}`}>
-                          Open
+                          {t('open')}
                         </Link>
                         {d.is_owner && (
                           <button
@@ -127,7 +126,7 @@ export default function DashboardListPage() {
                             className="btn btn--danger btn--small"
                             onClick={() => void handleDelete(d)}
                           >
-                            Delete
+                            {t('delete')}
                           </button>
                         )}
                       </div>

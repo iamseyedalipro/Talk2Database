@@ -14,12 +14,13 @@ interface Props {
  * clicking one re-asks with that complete question.
  */
 export default function ClarificationCard({ ask, onPick, disabled }: Props) {
+  const { t } = useTranslation('chat');
   const isUnanswerable = ask.status === 'unanswerable';
   return (
     <div className="clarification-card">
-      <p className="clarification-card__question">
+      <p className="clarification-card__question" dir="auto">
         {isUnanswerable
-          ? ask.explanation ?? 'This question cannot be answered from the connected database.'
+          ? ask.explanation ?? t('unanswerableFallback')
           : ask.clarification_question}
       </p>
       {ask.suggested_interpretations.length > 0 && (
@@ -39,9 +40,7 @@ export default function ClarificationCard({ ask, onPick, disabled }: Props) {
         </div>
       )}
       {!isUnanswerable && (
-        <p className="muted clarification-card__hint">
-          Pick an option above, or rephrase your question below.
-        </p>
+        <p className="muted clarification-card__hint">{t('pickHint')}</p>
       )}
     </div>
   );

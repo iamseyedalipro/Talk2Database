@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import ReactGridLayout, {
   useContainerWidth,
@@ -42,6 +43,7 @@ function useIsNarrow(breakpoint = 900): boolean {
  * edit mode for the owner). All widgets load on open; refresh is manual.
  */
 export default function DashboardPage() {
+  const { t } = useTranslation('dashboards');
   const { id } = useParams();
   const dashboardId = Number(id);
   const user = useAuthStore((s) => s.user);
@@ -115,7 +117,7 @@ export default function DashboardPage() {
 
   const handleDeleteWidget = async (widget: WidgetItem) => {
     if (!dashboard) return;
-    if (!window.confirm(`Delete widget "${widget.title}"?`)) return;
+    if (!window.confirm(t('deleteWidgetConfirm', { title: widget.title }))) return;
     try {
       await deleteWidget(dashboardId, widget.id);
       setDashboard({
@@ -140,7 +142,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="page">
-        <Spinner label="Loading dashboard…" />
+        <Spinner label={t('loadingDashboard')} />
       </div>
     );
   }
@@ -149,9 +151,9 @@ export default function DashboardPage() {
     return (
       <div className="page">
         <section className="card">
-          <ErrorBanner message={error ?? 'Dashboard not found.'} />
+          <ErrorBanner message={error ?? t('notFound')} />
           <p className="muted">
-            <Link to="/dashboards">Back to dashboards</Link>
+            <Link to="/dashboards">{t('backToDashboards')}</Link>
           </p>
         </section>
       </div>
@@ -168,8 +170,10 @@ export default function DashboardPage() {
             <h1 className="page__title">{dashboard.name}</h1>
             <p className="muted">
               {dashboard.shared
-                ? `Shared dashboard${dashboard.is_owner ? '' : ` by ${dashboard.owner_email ?? 'another user'}`}`
-                : 'Private dashboard'}
+                ? dashboard.is_owner
+                  ? t('sharedDashboard')
+                  : t('sharedDashboardBy', { owner: dashboard.owner_email ?? t('anotherUser') })
+                : t('privateDashboard')}
               {dashboard.description ? ` — ${dashboard.description}` : ''}
             </p>
           </div>
@@ -180,23 +184,23 @@ export default function DashboardPage() {
               onClick={() => setRefreshToken((n) => n + 1)}
               disabled={dashboard.widgets.length === 0}
             >
-              ↻ Refresh all
+              ↻ {t('refreshAll')}
             </button>
             {canEdit && (
               <>
                 <button type="button" className="btn btn--secondary" onClick={() => void handleToggleShared()}>
-                  {dashboard.shared ? 'Make private' : 'Share with everyone'}
+                  {dashboard.shared ? t('makePrivate') : t('shareWithEveryone')}
                 </button>
                 <button
                   type="button"
                   className={editing ? 'btn btn--primary' : 'btn btn--secondary'}
                   onClick={() => setEditing((v) => !v)}
                 >
-                  {editing ? 'Done editing' : 'Edit layout'}
+                  {editing ? t('doneEditing') : t('editLayout')}
                 </button>
                 {editing && (
                   <button type="button" className="btn btn--primary" onClick={() => setEditorWidget('new')}>
-                    + Add widget
+                    + {t('addWidget')}
                   </button>
                 )}
               </>
@@ -205,15 +209,15 @@ export default function DashboardPage() {
         </div>
         <ErrorBanner message={error} />
         {editing && (
-          <p className="muted">Drag widgets by their title bar; resize from the corner handle.</p>
+          <p className="muted">{t('dragHint')}</p>
         )}
       </section>
 
       {dashboard.widgets.length === 0 ? (
         <section className="card">
           <p className="muted">
-            This dashboard is empty.
-            {canEdit ? ' Switch to "Edit layout" and add your first widget.' : ''}
+            {t('empty')}
+            {canEdit ? ` ${t('emptyEditHint')}` : ''}
           </p>
         </section>
       ) : isNarrow ? (

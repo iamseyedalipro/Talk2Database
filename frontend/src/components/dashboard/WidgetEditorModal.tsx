@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import CodeMirror from '@uiw/react-codemirror';
 import { sql } from '@codemirror/lang-sql';
 import { oneDark } from '@codemirror/theme-one-dark';
@@ -18,15 +19,6 @@ import ResultsTable from '../ResultsTable';
 import { ErrorBanner } from '../ui';
 
 const VIEWS: WidgetView[] = ['table', 'bar', 'hbar', 'line', 'area', 'pie', 'scatter'];
-const VIEW_LABELS: Record<WidgetView, string> = {
-  table: 'Table',
-  bar: 'Bar',
-  hbar: 'H-Bar',
-  line: 'Line',
-  area: 'Area',
-  pie: 'Pie',
-  scatter: 'Scatter',
-};
 
 export interface WidgetDraft {
   title: string;
@@ -47,6 +39,7 @@ interface Props {
  * a saved query), choose how to display it, and preview before saving.
  */
 export default function WidgetEditorModal({ widget, onSave, onCancel }: Props) {
+  const { t } = useTranslation('dashboards');
   const [connections, setConnections] = useState<Connection[]>([]);
   const [savedQueries, setSavedQueries] = useState<SavedQuery[]>([]);
 
@@ -131,23 +124,21 @@ export default function WidgetEditorModal({ widget, onSave, onCancel }: Props) {
   const previewColumns = preview?.columns ?? [];
 
   return (
-    <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Widget editor">
+    <div className="modal-overlay" role="dialog" aria-modal="true" aria-label={t('widgetEditor')}>
       <div className="modal modal--wide">
         <header className="modal__header">
-          <h2>{widget ? 'Edit widget' : 'Add widget'}</h2>
-          <p className="modal__sub">
-            A widget runs one read-only SELECT and shows the result as a table or chart.
-          </p>
+          <h2>{widget ? t('editWidget') : t('addWidget')}</h2>
+          <p className="modal__sub">{t('modalSub')}</p>
         </header>
 
         <div className="modal__body">
           <label className="field">
-            <span>Title</span>
+            <span>{t('titleLabel')}</span>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Orders per day"
+              placeholder={t('titlePlaceholder')}
               maxLength={200}
               autoFocus
             />
@@ -155,7 +146,7 @@ export default function WidgetEditorModal({ widget, onSave, onCancel }: Props) {
 
           <div className="widget-editor__row">
             <label className="field">
-              <span>Data source</span>
+              <span>{t('dataSource')}</span>
               <select
                 value={connectionId ?? ''}
                 onChange={(e) => setConnectionId(Number(e.target.value))}
@@ -170,14 +161,14 @@ export default function WidgetEditorModal({ widget, onSave, onCancel }: Props) {
 
             {savedQueries.length > 0 && (
               <label className="field">
-                <span>Start from saved query</span>
+                <span>{t('startFromSaved')}</span>
                 <select
                   value=""
                   onChange={(e) => {
                     if (e.target.value) applySavedQuery(Number(e.target.value));
                   }}
                 >
-                  <option value="">— pick a saved query —</option>
+                  <option value="">{t('pickSaved')}</option>
                   {savedQueries.map((q) => (
                     <option key={q.id} value={q.id}>
                       {q.name}
@@ -204,11 +195,11 @@ export default function WidgetEditorModal({ widget, onSave, onCancel }: Props) {
 
           <div className="widget-editor__row widget-editor__row--end">
             <label className="field">
-              <span>Display as</span>
+              <span>{t('displayAs')}</span>
               <select value={view} onChange={(e) => setView(e.target.value as WidgetView)}>
                 {VIEWS.map((v) => (
                   <option key={v} value={v}>
-                    {VIEW_LABELS[v]}
+                    {t(`views.${v}`)}
                   </option>
                 ))}
               </select>
@@ -217,9 +208,9 @@ export default function WidgetEditorModal({ widget, onSave, onCancel }: Props) {
             {view !== 'table' && (
               <>
                 <label className="field">
-                  <span>X axis</span>
+                  <span>{t('xAxis')}</span>
                   <select value={xColumn ?? ''} onChange={(e) => setXColumn(e.target.value || null)}>
-                    <option value="">auto</option>
+                    <option value="">{t('auto')}</option>
                     {previewColumns.map((c) => (
                       <option key={c.name} value={c.name}>
                         {c.name}
@@ -228,9 +219,9 @@ export default function WidgetEditorModal({ widget, onSave, onCancel }: Props) {
                   </select>
                 </label>
                 <label className="field">
-                  <span>Y axis</span>
+                  <span>{t('yAxis')}</span>
                   <select value={yColumn ?? ''} onChange={(e) => setYColumn(e.target.value || null)}>
-                    <option value="">auto</option>
+                    <option value="">{t('auto')}</option>
                     {previewColumns.map((c) => (
                       <option key={c.name} value={c.name}>
                         {c.name}
@@ -247,12 +238,12 @@ export default function WidgetEditorModal({ widget, onSave, onCancel }: Props) {
               onClick={() => void handlePreview()}
               disabled={previewing || connectionId === null || !sqlText.trim()}
             >
-              {previewing ? 'Running…' : 'Preview'}
+              {previewing ? t('running') : t('preview')}
             </button>
           </div>
 
           {view !== 'table' && previewColumns.length === 0 && (
-            <p className="muted">Run Preview to pick the chart axes from real columns.</p>
+            <p className="muted">{t('previewHint')}</p>
           )}
 
           <ErrorBanner message={error} />
@@ -277,7 +268,7 @@ export default function WidgetEditorModal({ widget, onSave, onCancel }: Props) {
 
         <footer className="modal__footer">
           <button type="button" className="btn btn--ghost" onClick={onCancel} disabled={busy}>
-            Cancel
+            {t('cancel')}
           </button>
           <button
             type="button"
@@ -285,7 +276,7 @@ export default function WidgetEditorModal({ widget, onSave, onCancel }: Props) {
             onClick={() => void handleSave()}
             disabled={busy || !title.trim() || connectionId === null || !sqlText.trim()}
           >
-            {busy ? 'Saving…' : 'Save widget'}
+            {busy ? t('saving') : t('saveWidget')}
           </button>
         </footer>
       </div>

@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   clarityFetchNow,
   clarityStatus,
@@ -21,7 +22,6 @@ const DEFAULT_COMBOS: string[][] = [
   ['URL', 'Device'],
 ];
 
-const comboLabel = (combo: string[]) => (combo.length ? combo.join(' + ') : 'overall');
 
 /**
  * Microsoft Clarity integration settings: API token, daily fetch schedule,
@@ -29,6 +29,7 @@ const comboLabel = (combo: string[]) => (combo.length ? combo.join(' + ') : 'ove
  * a manual "Fetch now" trigger, and the fetch-run history.
  */
 export default function AdminClaritySection() {
+  const { t } = useTranslation('admin');
   const [settings, setSettings] = useState<ClaritySettings | null>(null);
   const [status, setStatus] = useState<ClarityStatus | null>(null);
   const [runs, setRuns] = useState<ClarityRun[]>([]);
@@ -129,54 +130,64 @@ export default function AdminClaritySection() {
 
   const allowedDimensions = settings?.allowed_dimensions ?? [];
 
+  const comboLabel = (combo: string[]) =>
+    combo.length ? combo.join(' + ') : t('clarity.overall');
+
   return (
     <section className="card">
       <div className="page__header">
         <h2 className="page__title">Microsoft Clarity</h2>
         <button type="button" className="btn btn--ghost" onClick={() => void load()}>
-          Refresh
+          {t('refresh')}
         </button>
       </div>
-      <p className="muted">
-        Every day at the configured time, the panel fetches the previous day’s Clarity data.
-        Clarity allows only {status?.daily_budget ?? 10} API requests per day; each dimension
-        combination below costs one request.
-      </p>
+      <p className="muted">{t('clarity.description', { budget: status?.daily_budget ?? 10 })}</p>
 
       <ErrorBanner message={loadError} />
 
       {loading ? (
-        <Spinner label="Loading Clarity settings…" />
+        <Spinner label={t('clarity.loading')} />
       ) : (
         <>
           {status && (
             <InfoBanner>
-              Requests used today: {status.requests_used_today}/{status.daily_budget}
-              {' · '}Next scheduled fetch: {status.next_run_at ? formatDate(status.next_run_at) : '—'}
-              {' · '}Latest data: {status.latest_data_date ?? 'none yet'} ({status.days_stored} day
-              {status.days_stored === 1 ? '' : 's'} stored)
+              {t('clarity.requestsUsedToday', {
+                used: status.requests_used_today,
+                budget: status.daily_budget,
+              })}
+              {' · '}
+              {t('clarity.nextFetch', {
+                next: status.next_run_at ? formatDate(status.next_run_at) : '—',
+              })}
+              {' · '}
+              {t('clarity.latestData', {
+                latest: status.latest_data_date ?? t('clarity.noneYet'),
+              })}{' '}
+              ({t('clarity.daysStored', { count: status.days_stored })})
             </InfoBanner>
           )}
 
           <form className="invite-form" onSubmit={handleSave}>
             <label className="field">
-              <span>API token</span>
+              <span>{t('clarity.apiToken')}</span>
               <input
                 type="password"
                 value={token}
                 placeholder={
-                  settings?.token_set ? 'Token is set — enter a new one to replace it' : 'Paste your Clarity Data Export token'
+                  settings?.token_set
+                    ? t('clarity.tokenSetPlaceholder')
+                    : t('clarity.tokenPlaceholder')
                 }
                 onChange={(e) => setToken(e.target.value)}
                 autoComplete="off"
               />
             </label>
             <label className="field">
-              <span>Project ID (optional)</span>
+              <span>{t('clarity.projectId')}</span>
               <input type="text" value={projectId} onChange={(e) => setProjectId(e.target.value)} />
             </label>
             <label className="field">
-              <span>Fetch time</span>
+              <span>{t('clarity.fetchTime')}</span>
               <input
                 type="time"
                 required
@@ -185,22 +196,19 @@ export default function AdminClaritySection() {
               />
             </label>
             <label className="field">
-              <span>Timezone (IANA)</span>
+              <span>{t('clarity.timezone')}</span>
               <input
                 type="text"
                 required
                 value={timezone}
-                placeholder="e.g. UTC or Europe/Berlin"
+                placeholder={t('clarity.timezonePlaceholder')}
                 onChange={(e) => setTimezone(e.target.value)}
               />
             </label>
 
             <div className="subsection">
-              <h3>Daily dimension combinations ({combos.length}/10)</h3>
-              <p className="muted">
-                Each row is one API request fetching yesterday’s metrics broken down by up to 3
-                dimensions. An empty row fetches overall totals.
-              </p>
+              <h3>{t('clarity.combosTitle', { count: combos.length, max: 10 })}</h3>
+              <p className="muted">{t('clarity.combosDescription')}</p>
               {combos.map((combo, i) => (
                 <div key={i} className="row-actions" style={{ marginBottom: '0.5rem' }}>
                   {[0, 1, 2].map((d) => (
@@ -208,7 +216,7 @@ export default function AdminClaritySection() {
                       key={d}
                       value={combo[d] ?? ''}
                       onChange={(e) => setComboDimension(i, d, e.target.value)}
-                      aria-label={`Combination ${i + 1}, dimension ${d + 1}`}
+                      aria-label={t('clarity.comboAria', { combo: i + 1, dimension: d + 1 })}
                     >
                       <option value="">—</option>
                       {allowedDimensions.map((dim) => (
@@ -224,7 +232,7 @@ export default function AdminClaritySection() {
                     className="btn btn--small btn--danger"
                     onClick={() => setCombos((prev) => prev.filter((_, x) => x !== i))}
                   >
-                    Remove
+                    {t('clarity.remove')}
                   </button>
                 </div>
               ))}
@@ -235,52 +243,52 @@ export default function AdminClaritySection() {
                   disabled={combos.length >= 10}
                   onClick={() => setCombos((prev) => [...prev, []])}
                 >
-                  Add combination
+                  {t('clarity.addCombination')}
                 </button>
                 <button
                   type="button"
                   className="btn btn--small btn--ghost"
                   onClick={() => setCombos(DEFAULT_COMBOS)}
                 >
-                  Restore defaults
+                  {t('clarity.restoreDefaults')}
                 </button>
               </div>
             </div>
 
             <div className="row-actions">
               <button type="submit" className="btn btn--primary" disabled={saving}>
-                {saving ? 'Saving…' : 'Save Clarity settings'}
+                {saving ? t('clarity.saving') : t('clarity.saveSettings')}
               </button>
               <button
                 type="button"
                 className="btn btn--secondary"
                 disabled={fetching || !settings?.token_set}
-                title={settings?.token_set ? undefined : 'Save an API token first'}
+                title={settings?.token_set ? undefined : t('clarity.saveTokenFirst')}
                 onClick={() => void handleFetchNow()}
               >
-                {fetching ? 'Fetching…' : 'Fetch now'}
+                {fetching ? t('clarity.fetching') : t('clarity.fetchNow')}
               </button>
             </div>
-            {saved && <InfoBanner>Settings saved.</InfoBanner>}
+            {saved && <InfoBanner>{t('clarity.settingsSaved')}</InfoBanner>}
             <ErrorBanner message={saveError} />
             <ErrorBanner message={fetchError} />
           </form>
 
           <div className="subsection">
-            <h3>Fetch history</h3>
+            <h3>{t('clarity.historyTitle')}</h3>
             {runs.length === 0 ? (
-              <p className="muted">No fetches yet.</p>
+              <p className="muted">{t('clarity.noFetches')}</p>
             ) : (
               <div className="table-scroll">
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th>Started</th>
-                      <th>Data date</th>
-                      <th>Trigger</th>
-                      <th>Status</th>
-                      <th>Requests</th>
-                      <th aria-label="Details" />
+                      <th>{t('clarity.colStarted')}</th>
+                      <th>{t('clarity.colDataDate')}</th>
+                      <th>{t('clarity.colTrigger')}</th>
+                      <th>{t('clarity.colStatus')}</th>
+                      <th>{t('clarity.colRequests')}</th>
+                      <th aria-label={t('clarity.colDetails')} />
                     </tr>
                   </thead>
                   <tbody>
@@ -304,7 +312,7 @@ export default function AdminClaritySection() {
                                 setExpandedRun((prev) => (prev === run.id ? null : run.id))
                               }
                             >
-                              {expandedRun === run.id ? 'Hide' : 'Details'}
+                              {expandedRun === run.id ? t('clarity.hide') : t('clarity.details')}
                             </button>
                           </td>
                         </tr>

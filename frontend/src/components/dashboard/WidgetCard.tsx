@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { runWidget } from '../../api/endpoints';
 import type { ExecuteResponse, WidgetItem } from '../../api/types';
 import { errorMessage } from '../../utils/format';
@@ -46,6 +47,7 @@ export default function WidgetCard({
   onEdit,
   onDelete,
 }: Props) {
+  const { t } = useTranslation('dashboards');
   const [result, setResult] = useState<ExecuteResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,8 +80,8 @@ export default function WidgetCard({
           <button
             type="button"
             className="widget-card__btn"
-            title="Refresh"
-            aria-label={`Refresh ${widget.title}`}
+            title={t('refresh')}
+            aria-label={t('refreshWidgetAria', { title: widget.title })}
             onClick={load}
             disabled={loading}
           >
@@ -89,8 +91,8 @@ export default function WidgetCard({
             <button
               type="button"
               className="widget-card__btn"
-              title="Edit widget"
-              aria-label={`Edit ${widget.title}`}
+              title={t('editWidget')}
+              aria-label={t('editWidgetAria', { title: widget.title })}
               onClick={() => onEdit(widget)}
             >
               ✎
@@ -100,8 +102,8 @@ export default function WidgetCard({
             <button
               type="button"
               className="widget-card__btn widget-card__btn--danger"
-              title="Delete widget"
-              aria-label={`Delete ${widget.title}`}
+              title={t('deleteWidget')}
+              aria-label={t('deleteWidgetAria', { title: widget.title })}
               onClick={() => onDelete(widget)}
             >
               🗑
@@ -111,7 +113,7 @@ export default function WidgetCard({
       </div>
 
       <div className="widget-card__body" ref={bodyRef}>
-        {loading && <Spinner label="Running…" />}
+        {loading && <Spinner label={t('running')} />}
         {!loading && error && <div className="banner banner--error widget-card__error">{error}</div>}
         {!loading && !error && result && (
           view === 'table' ? (

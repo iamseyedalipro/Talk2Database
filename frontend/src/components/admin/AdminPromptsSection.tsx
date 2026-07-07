@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { listPrompts, resetPrompt, updatePrompt } from '../../api/endpoints';
 import type { PromptTemplate } from '../../api/types';
 import { errorMessage } from '../../utils/format';
@@ -6,6 +7,7 @@ import { ErrorBanner, InfoBanner, Spinner } from '../ui';
 
 /** Edit the AI system prompts used by the Ask and Analysis sections. */
 export default function AdminPromptsSection() {
+  const { t } = useTranslation('admin');
   const [prompts, setPrompts] = useState<PromptTemplate[]>([]);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -53,7 +55,7 @@ export default function AdminPromptsSection() {
   };
 
   const handleReset = async (prompt: PromptTemplate) => {
-    if (!window.confirm(`Reset "${prompt.title}" to the built-in default prompt?`)) return;
+    if (!window.confirm(t('prompts.confirmReset', { title: prompt.title }))) return;
     setRowError((prev) => ({ ...prev, [prompt.key]: null }));
     setSavedKey(null);
     setBusyKey(prompt.key);
@@ -69,20 +71,17 @@ export default function AdminPromptsSection() {
   return (
     <section className="card">
       <div className="page__header">
-        <h2 className="page__title">AI prompts</h2>
+        <h2 className="page__title">{t('prompts.title')}</h2>
         <button type="button" className="btn btn--ghost" onClick={() => void load()}>
-          Refresh
+          {t('refresh')}
         </button>
       </div>
-      <p className="muted">
-        These system prompts steer the AI in the Ask and Analysis sections. Changes apply
-        immediately to new requests.
-      </p>
+      <p className="muted">{t('prompts.description')}</p>
 
       <ErrorBanner message={loadError} />
 
       {loading ? (
-        <Spinner label="Loading prompts…" />
+        <Spinner label={t('prompts.loading')} />
       ) : (
         prompts.map((prompt) => {
           const draft = drafts[prompt.key] ?? '';
@@ -91,7 +90,9 @@ export default function AdminPromptsSection() {
             <div key={prompt.key} className="subsection">
               <h3>
                 {prompt.title}{' '}
-                {prompt.is_customized && <span className="pill pill--busy">customized</span>}
+                {prompt.is_customized && (
+                  <span className="pill pill--busy">{t('prompts.customized')}</span>
+                )}
               </h3>
               <p className="muted">{prompt.description}</p>
               <textarea
@@ -99,7 +100,7 @@ export default function AdminPromptsSection() {
                 rows={10}
                 value={draft}
                 onChange={(e) => setDrafts((prev) => ({ ...prev, [prompt.key]: e.target.value }))}
-                aria-label={`Prompt: ${prompt.title}`}
+                aria-label={t('prompts.promptAria', { title: prompt.title })}
               />
               <div className="row-actions">
                 <button
@@ -108,7 +109,7 @@ export default function AdminPromptsSection() {
                   disabled={busyKey === prompt.key || !dirty || !draft.trim()}
                   onClick={() => void handleSave(prompt)}
                 >
-                  {busyKey === prompt.key ? 'Working…' : 'Save'}
+                  {busyKey === prompt.key ? t('prompts.working') : t('prompts.save')}
                 </button>
                 <button
                   type="button"
@@ -116,10 +117,10 @@ export default function AdminPromptsSection() {
                   disabled={busyKey === prompt.key || !prompt.is_customized}
                   onClick={() => void handleReset(prompt)}
                 >
-                  Reset to default
+                  {t('prompts.resetToDefault')}
                 </button>
               </div>
-              {savedKey === prompt.key && <InfoBanner>Prompt saved.</InfoBanner>}
+              {savedKey === prompt.key && <InfoBanner>{t('prompts.promptSaved')}</InfoBanner>}
               <ErrorBanner message={rowError[prompt.key] ?? null} />
             </div>
           );
