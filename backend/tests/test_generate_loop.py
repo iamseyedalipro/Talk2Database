@@ -151,6 +151,27 @@ async def test_verification_can_be_disabled() -> None:
     assert outcome.retry_count == 0
 
 
+async def test_prompt_is_logged_when_flag_enabled(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    provider = FakeProvider([_ok("SELECT amount FROM payments")])
+    with caplog.at_level("INFO", logger="app.services.ai.generate"):
+        await _run(provider, _settings(ask_log_prompt=True))
+    dumped = "\n".join(r.getMessage() for r in caplog.records)
+    assert "ASK prompt (attempt 1/" in dumped
+    assert "===== SCHEMA BLOCK =====" in dumped
+    assert "TABLE payments" in dumped
+
+
+async def test_prompt_not_logged_by_default(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    provider = FakeProvider([_ok("SELECT amount FROM payments")])
+    with caplog.at_level("INFO", logger="app.services.ai.generate"):
+        await _run(provider)  # ask_log_prompt defaults to False
+    assert not any("ASK prompt" in r.getMessage() for r in caplog.records)
+
+
 async def test_usage_accumulates_across_retries() -> None:
     # First answer hallucinates -> one corrective retry -> two provider calls.
     provider = FakeProvider(

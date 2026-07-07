@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -99,6 +100,14 @@ def _mount_spa(app: FastAPI) -> None:
 
 def create_app() -> FastAPI:
     settings = get_settings()
+
+    # DEV/DEBUG ONLY: surface the assembled Ask prompt (logged in
+    # ``generate_with_verification``). Uvicorn's default logging does not route
+    # app-logger INFO to a handler, so raise the level only when the flag is on.
+    if settings.ask_log_prompt:
+        logging.basicConfig(level=logging.INFO)
+        logging.getLogger("app").setLevel(logging.INFO)
+
     app = FastAPI(
         title="Talk2Database",
         version=__version__,

@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     ask_max_retries: int = 2
     ask_verify_identifiers: bool = True
     suggested_questions_count: int = 5
+    # DEV/DEBUG ONLY. Logs the full assembled prompt (system prompt + schema
+    # block + messages) before each AI call, to help tune the prompt. The dump
+    # includes schema, glossary and question text - keep OFF in production.
+    ask_log_prompt: bool = False
 
     # -- Schema cost control ---------------------------------------------- #
     schema_max_tokens: int = 6000
