@@ -187,11 +187,40 @@ export interface ChatAskResponse extends AskResponse {
 
 /* ------------------------------- Dashboards ------------------------------ */
 
-export type WidgetView = 'table' | 'bar' | 'hbar' | 'line' | 'area' | 'pie' | 'scatter';
+export type WidgetView =
+  | 'table'
+  | 'bar'
+  | 'hbar'
+  | 'line'
+  | 'area'
+  | 'pie'
+  | 'scatter'
+  | 'radar'
+  | 'combo';
+
+/** Chart kinds are every view except 'table'. */
+export type ChartKind = Exclude<WidgetView, 'table'>;
+
+export type StackMode = 'none' | 'stacked' | 'percent';
+export type ComboSeriesType = 'bar' | 'line';
+export type PieMode = 'category' | 'columns';
 
 export interface WidgetViz {
   view: WidgetView;
   x_column: string | null;
+  /** Ordered Y columns (wide multi-series). Empty = auto-pick the first numeric. */
+  y_columns: string[];
+  /** Long-shape pivot: one series per distinct value; uses y_columns[0] as the value. */
+  series_column: string | null;
+  /** bar / hbar / area only; 'percent' is 100%-stacked. */
+  stacked: StackMode;
+  /** combo only: per-Y-column mark; columns absent from the map default to 'bar'. */
+  combo_types: Record<string, ComboSeriesType>;
+  /** combo only: Y columns plotted on the secondary (right) axis. */
+  right_axis: string[];
+  /** pie only: 'category' = one slice per row; 'columns' = one slice per y column total. */
+  pie_mode: PieMode;
+  /** Legacy single-Y key, mirrored from y_columns[0] for rollback safety. */
   y_column: string | null;
 }
 
@@ -453,15 +482,7 @@ export interface SavedQueryRunPayload {
 
 /* ------------------------- Result summary (AI) --------------------------- */
 
-export type ChartType =
-  | 'bar'
-  | 'line'
-  | 'area'
-  | 'pie'
-  | 'scatter'
-  | 'hbar'
-  | 'table'
-  | 'none';
+export type ChartType = WidgetView | 'none';
 
 export interface SummarizePayload {
   question?: string | null;
@@ -473,7 +494,12 @@ export interface ResultSummary {
   summary: string;
   chart_type: ChartType;
   x_column: string | null;
+  /** Legacy single-Y field, still sent by the backend (mirrors y_columns[0]). */
   y_column: string | null;
+  y_columns: string[] | null;
+  series_column: string | null;
+  stacked: boolean;
+  combo_line_columns: string[] | null;
 }
 
 /* ----------------------------- EXPLAIN preview --------------------------- */

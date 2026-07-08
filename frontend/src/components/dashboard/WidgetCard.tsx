@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { runWidget } from '../../api/endpoints';
 import type { ExecuteResponse, WidgetItem } from '../../api/types';
 import { errorMessage } from '../../utils/format';
+import { normalizeViz } from '../../utils/viz';
 import ResultsChart from '../ResultsChart';
 import ResultsTable from '../ResultsTable';
 import { Spinner } from '../ui';
@@ -121,9 +122,7 @@ export default function WidgetCard({
           ) : (
             <ResultsChart
               result={result}
-              kind={view}
-              suggestedX={widget.viz.x_column}
-              suggestedY={widget.viz.y_column}
+              viz={normalizeViz(widget.viz)}
               hideControls
               height={Math.max(bodyHeight - 8, 120)}
             />

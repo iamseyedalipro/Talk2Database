@@ -7,7 +7,9 @@ from typing import Any, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, Field, model_validator
 
-ChartType = Literal["bar", "line", "area", "pie", "scatter", "hbar", "table", "none"]
+ChartType = Literal[
+    "bar", "line", "area", "pie", "scatter", "hbar", "radar", "combo", "table", "none"
+]
 
 
 @dataclass(frozen=True)
@@ -90,7 +92,28 @@ class ResultSummary(BaseModel):
     x_column: str | None = Field(
         default=None, description="Column for the chart X axis (a label/category/time)."
     )
+    y_columns: list[str] | None = Field(
+        default=None, description="Numeric columns to plot as series, in order."
+    )
+    series_column: str | None = Field(
+        default=None,
+        description="Category column that splits rows into one series per distinct value.",
+    )
+    stacked: bool = Field(default=False, description="Stack bar/area series.")
+    combo_line_columns: list[str] | None = Field(
+        default=None, description="For 'combo': the y_columns drawn as lines (the rest are bars)."
+    )
+    # Legacy single-Y field: not requested from the model, derived from y_columns so
+    # stored payloads and older clients keep working.
     y_column: str | None = Field(default=None, description="Numeric column for the chart Y axis.")
+
+    @model_validator(mode="after")
+    def _sync_legacy_y(self) -> ResultSummary:
+        if self.y_columns and not self.y_column:
+            self.y_column = self.y_columns[0]
+        elif self.y_column and not self.y_columns:
+            self.y_columns = [self.y_column]
+        return self
 
 
 class AIProviderError(RuntimeError):
@@ -180,19 +203,58 @@ RESULT_SUMMARY_SCHEMA: dict[str, Any] = {
         },
         "chart_type": {
             "type": "string",
-            "enum": ["bar", "line", "area", "pie", "scatter", "hbar", "table", "none"],
+            "enum": [
+                "bar",
+                "line",
+                "area",
+                "pie",
+                "scatter",
+                "hbar",
+                "radar",
+                "combo",
+                "table",
+                "none",
+            ],
             "description": "The best chart type for these results.",
         },
         "x_column": {
             "type": ["string", "null"],
             "description": "Column name for the chart X axis, or null.",
         },
-        "y_column": {
+        "y_columns": {
+            "type": ["array", "null"],
+            "items": {"type": "string"},
+            "description": "Numeric column names to plot as series, in order, or null.",
+        },
+        "series_column": {
             "type": ["string", "null"],
-            "description": "Numeric column name for the chart Y axis, or null.",
+            "description": (
+                "Low-cardinality category column that groups rows into one series per "
+                "distinct value, or null. When set, y_columns holds the single value column."
+            ),
+        },
+        "stacked": {
+            "type": "boolean",
+            "description": "true to stack bar/area series (parts of a whole per x value).",
+        },
+        "combo_line_columns": {
+            "type": ["array", "null"],
+            "items": {"type": "string"},
+            "description": (
+                "For chart_type 'combo': which y_columns are drawn as lines; the rest "
+                "are bars. Null otherwise."
+            ),
         },
     },
-    "required": ["summary", "chart_type", "x_column", "y_column"],
+    "required": [
+        "summary",
+        "chart_type",
+        "x_column",
+        "y_columns",
+        "series_column",
+        "stacked",
+        "combo_line_columns",
+    ],
     "additionalProperties": False,
 }
 

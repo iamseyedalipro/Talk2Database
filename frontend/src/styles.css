@@ -979,11 +979,87 @@ textarea {
   display: flex;
   gap: 1.25rem;
   flex-wrap: wrap;
+  align-items: flex-start;
   margin-bottom: 1rem;
 }
 
 .chart__canvas {
   width: 100%;
+}
+
+.chart__hint {
+  font-size: 0.8rem;
+  margin: 0 0 0.5rem;
+}
+
+.chart__chips-field {
+  max-width: 100%;
+}
+
+.chart__chips {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.chart__chip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.chart__chip:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary-dark);
+}
+
+.chart__chip.is-active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.chart__chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.chart__combo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex-basis: 100%;
+}
+
+.chart__combo-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.chart__combo-name {
+  font-size: 0.85rem;
+  color: var(--text);
+  min-width: 8rem;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart__combo .chart-toggle__btn {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.8rem;
 }
 
 /* --------------------------------- SQL ----------------------------------- */
