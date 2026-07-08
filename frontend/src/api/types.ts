@@ -254,6 +254,11 @@ export interface WidgetUpdate {
   viz?: WidgetViz;
 }
 
+/** Per-user share access level. */
+export type ShareAccess = 'view' | 'edit';
+/** The caller's effective access on a dashboard. */
+export type MyAccess = 'owner' | 'edit' | 'view';
+
 export interface DashboardItem {
   id: number;
   name: string;
@@ -261,6 +266,8 @@ export interface DashboardItem {
   shared: boolean;
   owner_email: string | null;
   is_owner: boolean;
+  /** The caller's effective access: they own it, may edit it, or may only view. */
+  my_access: MyAccess;
   widget_count: number;
   created_at: string;
   updated_at: string;
@@ -268,6 +275,24 @@ export interface DashboardItem {
 
 export interface DashboardDetail extends DashboardItem {
   widgets: WidgetItem[];
+}
+
+/** One share grant for a dashboard, with the recipient's email for display. */
+export interface DashboardShareItem {
+  user_id: number;
+  email: string;
+  access_level: ShareAccess;
+}
+
+export interface DashboardShareEntry {
+  user_id: number;
+  access_level: ShareAccess;
+}
+
+/** Minimal user identity for the share picker (id + email only). */
+export interface UserDirectoryEntry {
+  id: number;
+  email: string;
 }
 
 export interface DashboardCreate {

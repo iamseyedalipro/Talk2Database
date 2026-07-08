@@ -21,6 +21,13 @@ class UserSelfUpdate(BaseModel):
     language: Literal["en", "fa"] | None = None
 
 
+class UserDirectoryEntry(BaseModel):
+    """Minimal user identity for share pickers (available to any signed-in user)."""
+
+    id: int
+    email: str
+
+
 class InviteResponse(BaseModel):
     invite_id: int
     email: EmailStr

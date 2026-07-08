@@ -34,6 +34,8 @@ import type {
   DashboardCreate,
   DashboardDetail,
   DashboardItem,
+  DashboardShareEntry,
+  DashboardShareItem,
   DashboardUpdate,
   DbSchema,
   DescriptionUpsert,
@@ -66,6 +68,7 @@ import type {
   UsageQuery,
   UsageReport,
   User,
+  UserDirectoryEntry,
   WidgetCreate,
   WidgetItem,
   WidgetUpdate,
@@ -89,6 +92,9 @@ export const me = () => api.get<User>('/auth/me');
 /* --------------------------------- Users --------------------------------- */
 
 export const listUsers = () => api.get<User[]>('/users');
+
+/** Signed-in users other than the caller (id + email) for share pickers. */
+export const listUserDirectory = () => api.get<UserDirectoryEntry[]>('/users/directory');
 
 export const inviteUser = (body: InvitePayload) =>
   api.post<InviteResponse>('/users/invite', body);
@@ -173,6 +179,12 @@ export const saveDashboardLayout = (dashboardId: number, items: LayoutItemUpdate
 
 export const runWidget = (dashboardId: number, widgetId: number) =>
   api.post<ExecuteResponse>(`/dashboards/${dashboardId}/widgets/${widgetId}/run`, {});
+
+export const getDashboardShares = (id: number) =>
+  api.get<DashboardShareItem[]>(`/dashboards/${id}/shares`);
+
+export const setDashboardShares = (id: number, shares: DashboardShareEntry[]) =>
+  api.put<DashboardShareItem[]>(`/dashboards/${id}/shares`, { shares });
 
 /* ----------------------------- Chat sessions ----------------------------- */
 

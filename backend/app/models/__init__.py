@@ -11,6 +11,7 @@ from app.models.clarity import ClarityFetchRun, ClaritySnapshot
 from app.models.connection import Connection, DataSourceType
 from app.models.connection_access import ConnectionAccess
 from app.models.dashboard import Dashboard, DashboardWidget
+from app.models.dashboard_share import DashboardAccessLevel, DashboardShare
 from app.models.glossary import GlossaryDescription, Metric
 from app.models.invite import Invite
 from app.models.query_history import QueryHistory, QueryStatus
@@ -29,6 +30,8 @@ __all__ = [
     "Connection",
     "ConnectionAccess",
     "Dashboard",
+    "DashboardAccessLevel",
+    "DashboardShare",
     "DashboardWidget",
     "DataSourceType",
     "GlossaryDescription",

@@ -112,6 +112,11 @@ export default function DashboardListPage() {
                       ) : (
                         <span className="pill pill--neutral">{t('private')}</span>
                       )}
+                      {!d.is_owner && (
+                        <span className="pill pill--neutral">
+                          {d.my_access === 'edit' ? t('accessCanEdit') : t('accessCanView')}
+                        </span>
+                      )}
                     </td>
                     <td>{d.is_owner ? t('you') : (d.owner_email ?? '—')}</td>
                     <td>{formatDate(d.updated_at)}</td>

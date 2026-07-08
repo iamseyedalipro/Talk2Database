@@ -13,10 +13,10 @@ import {
   deleteWidget,
   getDashboard,
   saveDashboardLayout,
-  updateDashboard,
   updateWidget,
 } from '../api/endpoints';
 import type { DashboardDetail, WidgetItem } from '../api/types';
+import ShareDashboardModal from '../components/dashboard/ShareDashboardModal';
 import WidgetCard from '../components/dashboard/WidgetCard';
 import WidgetEditorModal, { type WidgetDraft } from '../components/dashboard/WidgetEditorModal';
 import { ErrorBanner, Spinner } from '../components/ui';
@@ -53,6 +53,7 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [editorWidget, setEditorWidget] = useState<WidgetItem | null | 'new'>(null);
+  const [sharing, setSharing] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
 
   const isNarrow = useIsNarrow();
@@ -66,9 +67,14 @@ export default function DashboardPage() {
       .finally(() => setLoading(false));
   }, [dashboardId]);
 
+  // The owner and edit-grantees can edit; admins can still moderate shared ones.
   const canEdit =
     dashboard !== null &&
-    (dashboard.is_owner || (user?.role === 'admin' && dashboard.shared));
+    (dashboard.my_access === 'owner' ||
+      dashboard.my_access === 'edit' ||
+      (user?.role === 'admin' && dashboard.shared));
+  // Only the owner (or an admin) manages who a dashboard is shared with.
+  const canShare = dashboard !== null && (dashboard.is_owner || user?.role === 'admin');
 
   const layout: Layout = useMemo(
     () =>
@@ -129,16 +135,6 @@ export default function DashboardPage() {
     }
   };
 
-  const handleToggleShared = async () => {
-    if (!dashboard || !canEdit) return;
-    try {
-      const updated = await updateDashboard(dashboardId, { shared: !dashboard.shared });
-      setDashboard({ ...dashboard, shared: updated.shared });
-    } catch (err) {
-      setError(errorMessage(err));
-    }
-  };
-
   if (loading) {
     return (
       <div className="page">
@@ -186,11 +182,13 @@ export default function DashboardPage() {
             >
               ↻ {t('refreshAll')}
             </button>
+            {canShare && (
+              <button type="button" className="btn btn--secondary" onClick={() => setSharing(true)}>
+                {t('shareButton')}
+              </button>
+            )}
             {canEdit && (
               <>
-                <button type="button" className="btn btn--secondary" onClick={() => void handleToggleShared()}>
-                  {dashboard.shared ? t('makePrivate') : t('shareWithEveryone')}
-                </button>
                 <button
                   type="button"
                   className={editing ? 'btn btn--primary' : 'btn btn--secondary'}
@@ -269,6 +267,15 @@ export default function DashboardPage() {
           widget={editorWidget === 'new' ? null : editorWidget}
           onSave={handleSaveWidget}
           onCancel={() => setEditorWidget(null)}
+        />
+      )}
+
+      {sharing && (
+        <ShareDashboardModal
+          dashboardId={dashboardId}
+          shared={dashboard.shared}
+          onSharedChange={(next) => setDashboard((d) => (d ? { ...d, shared: next } : d))}
+          onClose={() => setSharing(false)}
         />
       )}
     </div>

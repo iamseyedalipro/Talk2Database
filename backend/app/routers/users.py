@@ -12,7 +12,12 @@ from app.deps import AdminUser, CurrentUser, SessionDep
 from app.models.invite import Invite
 from app.models.user import User, UserRole
 from app.schemas.auth import UserOut
-from app.schemas.user import InviteRequest, InviteResponse, UserSelfUpdate
+from app.schemas.user import (
+    InviteRequest,
+    InviteResponse,
+    UserDirectoryEntry,
+    UserSelfUpdate,
+)
 from app.services.auth_service import generate_invite_token, hash_invite_token
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -33,6 +38,21 @@ async def update_me(payload: UserSelfUpdate, user: CurrentUser, session: Session
 async def list_users(_: AdminUser, session: SessionDep) -> list[User]:
     result = await session.execute(select(User).order_by(User.created_at))
     return list(result.scalars().all())
+
+
+@router.get("/directory", response_model=list[UserDirectoryEntry])
+async def user_directory(user: CurrentUser, session: SessionDep) -> list[UserDirectoryEntry]:
+    """Active users other than the caller (id + email only).
+
+    Available to any signed-in user so a dashboard owner can pick who to share
+    a dashboard with. Exposes nothing beyond the email address.
+    """
+    rows = await session.execute(
+        select(User.id, User.email)
+        .where(User.is_active.is_(True), User.id != user.id)
+        .order_by(User.email)
+    )
+    return [UserDirectoryEntry(id=uid, email=email) for uid, email in rows.all()]
 
 
 @router.post("/invite", response_model=InviteResponse, status_code=status.HTTP_201_CREATED)

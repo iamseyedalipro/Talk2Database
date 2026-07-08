@@ -10,18 +10,21 @@ grants access to data the viewer couldn't already query.
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Response, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from starlette.concurrency import run_in_threadpool
 
 from app.config import get_settings
 from app.connectors import ConnectorQueryError
 from app.deps import CurrentUser, SessionDep
 from app.models.dashboard import Dashboard, DashboardWidget
+from app.models.dashboard_share import DashboardAccessLevel, DashboardShare
 from app.models.user import User
 from app.schemas.dashboard import (
     DashboardCreate,
     DashboardDetail,
     DashboardItem,
+    DashboardShareItem,
+    DashboardSharesUpdate,
     DashboardUpdate,
     LayoutUpdate,
     WidgetCreate,
@@ -37,14 +40,51 @@ from app.services.sql_guard import SqlGuardError
 router = APIRouter(prefix="/dashboards", tags=["dashboards"])
 
 
-def can_view(user: User, dashboard: Dashboard) -> bool:
-    """A user may view their own dashboards and any shared one."""
-    return dashboard.owner_id == user.id or dashboard.shared
+def can_view(
+    user: User, dashboard: Dashboard, share_level: DashboardAccessLevel | None = None
+) -> bool:
+    """A user may view their own dashboards, any globally shared one, or one
+    shared with them directly (``share_level`` being their grant, if any)."""
+    return dashboard.owner_id == user.id or dashboard.shared or share_level is not None
 
 
-def can_edit(user: User, dashboard: Dashboard) -> bool:
-    """The owner may always edit; an admin may manage a *shared* one."""
-    return dashboard.owner_id == user.id or (user.is_admin and dashboard.shared)
+def can_edit(
+    user: User, dashboard: Dashboard, share_level: DashboardAccessLevel | None = None
+) -> bool:
+    """The owner may always edit; an admin may manage a *shared* one; a user
+    granted ``edit`` access may edit their share."""
+    return (
+        dashboard.owner_id == user.id
+        or (user.is_admin and dashboard.shared)
+        or share_level == DashboardAccessLevel.EDIT
+    )
+
+
+def access_label(
+    user: User, dashboard: Dashboard, share_level: DashboardAccessLevel | None = None
+) -> str | None:
+    """The caller's effective access as ``"owner"``/``"edit"``/``"view"``, or
+    ``None`` when they cannot see the dashboard at all."""
+    if dashboard.owner_id == user.id:
+        return "owner"
+    if can_edit(user, dashboard, share_level):
+        return "edit"
+    if can_view(user, dashboard, share_level):
+        return "view"
+    return None
+
+
+async def _share_level(
+    session: SessionDep, user: User, dashboard_id: int
+) -> DashboardAccessLevel | None:
+    """The caller's direct share grant on a dashboard, if any."""
+    level: DashboardAccessLevel | None = await session.scalar(
+        select(DashboardShare.access_level).where(
+            DashboardShare.dashboard_id == dashboard_id,
+            DashboardShare.user_id == user.id,
+        )
+    )
+    return level
 
 
 def _widget_item(widget: DashboardWidget) -> WidgetItem:
@@ -62,25 +102,34 @@ def _widget_item(widget: DashboardWidget) -> WidgetItem:
 
 
 def _to_item(
-    dashboard: Dashboard, user: User, owner_email: str | None, widget_count: int
+    dashboard: Dashboard,
+    user: User,
+    owner_email: str | None,
+    widget_count: int,
+    my_access: str = "owner",
 ) -> DashboardItem:
     item = DashboardItem.model_validate(dashboard)
     item.owner_email = owner_email
     item.is_owner = dashboard.owner_id == user.id
+    item.my_access = my_access  # type: ignore[assignment]
     item.widget_count = widget_count
     return item
 
 
 async def _get_visible(session: SessionDep, user: User, dashboard_id: int) -> Dashboard:
     dashboard = await session.get(Dashboard, dashboard_id)
-    if dashboard is None or not can_view(user, dashboard):
+    if dashboard is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dashboard not found.")
+    level = await _share_level(session, user, dashboard_id)
+    if not can_view(user, dashboard, level):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dashboard not found.")
     return dashboard
 
 
 async def _get_editable(session: SessionDep, user: User, dashboard_id: int) -> Dashboard:
     dashboard = await _get_visible(session, user, dashboard_id)
-    if not can_edit(user, dashboard):
+    level = await _share_level(session, user, dashboard_id)
+    if not can_edit(user, dashboard, level):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to edit this dashboard.",
@@ -95,14 +144,31 @@ async def list_dashboards(user: CurrentUser, session: SessionDep) -> list[Dashbo
         .group_by(DashboardWidget.dashboard_id)
         .subquery()
     )
+    # The caller's own share grants, joined in so we can both surface
+    # shared-with-me dashboards and label the caller's effective access.
+    shares = (
+        select(DashboardShare.dashboard_id, DashboardShare.access_level)
+        .where(DashboardShare.user_id == user.id)
+        .subquery()
+    )
     result = await session.execute(
-        select(Dashboard, User.email, func.coalesce(counts.c.n, 0))
+        select(Dashboard, User.email, func.coalesce(counts.c.n, 0), shares.c.access_level)
         .join(User, User.id == Dashboard.owner_id)
         .outerjoin(counts, counts.c.dashboard_id == Dashboard.id)
-        .where(or_(Dashboard.owner_id == user.id, Dashboard.shared.is_(True)))
+        .outerjoin(shares, shares.c.dashboard_id == Dashboard.id)
+        .where(
+            or_(
+                Dashboard.owner_id == user.id,
+                Dashboard.shared.is_(True),
+                shares.c.dashboard_id.is_not(None),
+            )
+        )
         .order_by(Dashboard.updated_at.desc())
     )
-    return [_to_item(d, user, email, n) for d, email, n in result.all()]
+    return [
+        _to_item(d, user, email, n, access_label(user, d, level) or "view")
+        for d, email, n, level in result.all()
+    ]
 
 
 @router.post("", response_model=DashboardItem, status_code=status.HTTP_201_CREATED)
@@ -118,7 +184,7 @@ async def create_dashboard(
     session.add(dashboard)
     await session.flush()
     await session.refresh(dashboard)
-    return _to_item(dashboard, user, user.email, 0)
+    return _to_item(dashboard, user, user.email, 0, "owner")
 
 
 @router.get("/{dashboard_id}", response_model=DashboardDetail)
@@ -126,6 +192,7 @@ async def get_dashboard(
     dashboard_id: int, user: CurrentUser, session: SessionDep
 ) -> DashboardDetail:
     dashboard = await _get_visible(session, user, dashboard_id)
+    level = await _share_level(session, user, dashboard_id)
     owner_email = await session.scalar(select(User.email).where(User.id == dashboard.owner_id))
     widgets = (
         await session.scalars(
@@ -134,7 +201,9 @@ async def get_dashboard(
             .order_by(DashboardWidget.pos_y, DashboardWidget.pos_x, DashboardWidget.id)
         )
     ).all()
-    item = _to_item(dashboard, user, owner_email, len(widgets))
+    item = _to_item(
+        dashboard, user, owner_email, len(widgets), access_label(user, dashboard, level) or "view"
+    )
     return DashboardDetail(**item.model_dump(), widgets=[_widget_item(w) for w in widgets])
 
 
@@ -147,13 +216,16 @@ async def update_dashboard(
         setattr(dashboard, field, value)
     await session.flush()
     await session.refresh(dashboard)
+    level = await _share_level(session, user, dashboard_id)
     owner_email = await session.scalar(select(User.email).where(User.id == dashboard.owner_id))
     count = await session.scalar(
         select(func.count())
         .select_from(DashboardWidget)
         .where(DashboardWidget.dashboard_id == dashboard.id)
     )
-    return _to_item(dashboard, user, owner_email, count or 0)
+    return _to_item(
+        dashboard, user, owner_email, count or 0, access_label(user, dashboard, level) or "view"
+    )
 
 
 @router.delete("/{dashboard_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -161,6 +233,108 @@ async def delete_dashboard(dashboard_id: int, user: CurrentUser, session: Sessio
     dashboard = await _get_editable(session, user, dashboard_id)
     await session.delete(dashboard)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# -------------------------------- Sharing --------------------------------- #
+
+
+async def _get_manageable(session: SessionDep, user: User, dashboard_id: int) -> Dashboard:
+    """Only the owner (or an admin) may manage who a dashboard is shared with."""
+    dashboard = await _get_visible(session, user, dashboard_id)
+    if dashboard.owner_id != user.id and not user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the dashboard owner can manage sharing.",
+        )
+    return dashboard
+
+
+async def _list_shares(session: SessionDep, dashboard_id: int) -> list[DashboardShareItem]:
+    rows = await session.execute(
+        select(DashboardShare.user_id, User.email, DashboardShare.access_level)
+        .join(User, User.id == DashboardShare.user_id)
+        .where(DashboardShare.dashboard_id == dashboard_id)
+        .order_by(User.email)
+    )
+    return [
+        DashboardShareItem(user_id=uid, email=email, access_level=level.value)
+        for uid, email, level in rows.all()
+    ]
+
+
+@router.get("/{dashboard_id}/shares", response_model=list[DashboardShareItem])
+async def list_dashboard_shares(
+    dashboard_id: int, user: CurrentUser, session: SessionDep
+) -> list[DashboardShareItem]:
+    await _get_manageable(session, user, dashboard_id)
+    return await _list_shares(session, dashboard_id)
+
+
+@router.put("/{dashboard_id}/shares", response_model=list[DashboardShareItem])
+async def set_dashboard_shares(
+    dashboard_id: int,
+    payload: DashboardSharesUpdate,
+    user: CurrentUser,
+    session: SessionDep,
+) -> list[DashboardShareItem]:
+    """Replace a dashboard's full set of per-user grants.
+
+    The owner's own id and unknown/inactive users are ignored; the last grant
+    wins if a user id is repeated.
+    """
+    dashboard = await _get_manageable(session, user, dashboard_id)
+
+    # Desired level per user id (skip the owner — their access is implicit).
+    desired: dict[int, DashboardAccessLevel] = {
+        entry.user_id: DashboardAccessLevel(entry.access_level)
+        for entry in payload.shares
+        if entry.user_id != dashboard.owner_id
+    }
+    if desired:
+        valid_ids = set(
+            (
+                await session.scalars(
+                    select(User.id).where(
+                        User.id.in_(desired), User.is_active.is_(True)
+                    )
+                )
+            ).all()
+        )
+        desired = {uid: level for uid, level in desired.items() if uid in valid_ids}
+
+    existing = {
+        share.user_id: share
+        for share in (
+            await session.scalars(
+                select(DashboardShare).where(DashboardShare.dashboard_id == dashboard_id)
+            )
+        ).all()
+    }
+
+    to_remove = set(existing) - set(desired)
+    if to_remove:
+        await session.execute(
+            delete(DashboardShare).where(
+                DashboardShare.dashboard_id == dashboard_id,
+                DashboardShare.user_id.in_(to_remove),
+            )
+        )
+    for user_id, level in desired.items():
+        current = existing.get(user_id)
+        if current is None:
+            session.add(
+                DashboardShare(
+                    dashboard_id=dashboard_id,
+                    user_id=user_id,
+                    access_level=level,
+                    granted_by=user.id,
+                )
+            )
+        elif current.access_level != level:
+            current.access_level = level
+    await session.flush()
+
+    return await _list_shares(session, dashboard_id)
 
 
 # ------------------------------- Widgets ---------------------------------- #
