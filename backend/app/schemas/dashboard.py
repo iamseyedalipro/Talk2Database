@@ -11,6 +11,9 @@ WidgetView = Literal["table", "bar", "hbar", "line", "area", "pie", "scatter", "
 StackMode = Literal["none", "stacked", "percent"]
 ComboSeriesType = Literal["bar", "line"]
 PieMode = Literal["category", "columns"]
+# Per-user share access level, plus the caller's effective access on a dashboard.
+ShareAccess = Literal["view", "edit"]
+MyAccess = Literal["owner", "edit", "view"]
 
 
 class WidgetViz(BaseModel):
@@ -102,6 +105,8 @@ class DashboardItem(BaseModel):
     shared: bool
     owner_email: str | None = None
     is_owner: bool = False
+    # The caller's effective access: they own it, may edit it, or may only view.
+    my_access: MyAccess = "view"
     widget_count: int = 0
     created_at: datetime
     updated_at: datetime
@@ -113,3 +118,24 @@ class DashboardDetail(DashboardItem):
 
 class WidgetRunRequest(BaseModel):
     max_rows: int | None = Field(default=None, ge=1, le=100000)
+
+
+class DashboardShareEntry(BaseModel):
+    """One requested share grant: give ``user_id`` this ``access_level``."""
+
+    user_id: int
+    access_level: ShareAccess
+
+
+class DashboardSharesUpdate(BaseModel):
+    """Replace a dashboard's full set of per-user share grants."""
+
+    shares: list[DashboardShareEntry] = Field(default_factory=list)
+
+
+class DashboardShareItem(BaseModel):
+    """A share grant, with the recipient's email for display."""
+
+    user_id: int
+    email: str
+    access_level: ShareAccess

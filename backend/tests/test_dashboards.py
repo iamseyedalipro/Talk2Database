@@ -10,8 +10,9 @@ import pytest
 from app.db.panel import get_session
 from app.deps import get_current_user
 from app.models.dashboard import Dashboard, DashboardWidget
+from app.models.dashboard_share import DashboardAccessLevel
 from app.routers import dashboards as dashboards_module
-from app.routers.dashboards import can_edit, can_view
+from app.routers.dashboards import access_label, can_edit, can_view
 from app.services.sql_guard import validate_select
 from fastapi import FastAPI, HTTPException, status
 from fastapi.testclient import TestClient
@@ -60,6 +61,36 @@ def test_can_edit(user: _User, dashboard: _Dashboard, expected: bool) -> None:
     assert can_edit(user, dashboard) is expected  # type: ignore[arg-type]
 
 
+VIEW = DashboardAccessLevel.VIEW
+EDIT = DashboardAccessLevel.EDIT
+
+
+@pytest.mark.parametrize(
+    ("level", "view", "edit", "label"),
+    [
+        (None, False, False, None),  # no grant on a private dashboard
+        (VIEW, True, False, "view"),  # view grant: visible, not editable
+        (EDIT, True, True, "edit"),  # edit grant: visible and editable
+    ],
+)
+def test_per_user_share_levels(
+    level: DashboardAccessLevel | None, view: bool, edit: bool, label: str | None
+) -> None:
+    # A non-owner, non-admin user on someone else's *private* dashboard.
+    dash = _Dashboard(owner_id=1, shared=False)
+    assert can_view(OTHER, dash, level) is view  # type: ignore[arg-type]
+    assert can_edit(OTHER, dash, level) is edit  # type: ignore[arg-type]
+    assert access_label(OTHER, dash, level) == label  # type: ignore[arg-type]
+
+
+def test_access_label_owner_and_admin() -> None:
+    assert access_label(OWNER, _Dashboard(owner_id=1, shared=False)) == "owner"  # type: ignore[arg-type]
+    # An admin moderating a globally shared dashboard is labelled as an editor.
+    assert access_label(ADMIN, _Dashboard(owner_id=1, shared=True)) == "edit"  # type: ignore[arg-type]
+    # A plain viewer of a globally shared dashboard.
+    assert access_label(OTHER, _Dashboard(owner_id=1, shared=True)) == "view"  # type: ignore[arg-type]
+
+
 # --------------------------------------------------------------------------- #
 # POST /dashboards/{id}/widgets/{wid}/run (router-level, fakes, no DB)
 # --------------------------------------------------------------------------- #
@@ -86,11 +117,21 @@ class FakeConnector:
 class FakeSession:
     """Serves the dashboard + widget rows the run endpoint loads."""
 
-    def __init__(self, dashboard: Dashboard, widget: DashboardWidget) -> None:
+    def __init__(
+        self,
+        dashboard: Dashboard,
+        widget: DashboardWidget,
+        share_level: DashboardAccessLevel | None = None,
+    ) -> None:
         self._rows = {(Dashboard, dashboard.id): dashboard, (DashboardWidget, widget.id): widget}
+        self._share_level = share_level
 
     async def get(self, model: Any, key: Any) -> Any:
         return self._rows.get((model, key))
+
+    async def scalar(self, *_args: Any, **_kwargs: Any) -> Any:
+        # Stands in for the caller's per-user share grant lookup.
+        return self._share_level
 
 
 def _harness(
@@ -99,6 +140,7 @@ def _harness(
     widget: DashboardWidget,
     caller: SimpleNamespace,
     connector_access: bool,
+    share_level: DashboardAccessLevel | None = None,
 ) -> TestClient:
     app = FastAPI()
     app.include_router(dashboards_module.router, prefix="/api")
@@ -110,7 +152,7 @@ def _harness(
 
     original = dashboards_module.load_connector
     dashboards_module.load_connector = fake_load_connector
-    app.dependency_overrides[get_session] = lambda: FakeSession(dashboard, widget)
+    app.dependency_overrides[get_session] = lambda: FakeSession(dashboard, widget, share_level)
     app.dependency_overrides[get_current_user] = lambda: caller
     client = TestClient(app)
     client.original_load_connector = original  # type: ignore[attr-defined]
@@ -191,6 +233,24 @@ def test_run_widget_private_dashboard_hidden_from_others() -> None:
     try:
         res = client.post("/api/dashboards/10/widgets/20/run", json={})
         assert res.status_code == 404
+    finally:
+        _restore(client)
+
+
+def test_run_widget_view_grantee_can_run_private_dashboard() -> None:
+    # A per-user *view* grant makes an otherwise-private dashboard visible.
+    caller = SimpleNamespace(id=2, is_admin=False)
+    client = _harness(
+        dashboard=_dashboard(owner_id=1, shared=False),
+        widget=_widget("SELECT 1 AS n"),
+        caller=caller,
+        connector_access=True,
+        share_level=DashboardAccessLevel.VIEW,
+    )
+    try:
+        res = client.post("/api/dashboards/10/widgets/20/run", json={})
+        assert res.status_code == 200
+        assert res.json()["rows"] == [[1]]
     finally:
         _restore(client)
 

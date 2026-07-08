@@ -52,6 +52,7 @@ export default function WidgetCard({
   const [result, setResult] = useState<ExecuteResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showSql, setShowSql] = useState(false);
   const [bodyRef, bodyHeight] = useMeasuredHeight();
 
   const load = () => {
@@ -78,6 +79,20 @@ export default function WidgetCard({
           {widget.title}
         </h3>
         <div className="widget-card__actions">
+          <button
+            type="button"
+            className={showSql ? 'widget-card__btn widget-card__btn--active' : 'widget-card__btn'}
+            title={showSql ? t('hideSql') : t('showSql')}
+            aria-label={
+              showSql
+                ? t('hideSqlAria', { title: widget.title })
+                : t('showSqlAria', { title: widget.title })
+            }
+            aria-pressed={showSql}
+            onClick={() => setShowSql((v) => !v)}
+          >
+            {'</>'}
+          </button>
           <button
             type="button"
             className="widget-card__btn"
@@ -112,6 +127,12 @@ export default function WidgetCard({
           )}
         </div>
       </div>
+
+      {showSql && (
+        <pre className="widget-card__sql" aria-label={t('showSql')}>
+          <code>{widget.sql}</code>
+        </pre>
+      )}
 
       <div className="widget-card__body" ref={bodyRef}>
         {loading && <Spinner label={t('running')} />}

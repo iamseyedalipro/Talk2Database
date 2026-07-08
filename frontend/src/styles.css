@@ -383,6 +383,11 @@ code {
   flex: 1;
 }
 
+.access-row__select {
+  flex: 0 0 auto;
+  min-width: 8rem;
+}
+
 .access-row__name {
   font-weight: 600;
   overflow: hidden;
@@ -1981,6 +1986,25 @@ textarea {
 
 .widget-card__btn--danger:hover:not(:disabled) {
   color: var(--danger);
+}
+
+.widget-card__btn--active {
+  color: var(--text);
+  background: var(--surface-alt);
+}
+
+.widget-card__sql {
+  margin: 0 0 0.5rem;
+  padding: 0.6rem 0.75rem;
+  max-height: 40%;
+  overflow: auto;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  white-space: pre;
+  color: var(--text);
 }
 
 .widget-card__body {
