@@ -72,4 +72,7 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# Put the backend root on sys.path so cross-module test imports like
+# `from tests.test_generate_loop import ...` resolve under a bare `pytest`.
+pythonpath = ["."]
 filterwarnings = ["error::DeprecationWarning"]
