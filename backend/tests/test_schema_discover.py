@@ -118,16 +118,11 @@ async def test_multi_round_accumulates_and_dedups() -> None:
 
 
 async def test_unknown_table_returns_error_result() -> None:
-    provider = FakeProvider(
-        [_details("c1", ["nope"]), _details("c2", ["users_payment"]), _done()]
-    )
+    provider = FakeProvider([_details("c1", ["nope"]), _details("c2", ["users_payment"]), _done()])
     result = await _discover(provider)
     # The error ToolResult from the first (unknown) call was fed back to the model.
     fed_back = [
-        tr
-        for call in provider.calls
-        for msg in call["messages"]
-        for tr in msg.tool_results
+        tr for call in provider.calls for msg in call["messages"] for tr in msg.tool_results
     ]
     assert any(tr.is_error and "users_payment" in tr.content for tr in fed_back)
     # The valid follow-up still resolved.

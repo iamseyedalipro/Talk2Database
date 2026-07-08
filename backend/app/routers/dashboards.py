@@ -294,9 +294,7 @@ async def set_dashboard_shares(
         valid_ids = set(
             (
                 await session.scalars(
-                    select(User.id).where(
-                        User.id.in_(desired), User.is_active.is_(True)
-                    )
+                    select(User.id).where(User.id.in_(desired), User.is_active.is_(True))
                 )
             ).all()
         )
@@ -363,9 +361,7 @@ async def create_widget(
     return _widget_item(widget)
 
 
-async def _get_widget(
-    session: SessionDep, dashboard_id: int, widget_id: int
-) -> DashboardWidget:
+async def _get_widget(session: SessionDep, dashboard_id: int, widget_id: int) -> DashboardWidget:
     widget = await session.get(DashboardWidget, widget_id)
     if widget is None or widget.dashboard_id != dashboard_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Widget not found.")

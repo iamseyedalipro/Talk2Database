@@ -403,9 +403,7 @@ def test_anthropic_chat_populates_usage() -> None:
     )
     provider._client = client  # type: ignore[assignment]
 
-    turn = provider.chat(
-        system="SYS", messages=[ToolChatMessage(role="user", text="q")], tools=[]
-    )
+    turn = provider.chat(system="SYS", messages=[ToolChatMessage(role="user", text="q")], tools=[])
     assert turn.text == "thinking"
     assert [c.name for c in turn.tool_calls] == ["get_table_details"]
     assert turn.usage.total == 170
@@ -420,9 +418,7 @@ def test_openai_chat_populates_usage() -> None:
     )
     provider._client = client  # type: ignore[assignment]
 
-    turn = provider.chat(
-        system="SYS", messages=[ToolChatMessage(role="user", text="q")], tools=[]
-    )
+    turn = provider.chat(system="SYS", messages=[ToolChatMessage(role="user", text="q")], tools=[])
     assert turn.text == "done"
     assert turn.tool_calls == []
     assert turn.usage.total == 105  # input 50 + cache 40 + output 15
