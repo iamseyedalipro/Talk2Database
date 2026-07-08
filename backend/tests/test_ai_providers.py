@@ -170,9 +170,40 @@ def test_anthropic_summarize_returns_structured_summary() -> None:
     assert result.summary == "Orders rise over time."
     assert result.chart_type == "line"
     assert result.x_column == "day"
+    # Legacy y_column lifts into y_columns for new clients.
+    assert result.y_columns == ["orders"]
 
 
-@pytest.mark.parametrize("chart_type", ["pie", "area", "scatter", "hbar"])
+def test_anthropic_summarize_multi_series_fields() -> None:
+    provider = AnthropicProvider(api_key="x", model="claude-test")
+    provider._client = _AnthClient(  # type: ignore[assignment]
+        _AnthResponse(
+            [
+                _Block(
+                    "tool_use",
+                    "emit_summary",
+                    {
+                        "summary": "Sales per product per month.",
+                        "chart_type": "line",
+                        "x_column": "month",
+                        "y_columns": ["sales"],
+                        "series_column": "product",
+                        "stacked": False,
+                        "combo_line_columns": None,
+                    },
+                ),
+            ]
+        )
+    )
+    result, _usage = provider.summarize_results(system_prompt="SYS", context="stats...")
+    assert result.y_columns == ["sales"]
+    assert result.series_column == "product"
+    assert result.stacked is False
+    # Derived legacy field mirrors the first Y column.
+    assert result.y_column == "sales"
+
+
+@pytest.mark.parametrize("chart_type", ["pie", "area", "scatter", "hbar", "radar", "combo"])
 def test_anthropic_summarize_accepts_new_chart_types(chart_type: str) -> None:
     provider = AnthropicProvider(api_key="x", model="claude-test")
     provider._client = _AnthClient(  # type: ignore[assignment]

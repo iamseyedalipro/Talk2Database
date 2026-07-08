@@ -5,15 +5,38 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-WidgetView = Literal["table", "bar", "hbar", "line", "area", "pie", "scatter"]
+WidgetView = Literal["table", "bar", "hbar", "line", "area", "pie", "scatter", "radar", "combo"]
+StackMode = Literal["none", "stacked", "percent"]
+ComboSeriesType = Literal["bar", "line"]
+PieMode = Literal["category", "columns"]
 
 
 class WidgetViz(BaseModel):
     view: WidgetView = "table"
     x_column: str | None = None
+    # Ordered Y columns (wide multi-series). Empty means auto-pick the first numeric.
+    y_columns: list[str] = Field(default_factory=list)
+    # Long-shape pivot: one series per distinct value; uses y_columns[0] as the value.
+    series_column: str | None = None
+    # bar / hbar / area only; "percent" is 100%-stacked.
+    stacked: StackMode = "none"
+    # combo only: per-Y-column mark; columns absent from the map default to "bar".
+    combo_types: dict[str, ComboSeriesType] = Field(default_factory=dict)
+    # combo only: Y columns plotted on the secondary (right) axis.
+    right_axis: list[str] = Field(default_factory=list)
+    # pie only: "category" = one slice per row; "columns" = one slice per y column total.
+    pie_mode: PieMode = "category"
+    # Legacy single-Y key: accepted from old rows/clients, kept in sync on output.
     y_column: str | None = None
+
+    @model_validator(mode="after")
+    def _normalize_legacy(self) -> WidgetViz:
+        if not self.y_columns and self.y_column:
+            self.y_columns = [self.y_column]
+        self.y_column = self.y_columns[0] if self.y_columns else None
+        return self
 
 
 class WidgetCreate(BaseModel):

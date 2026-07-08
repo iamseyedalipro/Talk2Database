@@ -14,11 +14,23 @@ import type {
 } from '../../api/types';
 import { errorMessage } from '../../utils/format';
 import { dialectFor } from '../../utils/sql';
+import { normalizeViz } from '../../utils/viz';
+import ChartControls from '../ChartControls';
 import ResultsChart from '../ResultsChart';
 import ResultsTable from '../ResultsTable';
 import { ErrorBanner } from '../ui';
 
-const VIEWS: WidgetView[] = ['table', 'bar', 'hbar', 'line', 'area', 'pie', 'scatter'];
+const VIEWS: WidgetView[] = [
+  'table',
+  'bar',
+  'hbar',
+  'line',
+  'area',
+  'pie',
+  'scatter',
+  'radar',
+  'combo',
+];
 
 export interface WidgetDraft {
   title: string;
@@ -46,9 +58,7 @@ export default function WidgetEditorModal({ widget, onSave, onCancel }: Props) {
   const [title, setTitle] = useState(widget?.title ?? '');
   const [connectionId, setConnectionId] = useState<number | null>(widget?.connection_id ?? null);
   const [sqlText, setSqlText] = useState(widget?.sql ?? '');
-  const [view, setView] = useState<WidgetView>(widget?.viz.view ?? 'table');
-  const [xColumn, setXColumn] = useState<string | null>(widget?.viz.x_column ?? null);
-  const [yColumn, setYColumn] = useState<string | null>(widget?.viz.y_column ?? null);
+  const [viz, setViz] = useState<WidgetViz>(() => normalizeViz(widget?.viz));
 
   const [preview, setPreview] = useState<ExecuteResponse | null>(null);
   const [previewing, setPreviewing] = useState(false);
@@ -113,7 +123,7 @@ export default function WidgetEditorModal({ widget, onSave, onCancel }: Props) {
         title: title.trim(),
         connection_id: connectionId,
         sql: sqlText.trim(),
-        viz: { view, x_column: xColumn, y_column: yColumn },
+        viz,
       });
     } catch (err) {
       setError(errorMessage(err));
@@ -196,7 +206,10 @@ export default function WidgetEditorModal({ widget, onSave, onCancel }: Props) {
           <div className="widget-editor__row widget-editor__row--end">
             <label className="field">
               <span>{t('displayAs')}</span>
-              <select value={view} onChange={(e) => setView(e.target.value as WidgetView)}>
+              <select
+                value={viz.view}
+                onChange={(e) => setViz((prev) => ({ ...prev, view: e.target.value as WidgetView }))}
+              >
                 {VIEWS.map((v) => (
                   <option key={v} value={v}>
                     {t(`views.${v}`)}
@@ -204,33 +217,6 @@ export default function WidgetEditorModal({ widget, onSave, onCancel }: Props) {
                 ))}
               </select>
             </label>
-
-            {view !== 'table' && (
-              <>
-                <label className="field">
-                  <span>{t('xAxis')}</span>
-                  <select value={xColumn ?? ''} onChange={(e) => setXColumn(e.target.value || null)}>
-                    <option value="">{t('auto')}</option>
-                    {previewColumns.map((c) => (
-                      <option key={c.name} value={c.name}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="field">
-                  <span>{t('yAxis')}</span>
-                  <select value={yColumn ?? ''} onChange={(e) => setYColumn(e.target.value || null)}>
-                    <option value="">{t('auto')}</option>
-                    {previewColumns.map((c) => (
-                      <option key={c.name} value={c.name}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </>
-            )}
 
             <button
               type="button"
@@ -242,7 +228,11 @@ export default function WidgetEditorModal({ widget, onSave, onCancel }: Props) {
             </button>
           </div>
 
-          {view !== 'table' && previewColumns.length === 0 && (
+          {viz.view !== 'table' && preview && (
+            <ChartControls result={preview} viz={viz} onChange={setViz} />
+          )}
+
+          {viz.view !== 'table' && previewColumns.length === 0 && (
             <p className="muted">{t('previewHint')}</p>
           )}
 
@@ -250,17 +240,10 @@ export default function WidgetEditorModal({ widget, onSave, onCancel }: Props) {
 
           {preview && (
             <div className="widget-editor__preview">
-              {view === 'table' ? (
+              {viz.view === 'table' ? (
                 <ResultsTable result={preview} />
               ) : (
-                <ResultsChart
-                  result={preview}
-                  kind={view}
-                  suggestedX={xColumn}
-                  suggestedY={yColumn}
-                  hideControls
-                  height={220}
-                />
+                <ResultsChart result={preview} viz={viz} hideControls height={220} />
               )}
             </div>
           )}

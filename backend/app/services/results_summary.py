@@ -18,18 +18,28 @@ You are a data analyst. You are given a description of a SQL query result set:
 column names and types, locally-computed aggregate statistics, and optionally a
 small sample of rows. Write a one or two sentence, plain-language summary of what
 the results show, then suggest the best chart:
-- "bar" for comparing a numeric value across categories,
+- "bar" for comparing one or more numeric values across categories (multiple
+  numeric columns render as side-by-side bars),
 - "hbar" (horizontal bar) for comparing across categories with long labels or a ranking,
-- "line" for a trend over an ordered or time-based column,
+- "line" for a trend over an ordered or time-based column (each numeric column is
+  its own line),
 - "area" for a cumulative trend over an ordered or time-based column,
 - "pie" for parts of a whole across a small number of categories,
 - "scatter" for the relationship between two numeric columns,
+- "radar" for comparing 3-8 categories across one or more numeric measures,
+- "combo" for mixing magnitudes (bars) with a rate or trend on a different scale
+  (lines), e.g. revenue bars with a growth-percent line,
 - "table" when a chart would not help,
 - "none" if you are unsure.
-For "bar", "hbar", "line", "area", or "pie", set x_column to a label/category/time
-column and y_column to a numeric column. For "scatter", set x_column and y_column to
-two numeric columns. Otherwise leave them null. Only use column names that appear in
-the provided data.
+Set x_column to the label/category/time column and y_columns to the numeric columns
+to plot, in order (two numeric columns for "scatter": x_column and one y_columns
+entry). When the data is "long" — a category column with a small distinct_count
+whose values repeat for each x value — set series_column to that category column
+and y_columns to the single numeric value column, so each category becomes its own
+series. Set stacked=true only for "bar", "hbar", or "area" when the series are
+parts of a whole per x value. For "combo", list in combo_line_columns the
+y_columns to draw as lines; the rest are bars. Only use column names that appear
+in the provided data; otherwise use null (and null for y_columns/combo_line_columns).
 Write the summary in the same language as the original question when one is
 provided (e.g. a Persian question gets a Persian summary); otherwise in English."""
 

@@ -36,6 +36,31 @@ export function formatBytes(bytes: number | null | undefined): string {
   return `${value.toFixed(1)} ${units[unit]}`;
 }
 
+const COMPACT = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
+const GROUPED = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
+const PERCENT = new Intl.NumberFormat('en-US', {
+  style: 'percent',
+  maximumFractionDigits: 1,
+});
+
+/** Compact axis numbers: 950, 1.2K, 3.4M, 1.1B. */
+export function compactNumber(value: number): string {
+  return COMPACT.format(value);
+}
+
+/** Full-precision grouped number for tooltips: 1,234,567.89. */
+export function fullNumber(value: number): string {
+  return GROUPED.format(value);
+}
+
+/** A 0..1 ratio as a percentage (for 100%-stacked axes/tooltips). */
+export function percent(value: number): string {
+  return PERCENT.format(value);
+}
+
 /** Extract a user-facing message from an unknown thrown value. */
 export function errorMessage(err: unknown): string {
   if (err && typeof err === 'object' && 'detail' in err) {

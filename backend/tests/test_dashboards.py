@@ -193,3 +193,51 @@ def test_run_widget_private_dashboard_hidden_from_others() -> None:
         assert res.status_code == 404
     finally:
         _restore(client)
+
+
+# --------------------------------------------------------------------------- #
+# WidgetViz schema: legacy normalization and new-shape round trip
+# --------------------------------------------------------------------------- #
+
+
+def test_widget_viz_legacy_row_normalizes() -> None:
+    from app.schemas.dashboard import WidgetViz
+
+    viz = WidgetViz.model_validate({"view": "bar", "x_column": "day", "y_column": "orders"})
+    assert viz.y_columns == ["orders"]
+    assert viz.y_column == "orders"
+    assert viz.series_column is None
+    assert viz.stacked == "none"
+    assert viz.pie_mode == "category"
+
+
+def test_widget_viz_new_shape_round_trips() -> None:
+    from app.schemas.dashboard import WidgetViz
+
+    payload = {
+        "view": "combo",
+        "x_column": "month",
+        "y_columns": ["revenue", "growth"],
+        "series_column": None,
+        "stacked": "none",
+        "combo_types": {"growth": "line"},
+        "right_axis": ["growth"],
+        "pie_mode": "category",
+    }
+    viz = WidgetViz.model_validate(payload)
+    dumped = viz.model_dump()
+    assert dumped["y_columns"] == ["revenue", "growth"]
+    assert dumped["combo_types"] == {"growth": "line"}
+    assert dumped["right_axis"] == ["growth"]
+    # Legacy key mirrors the first Y column for rollback safety.
+    assert dumped["y_column"] == "revenue"
+    assert WidgetViz.model_validate(dumped) == viz
+
+
+def test_widget_viz_defaults_stay_empty() -> None:
+    from app.schemas.dashboard import WidgetViz
+
+    viz = WidgetViz()
+    assert viz.view == "table"
+    assert viz.y_columns == []
+    assert viz.y_column is None

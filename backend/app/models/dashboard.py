@@ -48,7 +48,8 @@ class DashboardWidget(Base, TimestampMixin):
     )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     sql: Mapped[str] = mapped_column(Text, nullable=False)
-    # {view: "table"|"bar"|"hbar"|"line"|"area"|"pie"|"scatter", x_column, y_column}
+    # Chart config validated by schemas.dashboard.WidgetViz: {view, x_column, y_columns,
+    # series_column, stacked, combo_types, right_axis, pie_mode, y_column (legacy)}.
     viz_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     # Grid geometry in react-grid-layout units.
     pos_x: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
