@@ -1793,6 +1793,145 @@ textarea {
   margin-top: 0.25rem;
 }
 
+/* --------------------------------- Tabs ---------------------------------- */
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: thin;
+  /* Keep the active underline flush with the bottom border. */
+  margin-bottom: -1px;
+}
+
+.tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  padding: 0.55rem 0.85rem;
+  border-bottom: 2px solid transparent;
+  border-radius: 8px 8px 0 0;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.tab:hover {
+  color: var(--text);
+  background: var(--surface-alt);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.tab--active {
+  color: var(--primary-dark);
+  border-bottom-color: var(--primary);
+}
+
+.tab--active:hover {
+  background: var(--nav-active-bg);
+}
+
+/* ------------------------------ Admin overview --------------------------- */
+
+.overview-block {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.overview-block:first-of-type {
+  margin-top: 1rem;
+}
+
+.overview-block__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.overview-block__head h3 {
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+.overview-activity {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.overview-activity li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.overview-activity li:last-child {
+  border-bottom: none;
+}
+
+.overview-activity__q {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overview-activity__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-size: 0.85rem;
+}
+
+.overview-config {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.overview-config__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.overview-config__row:last-child {
+  border-bottom: none;
+}
+
+.overview-config__label {
+  font-weight: 500;
+}
+
+.overview-config__value {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
 .invite-form,
 .upload-form {
   display: flex;
