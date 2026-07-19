@@ -56,8 +56,8 @@ describe('AdminPage', () => {
     renderAt();
 
     const tablist = screen.getByRole('tablist');
-    // All eight tabs are present.
-    expect(within(tablist).getAllByRole('tab')).toHaveLength(8);
+    // All seven tabs are present.
+    expect(within(tablist).getAllByRole('tab')).toHaveLength(7);
     expect(within(tablist).getByRole('tab', { name: 'Overview' })).toBeInTheDocument();
     expect(within(tablist).getByRole('tab', { name: 'Users' })).toBeInTheDocument();
 

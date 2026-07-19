@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiError } from '../../api/client';
 import {
-  clarityStatus,
   getAskSettings,
   getUsageReport,
   listAudit,
@@ -12,7 +11,6 @@ import {
 import type {
   AskSettings,
   AuditItem,
-  ClarityStatus,
   PromptTemplate,
   UsageReport,
   User,
@@ -39,7 +37,6 @@ interface OverviewData {
   audit: AuditItem[] | null;
   auditDisabled: boolean;
   ask: AskSettings | null;
-  clarity: ClarityStatus | null;
   prompts: PromptTemplate[] | null;
 }
 
@@ -65,12 +62,11 @@ export default function AdminOverviewSection({
     const from = new Date();
     from.setDate(from.getDate() - USAGE_WINDOW_DAYS);
 
-    const [users, usage, audit, ask, clarity, prompts] = await Promise.allSettled([
+    const [users, usage, audit, ask, prompts] = await Promise.allSettled([
       listUsers(),
       getUsageReport({ from: from.toISOString() }),
       listAudit({ limit: 5 }),
       getAskSettings(),
-      clarityStatus(),
       listPrompts(),
     ]);
 
@@ -83,7 +79,7 @@ export default function AdminOverviewSection({
 
     // Surface a single banner only if *everything* fell over; partial failures
     // just leave the affected tile blank so one bad call can't blank the page.
-    const settled = [users, usage, audit, ask, clarity, prompts];
+    const settled = [users, usage, audit, ask, prompts];
     const firstError = settled.find(
       (r): r is PromiseRejectedResult => r.status === 'rejected',
     );
@@ -100,7 +96,6 @@ export default function AdminOverviewSection({
       audit: auditDisabled ? null : value(audit),
       auditDisabled,
       ask: value(ask),
-      clarity: value(clarity),
       prompts: value(prompts),
     });
     setLoading(false);
@@ -130,7 +125,6 @@ export default function AdminOverviewSection({
   const totals = data?.usage?.totals;
   const audit = data?.audit;
   const ask = data?.ask;
-  const clarity = data?.clarity;
   const customizedPrompts = data?.prompts?.filter((p) => p.is_customized).length ?? 0;
 
   return (
@@ -222,19 +216,6 @@ export default function AdminOverviewSection({
                 <span className="pill pill--ok">{t('overview.on')}</span>
               ) : (
                 <span className="pill pill--neutral">{t('overview.off')}</span>
-              )
-            }
-          />
-          <ConfigRow
-            label={t('overview.clarity')}
-            tab="clarity"
-            onNavigate={onNavigate}
-            viewLabel={t('overview.configure')}
-            pill={
-              clarity == null ? null : clarity.configured ? (
-                <span className="pill pill--ok">{t('overview.configured')}</span>
-              ) : (
-                <span className="pill pill--neutral">{t('overview.notConfigured')}</span>
               )
             }
           />

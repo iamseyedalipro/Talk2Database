@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import AdminAskSettingsSection from '../components/admin/AdminAskSettingsSection';
 import AdminAuditSection from '../components/admin/AdminAuditSection';
-import AdminClaritySection from '../components/admin/AdminClaritySection';
 import AdminConnectionAccessSection from '../components/admin/AdminConnectionAccessSection';
 import AdminOverviewSection from '../components/admin/AdminOverviewSection';
 import AdminPromptsSection from '../components/admin/AdminPromptsSection';
@@ -19,7 +18,6 @@ const TAB_IDS = [
   'usage',
   'audit',
   'askSettings',
-  'clarity',
   'prompts',
 ] as const;
 
@@ -83,7 +81,6 @@ export default function AdminPage() {
         {active === 'usage' && <AdminTokenUsageSection />}
         {active === 'audit' && <AdminAuditSection />}
         {active === 'askSettings' && <AdminAskSettingsSection />}
-        {active === 'clarity' && <AdminClaritySection />}
         {active === 'prompts' && <AdminPromptsSection />}
       </div>
     </div>
