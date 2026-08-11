@@ -22,7 +22,7 @@ By participating you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md)
 **Prerequisites:** Python 3.12, Node 20, and a reachable PostgreSQL 16 for the panel and user-data databases (the easiest way is the compose bundle's Postgres services). Docker with the Compose plugin is recommended.
 
 ```bash
-git clone https://github.com/your-org/Talk2Database.git
+git clone https://github.com/iamseyedalipro/Talk2Database.git
 cd Talk2Database
 cp .env.example .env        # then edit values (AI key, DB passwords, JWT secret)
 ```
