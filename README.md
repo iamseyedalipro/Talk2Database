@@ -140,7 +140,7 @@ For the request path, the schema-caching subsystem, and the panel DB schema, see
 1. **Clone and create your env file.**
 
    ```bash
-   git clone https://github.com/your-org/Talk2Database.git
+   git clone https://github.com/iamseyedalipro/Talk2Database.git
    cd Talk2Database
    cp .env.example .env
    ```
