@@ -12,6 +12,11 @@ interface Props {
   dashboardId: number;
   widget: WidgetItem;
   editing: boolean;
+  /**
+   * Whether the card exposes a drag handle. The phone layout is a plain
+   * vertical stack, so it edits without dragging.
+   */
+  draggable?: boolean;
   /** Bump to re-run the widget ("Refresh all"). */
   refreshToken: number;
   onEdit?: (widget: WidgetItem) => void;
@@ -44,6 +49,7 @@ export default function WidgetCard({
   dashboardId,
   widget,
   editing,
+  draggable = true,
   refreshToken,
   onEdit,
   onDelete,
@@ -74,7 +80,11 @@ export default function WidgetCard({
 
   return (
     <div className="widget-card card">
-      <div className={editing ? 'widget-card__head widget-card__head--drag' : 'widget-card__head'}>
+      <div
+        className={
+          editing && draggable ? 'widget-card__head widget-card__head--drag' : 'widget-card__head'
+        }
+      >
         <h3 className="widget-card__title" title={widget.title}>
           {widget.title}
         </h3>
@@ -136,9 +146,13 @@ export default function WidgetCard({
 
       <div className="widget-card__body" ref={bodyRef}>
         {loading && <Spinner label={t('running')} />}
-        {!loading && error && <div className="banner banner--error widget-card__error">{error}</div>}
-        {!loading && !error && result && (
-          view === 'table' ? (
+        {!loading && error && (
+          <div className="banner banner--error widget-card__error">{error}</div>
+        )}
+        {!loading &&
+          !error &&
+          result &&
+          (view === 'table' ? (
             <ResultsTable result={result} />
           ) : (
             <ResultsChart
@@ -147,8 +161,7 @@ export default function WidgetCard({
               hideControls
               height={Math.max(bodyHeight - 8, 120)}
             />
-          )
-        )}
+          ))}
       </div>
     </div>
   );

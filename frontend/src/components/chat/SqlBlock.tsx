@@ -29,6 +29,18 @@ export default function SqlBlock({ sql, connectionId, onRun, busy, ran }: Props)
   const [explaining, setExplaining] = useState(false);
   const [explainError, setExplainError] = useState<string | null>(null);
 
+  // The thread reuses a turn's SqlBlock by position, so switching chats (or
+  // re-answering a turn) swaps the `sql` prop under a live component. Without
+  // this the card would keep showing — and running — the previous statement.
+  const [shownSql, setShownSql] = useState(sql);
+  if (sql !== shownSql) {
+    setShownSql(sql);
+    setValue(sql);
+    setEditing(false);
+    setEstimate(null);
+    setExplainError(null);
+  }
+
   const handleExplain = async () => {
     setExplainError(null);
     setExplaining(true);

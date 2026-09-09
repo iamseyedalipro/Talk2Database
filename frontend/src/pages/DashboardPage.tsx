@@ -28,7 +28,9 @@ const ROW_HEIGHT = 60;
 
 /** Track a max-width media query (dashboards stack vertically on phones). */
 function useIsNarrow(breakpoint = 900): boolean {
-  const [narrow, setNarrow] = useState(() => window.matchMedia(`(max-width: ${breakpoint}px)`).matches);
+  const [narrow, setNarrow] = useState(
+    () => window.matchMedia(`(max-width: ${breakpoint}px)`).matches,
+  );
   useEffect(() => {
     const mq = window.matchMedia(`(max-width: ${breakpoint}px)`);
     const onChange = (e: MediaQueryListEvent) => setNarrow(e.matches);
@@ -197,7 +199,11 @@ export default function DashboardPage() {
                   {editing ? t('doneEditing') : t('editLayout')}
                 </button>
                 {editing && (
-                  <button type="button" className="btn btn--primary" onClick={() => setEditorWidget('new')}>
+                  <button
+                    type="button"
+                    className="btn btn--primary"
+                    onClick={() => setEditorWidget('new')}
+                  >
                     + {t('addWidget')}
                   </button>
                 )}
@@ -206,9 +212,7 @@ export default function DashboardPage() {
           </div>
         </div>
         <ErrorBanner message={error} />
-        {editing && (
-          <p className="muted">{t('dragHint')}</p>
-        )}
+        {editing && !isNarrow && <p className="muted">{t('dragHint')}</p>}
       </section>
 
       {dashboard.widgets.length === 0 ? (
@@ -226,8 +230,11 @@ export default function DashboardPage() {
               <WidgetCard
                 dashboardId={dashboardId}
                 widget={widget}
-                editing={false}
+                editing={editing && canEdit}
+                draggable={false}
                 refreshToken={refreshToken}
+                onEdit={(w) => setEditorWidget(w)}
+                onDelete={(w) => void handleDeleteWidget(w)}
               />
             </div>
           ))}
