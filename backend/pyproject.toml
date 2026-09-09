@@ -75,4 +75,13 @@ testpaths = ["tests"]
 # Put the backend root on sys.path so cross-module test imports like
 # `from tests.test_generate_loop import ...` resolve under a bare `pytest`.
 pythonpath = ["."]
-filterwarnings = ["error::DeprecationWarning"]
+# Our own deprecated usage should fail the build. Third-party import-time
+# deprecations are not ours to fix, so they are ignored individually:
+# starlette's TestClient (pinned by fastapi 0.115.x) still reads the
+# `anyio.abc.BlockingPortal` alias that anyio 4.11 deprecated, which turned
+# every TestClient-based module into a collection error. Drop the ignore
+# once fastapi allows a starlette that uses `anyio.from_thread`.
+filterwarnings = [
+    "error::DeprecationWarning",
+    "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning",
+]
