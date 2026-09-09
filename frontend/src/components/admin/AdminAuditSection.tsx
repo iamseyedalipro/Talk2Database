@@ -103,7 +103,7 @@ export default function AdminAuditSection() {
                 <tr key={item.id}>
                   <td title={item.user_email ?? ''}>{item.user_email ?? `#${item.user_id}`}</td>
                   <td title={item.question}>{truncate(item.question, 50)}</td>
-                  <td>
+                  <td title={item.generated_sql ?? ''}>
                     {item.generated_sql ? (
                       <code className="inline-sql">{truncate(item.generated_sql, 40)}</code>
                     ) : (

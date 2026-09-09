@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { ExecuteResponse } from '../api/types';
 import { cell } from '../utils/format';
 
@@ -7,25 +8,24 @@ interface Props {
 
 /** Renders an execute/rerun result set as a scrollable table. */
 export default function ResultsTable({ result }: Props) {
+  const { t } = useTranslation('results');
   const { columns, rows, row_count, truncated, elapsed_ms } = result;
 
   return (
     <div className="results">
       <div className="results__meta">
-        <span>
-          {row_count} {row_count === 1 ? 'row' : 'rows'}
-        </span>
+        <span>{t('rows', { count: row_count })}</span>
         <span>·</span>
-        <span>{elapsed_ms} ms</span>
+        <span>{t('elapsedMs', { value: elapsed_ms })}</span>
         {truncated && (
-          <span className="results__truncated" title="Result was truncated to the row limit">
-            · truncated
+          <span className="results__truncated" title={t('truncatedTitle')}>
+            · {t('truncated')}
           </span>
         )}
       </div>
 
       {rows.length === 0 ? (
-        <p className="muted">No rows returned.</p>
+        <p className="muted">{t('noRows')}</p>
       ) : (
         <div className="table-scroll">
           <table className="data-table">

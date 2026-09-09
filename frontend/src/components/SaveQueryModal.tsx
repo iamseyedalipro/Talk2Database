@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createSavedQuery } from '../api/endpoints';
 import type { SavedQueryCreate } from '../api/types';
 import { errorMessage } from '../utils/format';
@@ -17,6 +18,7 @@ interface Props {
  * for a connection you own, runnable) to every panel user.
  */
 export default function SaveQueryModal({ draft, onSaved, onCancel }: Props) {
+  const { t } = useTranslation('save');
   const [name, setName] = useState(() => (draft.question ?? '').slice(0, 120));
   const [shared, setShared] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -52,21 +54,21 @@ export default function SaveQueryModal({ draft, onSaved, onCancel }: Props) {
   };
 
   return (
-    <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Save query">
+    <div className="modal-overlay" role="dialog" aria-modal="true" aria-label={t('title')}>
       <div className="modal">
         <header className="modal__header">
-          <h2>Save query</h2>
-          <p className="modal__sub">Bookmark this query to re-run it later without re-asking the AI.</p>
+          <h2>{t('title')}</h2>
+          <p className="modal__sub">{t('subtitle')}</p>
         </header>
 
         <div className="modal__body">
           <label className="field">
-            <span>Name</span>
+            <span>{t('name')}</span>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Orders per day (last 30d)"
+              placeholder={t('namePlaceholder')}
               maxLength={200}
               autoFocus
             />
@@ -74,7 +76,7 @@ export default function SaveQueryModal({ draft, onSaved, onCancel }: Props) {
 
           <label className="field field--checkbox">
             <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} />
-            <span>Share with everyone (visible to all panel users)</span>
+            <span>{t('shareLabel')}</span>
           </label>
 
           <pre className="sql-box">
@@ -86,7 +88,7 @@ export default function SaveQueryModal({ draft, onSaved, onCancel }: Props) {
 
         <footer className="modal__footer">
           <button type="button" className="btn btn--ghost" onClick={onCancel} disabled={busy}>
-            Cancel
+            {t('cancel')}
           </button>
           <button
             type="button"
@@ -94,7 +96,7 @@ export default function SaveQueryModal({ draft, onSaved, onCancel }: Props) {
             onClick={() => void handleSave()}
             disabled={busy || !name.trim()}
           >
-            {busy ? 'Saving…' : 'Save'}
+            {busy ? t('saving') : t('save')}
           </button>
         </footer>
       </div>

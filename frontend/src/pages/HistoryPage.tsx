@@ -112,7 +112,7 @@ export default function HistoryPage() {
                 {items.map((item) => (
                   <tr key={item.id}>
                     <td title={item.question}>{truncate(item.question, 60)}</td>
-                    <td>
+                    <td title={item.generated_sql ?? ''}>
                       {item.generated_sql ? (
                         <code className="inline-sql">{truncate(item.generated_sql, 50)}</code>
                       ) : (
