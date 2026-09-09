@@ -1,6 +1,9 @@
 # Lightweight dev image — no frontend build stage.
 # Source is mounted at runtime (see docker-compose.dev.yml), so this only
 # installs the Python package once; code changes hot-reload via uvicorn.
+#
+# PIP_INDEX_URL is a build arg for slow or filtered networks — see
+# backend/Dockerfile for the rationale and .env.example for the setting.
 FROM python:3.12-slim
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -8,7 +11,13 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 COPY backend/ ./
-RUN pip install -e . && chmod +x scripts/entrypoint.dev.sh
+
+ARG PIP_INDEX_URL=https://pypi.org/simple
+RUN PIP_INDEX_URL="${PIP_INDEX_URL:-https://pypi.org/simple}" \
+    PIP_DEFAULT_TIMEOUT=120 \
+    PIP_RETRIES=10 \
+    pip install -e . \
+    && chmod +x scripts/entrypoint.dev.sh
 
 EXPOSE 8000
 ENTRYPOINT ["scripts/entrypoint.dev.sh"]

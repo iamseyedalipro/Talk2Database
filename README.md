@@ -164,6 +164,36 @@ For the request path, the schema-caching subsystem, and the panel DB schema, see
 
    Equivalent Makefile target: `make up`.
 
+   > **If the build fails fetching packages.** The build pulls Python packages
+   > from PyPI and npm packages from the npm registry. On a slow or filtered
+   > network you may see:
+   >
+   > ```
+   > ReadTimeoutError(... host='pypi.org' ... Read timed out. (read timeout=15))
+   > ERROR: Could not find a version that satisfies the requirement setuptools>=68
+   >         (from versions: none)
+   > ```
+   >
+   > `from versions: none` means the index could not be reached at all — the
+   > package is not missing. The build already allows 120s per read and retries
+   > 10 times, so a merely slow link should get through. If PyPI or the npm
+   > registry is blocked rather than slow, point the build at a mirror you can
+   > reach, either in `.env`:
+   >
+   > ```bash
+   > PIP_INDEX_URL=https://<your-mirror>/simple
+   > NPM_CONFIG_REGISTRY=https://<your-mirror>/
+   > ```
+   >
+   > or on the command line:
+   >
+   > ```bash
+   > docker compose build --build-arg PIP_INDEX_URL=https://<your-mirror>/simple
+   > docker compose up -d
+   > ```
+   >
+   > These are build-time only; the running panel never uses them.
+
 4. **Open the panel** at <http://localhost:8000> and **create the first admin account.** The very first registration bootstraps as an admin; this is only available while no users exist. After that, admins invite additional users from the panel.
 
 5. **Register a connection.** From the **Connections** page, add your PostgreSQL / MySQL / MariaDB database (host, port, database, user, password). Use **Test** to confirm the panel can open a read-only connection. See [Connecting a database](#connecting-a-database).
